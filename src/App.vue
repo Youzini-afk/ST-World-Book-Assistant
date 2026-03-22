@@ -3541,360 +3541,72 @@ import {
   type PresetRoleBinding,
 } from './utils';
 import { THEMES, type ThemeKey } from './themes';
+import type {
+  PositionSelectValue,
+  EntryVisualStatus,
+  FloatingPanelKey,
+  PaneResizeKey,
+  HistoryResizeTarget,
+  BatchSearchScope,
+  FindFieldKey,
+  SelectionSource,
+  FocusSidePanelKey,
+  FocusMetaPanelKey,
+  FocusCinePhase,
+  FocusCineDirection,
+  CopyCinePhase,
+  CopyCineDirection,
+  FocusHeroKey,
+  CrossCopyRowStatus,
+  CrossCopyAction,
+  CrossCopyStatusFilter,
+  WorldbookHistoryCompareStatus,
+  CrossCopyMobileStep,
+  MultiEditPersistState,
+  TagDeleteParentMode,
+  TagEditorPersistState,
+  CrossCopyPersistState,
+  CrossCopyMatchSummary,
+  CrossCopyRow,
+  CrossCopyFieldDiffRow,
+  CrossCopyTextDiffLine,
+  CrossCopyTextDiffResult,
+  EntryFieldDiffOptions,
+  WorldbookHistoryCompareRow,
+  WorldbookSwitchOptions,
+  HardRefreshOptions,
+  FloatingPanelState,
+  PaneResizeState,
+  HistorySectionResizeState,
+  CrossCopyPaneResizeState,
+  FocusHeroSnapshot,
+  FocusSinkSnapshot,
+  WorldbookSnapshot,
+  EntrySnapshot,
+  EntryVersionView,
+  WorldbookVersionView,
+  RoleBindingCandidate,
+  GlobalWorldbookPreset,
+  AIChatMessage,
+  AIChatSession,
+  AIGeneratorState,
+  ExtractedTag,
+  WorldbookTagDefinition,
+  WorldbookTagState,
+  TagFilterLogic,
+  TagFilterMatchMode,
+  TagFilterState,
+  AIApiConfig,
+  LayoutState,
+  PersistedState,
+  ActivationLog,
+  ImportedPayload,
+  EventSubscription,
+  FindHit,
+  EntryConfigPatch,
+  MobileEntryLongPressState,
+} from './types';
 
-type PositionSelectValue = PositionType | 'at_depth_as_system' | 'at_depth_as_assistant' | 'at_depth_as_user';
-
-type EntryVisualStatus = 'constant' | 'vector' | 'normal' | 'disabled';
-type FloatingPanelKey = 'find' | 'activation';
-type PaneResizeKey = 'main' | 'editor';
-type HistoryResizeTarget = 'entry' | 'worldbook';
-type BatchSearchScope = 'all' | 'current';
-type FindFieldKey = 'name' | 'content' | 'keys';
-type SelectionSource = 'manual' | 'auto';
-type FocusSidePanelKey = 'strategy' | 'insertion' | 'recursion';
-type FocusMetaPanelKey = 'comment' | 'keywords';
-type FocusCinePhase = 'idle' | 'prepare' | 'running' | 'settling';
-type FocusCineDirection = 'enter' | 'exit';
-type CopyCinePhase = 'idle' | 'prepare' | 'running' | 'settling';
-type CopyCineDirection = 'enter' | 'exit';
-type FocusHeroKey = string;
-type CrossCopyRowStatus =
-  | 'new'
-  | 'duplicate_exact'
-  | 'same_name_changed'
-  | 'content_duplicate_other_name'
-  | 'invalid_same_source_target';
-type CrossCopyAction = 'skip' | 'overwrite' | 'rename_create' | 'create';
-type CrossCopyStatusFilter = 'all' | CrossCopyRowStatus;
-type WorldbookHistoryCompareStatus = 'added' | 'removed' | 'changed';
-type CrossCopyMobileStep = 1 | 2 | 3;
-
-interface MultiEditPersistState {
-  enabled: boolean;
-  sync_extra_json: boolean;
-}
-
-type TagDeleteParentMode = 'promote' | 'cascade';
-
-interface TagEditorPersistState {
-  delete_parent_mode: TagDeleteParentMode;
-}
-
-interface CrossCopyPersistState {
-  last_source_worldbook: string;
-  last_target_worldbook: string;
-  use_draft_source_when_current: boolean;
-  snapshot_before_apply: boolean;
-  desktop_left_width: number;
-  controls_collapsed: boolean;
-  workspace_tools_expanded: boolean;
-}
-
-interface CrossCopyMatchSummary {
-  same_name_matches: WorldbookEntry[];
-  same_name_exact_count: number;
-  content_duplicate_other_name_matches: WorldbookEntry[];
-}
-
-interface CrossCopyRow {
-  id: string;
-  source_entry: WorldbookEntry;
-  source_index: number;
-  source_name_key: string;
-  source_content_key: string;
-  status: CrossCopyRowStatus;
-  selected: boolean;
-  action: CrossCopyAction;
-  rename_name: string;
-  note: string;
-  details_open: boolean;
-  target_summary: CrossCopyMatchSummary;
-}
-
-interface CrossCopyFieldDiffRow {
-  key: string;
-  label: string;
-  left: string;
-  right: string;
-  changed: boolean;
-}
-
-interface CrossCopyTextDiffLine {
-  type: 'same' | 'add' | 'del' | 'empty';
-  line_no: number | null;
-  text: string;
-}
-
-interface CrossCopyTextDiffResult {
-  left: CrossCopyTextDiffLine[];
-  right: CrossCopyTextDiffLine[];
-  added: number;
-  removed: number;
-  changed: number;
-}
-
-interface EntryFieldDiffOptions {
-  left_fallback?: string;
-  right_fallback?: string;
-}
-
-interface WorldbookHistoryCompareRow {
-  key: string;
-  uid: number | null;
-  status: WorldbookHistoryCompareStatus;
-  title: string;
-  note: string;
-  left_entry: WorldbookEntry | null;
-  right_entry: WorldbookEntry | null;
-}
-
-interface WorldbookSwitchOptions {
-  source?: SelectionSource;
-  reason?: string;
-  allowDirty?: boolean;
-  silentOnCancel?: boolean;
-}
-
-interface HardRefreshOptions {
-  source?: SelectionSource;
-  reason?: string;
-  preferContextSelection?: boolean;
-}
-
-interface FloatingPanelState {
-  visible: boolean;
-  x: number;
-  y: number;
-  z: number;
-  width: number;
-}
-
-interface PaneResizeState {
-  key: PaneResizeKey;
-  pointerId: number;
-  doc: Document;
-  win: Window;
-}
-
-interface HistorySectionResizeState {
-  target: HistoryResizeTarget;
-  handleIndex: 0 | 1;
-  pointerId: number;
-  startY: number;
-  containerHeight: number;
-  startRatios: [number, number, number];
-  doc: Document;
-  win: Window;
-}
-
-interface CrossCopyPaneResizeState {
-  pointerId: number;
-  doc: Document;
-  win: Window;
-}
-
-interface FocusHeroSnapshot {
-  key: FocusHeroKey;
-  element: HTMLElement;
-  rect: DOMRect;
-}
-
-interface FocusSinkSnapshot {
-  key: FocusHeroKey;
-  element: HTMLElement;
-  rect: DOMRect;
-}
-
-interface WorldbookSnapshot {
-  id: string;
-  label: string;
-  ts: number;
-  entries: WorldbookEntry[];
-}
-
-interface EntrySnapshot {
-  id: string;
-  label: string;
-  ts: number;
-  uid: number;
-  name: string;
-  entry: WorldbookEntry;
-}
-
-interface EntryVersionView {
-  id: string;
-  label: string;
-  ts: number;
-  name: string;
-  entry: WorldbookEntry;
-  isCurrent: boolean;
-}
-
-interface WorldbookVersionView {
-  id: string;
-  label: string;
-  ts: number;
-  entries: WorldbookEntry[];
-  isCurrent: boolean;
-}
-
-interface RoleBindingCandidate extends PresetRoleBinding {
-  bound: boolean;
-}
-
-interface GlobalWorldbookPreset {
-  id: string;
-  name: string;
-  worldbooks: string[];
-  role_bindings: PresetRoleBinding[];
-  updated_at: number;
-}
-
-interface AIChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: number;
-}
-
-interface AIChatSession {
-  id: string;
-  title: string;
-  createdAt: number;
-  messages: AIChatMessage[];
-}
-
-interface AIGeneratorState {
-  sessions: AIChatSession[];
-  activeSessionId: string | null;
-}
-
-interface ExtractedTag {
-  tag: string;
-  content: string;
-  selected: boolean;
-  duplicate?: boolean;
-  updated?: boolean;
-}
-
-interface WorldbookTagDefinition {
-  id: string;
-  name: string;
-  color: string;
-  parent_id: string | null;
-  sort: number;
-}
-
-interface WorldbookTagState {
-  definitions: WorldbookTagDefinition[];
-  assignments: Record<string, string[]>;
-}
-
-type TagFilterLogic = 'or' | 'and';
-type TagFilterMatchMode = 'exact' | 'descendants';
-
-interface TagFilterState {
-  selected_ids: string[];
-  logic: TagFilterLogic;
-  match_mode: TagFilterMatchMode;
-}
-
-interface AIApiConfig {
-  mode: 'custom' | 'tavern';
-  use_main_api: boolean;
-  apiurl: string;
-  key: string;
-  model: string;
-  max_tokens: number;
-  temperature: number;
-}
-
-interface LayoutState {
-  focus_mode: boolean;
-  normal_left_width: number;
-  normal_right_width: number;
-  focus_left_width: number;
-  focus_right_width: number;
-}
-
-interface PersistedState {
-  last_worldbook: string;
-  history: Record<string, WorldbookSnapshot[]>;
-  entry_history: Record<string, Record<string, EntrySnapshot[]>>;
-  global_presets: GlobalWorldbookPreset[];
-  last_global_preset_id: string;
-  role_override_baseline: { preset_id: string; worldbooks: string[] } | null;
-  theme: ThemeKey;
-  ai_chat: AIGeneratorState;
-  worldbook_tags: WorldbookTagState;
-  tag_filter: TagFilterState;
-  extract_ignore_tags: string[];
-  ai_api_config: AIApiConfig;
-  show_ai_chat: boolean;
-  multi_edit: MultiEditPersistState;
-  tag_editor: TagEditorPersistState;
-  layout: LayoutState;
-  cross_copy: CrossCopyPersistState;
-  sort: { mode: 'mutate' | 'view'; reassign_uid: boolean };
-  glass_mode: boolean;
-  panel_mode: 'browse' | 'editor';
-}
-
-interface ActivationLog {
-  id: string;
-  time: number;
-  world: string;
-  uid: number | string;
-  name: string;
-  contentPreview: string;
-}
-
-interface ImportedPayload {
-  name: string;
-  entries: WorldbookEntry[];
-}
-
-interface EventSubscription {
-  stop: () => void;
-}
-
-interface FindHit {
-  entryUid: number;
-  entryName: string;
-  field: FindFieldKey;
-  start: number;
-  end: number;
-  matchedText: string;
-  preview: string;
-}
-
-interface EntryConfigPatch {
-  enabled: boolean;
-  strategy_type: StrategyType;
-  keys_secondary_logic: SecondaryLogic;
-  scan_depth: WorldbookEntry['strategy']['scan_depth'];
-  position_type: PositionType;
-  position_order: number;
-  position_role: RoleType;
-  position_depth: number;
-  probability: number;
-  recursion_delay_until: number | null;
-  prevent_incoming: boolean;
-  prevent_outgoing: boolean;
-  effect_sticky: number | null;
-  effect_cooldown: number | null;
-  effect_delay: number | null;
-  extra: Record<string, unknown> | null;
-}
-
-interface MobileEntryLongPressState {
-  uid: number;
-  pointerId: number;
-  startX: number;
-  startY: number;
-  triggered: boolean;
-  timerId: number | null;
-  target: HTMLElement | null;
-}
 
 const STORAGE_KEY = 'worldbook_assistant_state_v1';
 const DIRTY_STATE_KEY = '__WB_ASSISTANT_HAS_UNSAVED_CHANGES__';
