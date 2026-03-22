@@ -3498,12 +3498,51 @@
 <script setup lang="ts">
 import { diffLines } from 'https://testingcf.jsdelivr.net/npm/diff/+esm';
 import { klona } from 'klona';
+import {
+  createId,
+  asRecord,
+  toStringSafe,
+  toNumberSafe,
+  clampNumber,
+  parseNullableInteger,
+  nullableNumberToText,
+  stringifyKeyword,
+  parseKeywordToken,
+  normalizeKeywordList,
+  parseKeywordsFromText,
+  normalizePresetRoleBindings,
+  formatDateTime,
+  getStrategyTypeLabel,
+  getSecondaryLogicLabel,
+  getPositionTypeLabel,
+  getPositionTypeLabelWithRole,
+  parseAtDepthRoleFromPositionValue,
+  getEntryVisualStatus,
+  getEntryStatusLabel,
+  getEntryKeyPreview,
+  strategyTypeOptions,
+  secondaryLogicOptions,
+  positionTypeOptions,
+  normalizeSecondaryLogic,
+  normalizeStrategyType,
+  normalizePositionType,
+  normalizeRole,
+  normalizeScanDepth,
+  createDefaultEntry,
+  collectExtraFields,
+  normalizeEntry,
+  normalizeEntryList,
+  getNextUid,
+  compareEntriesByPositionThenOrder,
+  type StrategyType,
+  type SecondaryLogic,
+  type PositionType,
+  type RoleType,
+  type PresetRoleBinding,
+} from './utils';
 
-type StrategyType = WorldbookEntry['strategy']['type'];
-type SecondaryLogic = WorldbookEntry['strategy']['keys_secondary']['logic'];
-type PositionType = WorldbookEntry['position']['type'];
 type PositionSelectValue = PositionType | 'at_depth_as_system' | 'at_depth_as_assistant' | 'at_depth_as_user';
-type RoleType = WorldbookEntry['position']['role'];
+
 type EntryVisualStatus = 'constant' | 'vector' | 'normal' | 'disabled';
 type FloatingPanelKey = 'find' | 'activation';
 type PaneResizeKey = 'main' | 'editor';
@@ -3911,13 +3950,6 @@ interface WorldbookVersionView {
   isCurrent: boolean;
 }
 
-interface PresetRoleBinding {
-  key: string;
-  name: string;
-  avatar: string;
-  updated_at: number;
-}
-
 interface RoleBindingCandidate extends PresetRoleBinding {
   bound: boolean;
 }
@@ -4159,54 +4191,6 @@ const CROSS_COPY_RIGHT_MIN = 360;
 const ENTRIES_DIGEST_DEBOUNCE_MS = 120;
 const MOBILE_MULTI_LONG_PRESS_MS = 420;
 const MOBILE_MULTI_LONG_PRESS_MOVE_PX = 12;
-
-const strategyTypeOptions: StrategyType[] = ['constant', 'selective', 'vectorized'];
-const secondaryLogicOptions: SecondaryLogic[] = ['and_any', 'and_all', 'not_all', 'not_any'];
-const positionTypeOptions: PositionType[] = [
-  'before_character_definition',
-  'after_character_definition',
-  'before_example_messages',
-  'after_example_messages',
-  'before_author_note',
-  'after_author_note',
-  'at_depth',
-];
-const positionSelectOptions: Array<{
-  value: PositionSelectValue;
-  type: PositionType;
-  role?: RoleType;
-  label: string;
-}> = [
-  { value: 'before_character_definition', type: 'before_character_definition', label: '角色定义之前' },
-  { value: 'after_character_definition', type: 'after_character_definition', label: '角色定义之后' },
-  { value: 'before_example_messages', type: 'before_example_messages', label: '示例消息前（↑EM）' },
-  { value: 'after_example_messages', type: 'after_example_messages', label: '示例消息后（↓EM）' },
-  { value: 'before_author_note', type: 'before_author_note', label: '作者注释之前' },
-  { value: 'after_author_note', type: 'after_author_note', label: '作者注释之后' },
-  { value: 'at_depth_as_system', type: 'at_depth', role: 'system', label: '@D ⚙ [系统]在深度' },
-  { value: 'at_depth_as_user', type: 'at_depth', role: 'user', label: '@D 👤 [用户]在深度' },
-  { value: 'at_depth_as_assistant', type: 'at_depth', role: 'assistant', label: '@D 🤖 [AI]在深度' },
-];
-
-const POSITION_TYPE_SORT_ORDER: Record<string, number> = {
-  before_character_definition: 0,
-  after_character_definition: 1,
-  before_example_messages: 2,
-  after_example_messages: 3,
-  before_author_note: 4,
-  after_author_note: 5,
-  at_depth: 6,
-};
-
-function compareEntriesByPositionThenOrder(a: WorldbookEntry, b: WorldbookEntry): number {
-  const posA = POSITION_TYPE_SORT_ORDER[a.position.type] ?? 99;
-  const posB = POSITION_TYPE_SORT_ORDER[b.position.type] ?? 99;
-  if (posA !== posB) return posA - posB;
-  if (a.position.type === 'at_depth' && b.position.type === 'at_depth') {
-    if (a.position.depth !== b.position.depth) return a.position.depth - b.position.depth;
-  }
-  return a.position.order - b.position.order;
-}
 
 const worldbookNames = ref<string[]>([]);
 const selectedWorldbookName = ref('');
@@ -6149,518 +6133,6 @@ watch(
   },
   { immediate: true },
 );
-
-function createId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return null;
-}
-
-function toStringSafe(value: unknown, fallback = ''): string {
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (value === null || value === undefined) {
-    return fallback;
-  }
-  return String(value);
-}
-
-function toNumberSafe(value: unknown, fallback: number): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return fallback;
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function parseNullableInteger(value: unknown): number | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (typeof value === 'string' && !value.trim()) {
-    return null;
-  }
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    return null;
-  }
-  return Math.max(0, Math.floor(parsed));
-}
-
-function nullableNumberToText(value: number | null): string {
-  return value === null ? '' : String(value);
-}
-
-function stringifyKeyword(value: string | RegExp): string {
-  return value instanceof RegExp ? value.toString() : value;
-}
-
-function parseKeywordToken(token: string): string | RegExp {
-  const trimmed = token.trim();
-  if (!trimmed) {
-    return '';
-  }
-  const regexMatch = trimmed.match(/^\/(.+)\/([dgimsuy]*)$/);
-  if (!regexMatch) {
-    return trimmed;
-  }
-  try {
-    return new RegExp(regexMatch[1], regexMatch[2]);
-  } catch {
-    return trimmed;
-  }
-}
-
-function normalizeKeywordList(value: unknown): (string | RegExp)[] {
-  const sourceList = Array.isArray(value) ? value : typeof value === 'string' ? value.split(/[\n,]/g) : [];
-  const normalized: (string | RegExp)[] = [];
-  const seen = new Set<string>();
-
-  for (const item of sourceList) {
-    const token = item instanceof RegExp ? item : parseKeywordToken(toStringSafe(item).trim());
-    const tokenString = stringifyKeyword(token);
-    if (!tokenString) {
-      continue;
-    }
-    const dedupeKey = tokenString.toLowerCase();
-    if (seen.has(dedupeKey)) {
-      continue;
-    }
-    seen.add(dedupeKey);
-    normalized.push(token);
-  }
-
-  return normalized;
-}
-
-function parseKeywordsFromText(value: string): (string | RegExp)[] {
-  return normalizeKeywordList(value.split(/[\n,]/g));
-}
-
-function normalizePresetRoleBindings(rawList: unknown): PresetRoleBinding[] {
-  if (!Array.isArray(rawList)) {
-    return [];
-  }
-  const normalized: PresetRoleBinding[] = [];
-  const seen = new Set<string>();
-  for (const item of rawList) {
-    const record = asRecord(item);
-    if (!record) {
-      continue;
-    }
-    const key = toStringSafe(record.key).trim();
-    if (!key || seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    normalized.push({
-      key,
-      name: toStringSafe(record.name, key),
-      avatar: toStringSafe(record.avatar),
-      updated_at: toNumberSafe(record.updated_at, Date.now()),
-    });
-  }
-  return normalized;
-}
-
-function getStrategyTypeLabel(type: StrategyType): string {
-  if (type === 'constant') {
-    return '🔵 常驻 (constant)';
-  }
-  if (type === 'vectorized') {
-    return '📎 向量化 (vectorized)';
-  }
-  return '🟢 关键词 (selective)';
-}
-
-function getSecondaryLogicLabel(logic: SecondaryLogic): string {
-  const map: Record<SecondaryLogic, string> = {
-    and_any: '任一命中 (and_any)',
-    and_all: '全部命中 (and_all)',
-    not_all: '不全命中 (not_all)',
-    not_any: '全部不命中 (not_any)',
-  };
-  return map[logic];
-}
-
-function getPositionTypeLabel(type: PositionType, role: RoleType = 'system'): string {
-  return getPositionTypeLabelWithRole(type, role);
-}
-
-function getPositionTypeLabelWithRole(type: PositionType, role: RoleType): string {
-  const map: Record<Exclude<PositionType, 'at_depth'>, string> = {
-    before_character_definition: '角色定义之前',
-    after_character_definition: '角色定义之后',
-    before_example_messages: '示例消息前（↑EM）',
-    after_example_messages: '示例消息后（↓EM）',
-    before_author_note: '作者注释之前',
-    after_author_note: '作者注释之后',
-  };
-  if (type !== 'at_depth') {
-    return map[type];
-  }
-  if (role === 'assistant') {
-    return '@D 🤖 [AI]在深度';
-  }
-  if (role === 'user') {
-    return '@D 👤 [用户]在深度';
-  }
-  return '@D ⚙ [系统]在深度';
-}
-
-function parseAtDepthRoleFromPositionValue(value: unknown): RoleType | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const depthMatch = value.match(/^at_depth_as_(system|assistant|user)$/);
-  if (!depthMatch) {
-    return null;
-  }
-  return depthMatch[1] as RoleType;
-}
-
-function applySelectedPositionSelectValue(value: PositionSelectValue): void {
-  if (!selectedEntry.value) {
-    return;
-  }
-  const depthRole = parseAtDepthRoleFromPositionValue(value);
-  if (depthRole) {
-    selectedEntry.value.position.type = 'at_depth';
-    selectedEntry.value.position.role = depthRole;
-    selectedEntry.value.position.depth = Math.max(0, Math.floor(toNumberSafe(selectedEntry.value.position.depth, 4)));
-    return;
-  }
-  selectedEntry.value.position.type = value as PositionType;
-  selectedEntry.value.position.role = 'system';
-  selectedEntry.value.position.depth = 4;
-}
-
-function getEntryVisualStatus(entry: WorldbookEntry): EntryVisualStatus {
-  if (!entry.enabled) {
-    return 'disabled';
-  }
-  if (entry.strategy.type === 'constant') {
-    return 'constant';
-  }
-  if (entry.strategy.type === 'vectorized') {
-    return 'vector';
-  }
-  return 'normal';
-}
-
-function getEntryStatusLabel(entry: WorldbookEntry): string {
-  const status = getEntryVisualStatus(entry);
-  if (status === 'disabled') {
-    return '⚫ 禁用';
-  }
-  if (status === 'constant') {
-    return '🔵 常驻';
-  }
-  if (status === 'vector') {
-    return '📎 向量化';
-  }
-  return '🟢 关键词';
-}
-
-function getEntryKeyPreview(entry: WorldbookEntry): string {
-  const rendered = entry.strategy.keys
-    .slice(0, 3)
-    .map(key => stringifyKeyword(key))
-    .join(' / ');
-  if (!rendered) {
-    return '无关键词';
-  }
-  if (entry.strategy.keys.length > 3) {
-    return `${rendered} ...`;
-  }
-  return rendered;
-}
-
-function normalizeSecondaryLogic(value: unknown): SecondaryLogic {
-  if (typeof value === 'string' && secondaryLogicOptions.includes(value as SecondaryLogic)) {
-    return value as SecondaryLogic;
-  }
-  if (typeof value === 'number') {
-    const map: SecondaryLogic[] = ['and_any', 'and_all', 'not_all', 'not_any'];
-    return map[value] ?? 'and_any';
-  }
-  return 'and_any';
-}
-
-function normalizeStrategyType(
-  raw: Record<string, unknown>,
-  strategyRecord: Record<string, unknown> | null,
-): StrategyType {
-  const directType = strategyRecord?.type;
-  if (typeof directType === 'string' && strategyTypeOptions.includes(directType as StrategyType)) {
-    return directType as StrategyType;
-  }
-  if (raw.constant) {
-    return 'constant';
-  }
-  if (raw.vectorized) {
-    return 'vectorized';
-  }
-  return 'selective';
-}
-
-function normalizePositionType(value: unknown): PositionType {
-  if (typeof value === 'string') {
-    if (positionTypeOptions.includes(value as PositionType)) {
-      return value as PositionType;
-    }
-    if (parseAtDepthRoleFromPositionValue(value)) {
-      return 'at_depth';
-    }
-  }
-  if (typeof value === 'number') {
-    const map: Record<number, PositionType> = {
-      0: 'before_character_definition',
-      1: 'after_character_definition',
-      2: 'before_example_messages',
-      3: 'after_example_messages',
-      4: 'before_author_note',
-      5: 'after_author_note',
-      6: 'at_depth',
-    };
-    return map[value] ?? 'before_character_definition';
-  }
-  return 'before_character_definition';
-}
-
-function normalizeRole(value: unknown): RoleType {
-  if (value === 'assistant' || value === 'user' || value === 'system') {
-    return value;
-  }
-  if (typeof value === 'number') {
-    const map: Record<number, RoleType> = {
-      0: 'system',
-      1: 'assistant',
-      2: 'user',
-    };
-    return map[value] ?? 'system';
-  }
-  if (typeof value === 'string') {
-    if (value.includes('assistant')) {
-      return 'assistant';
-    }
-    if (value.includes('user')) {
-      return 'user';
-    }
-  }
-  return 'system';
-}
-
-function normalizeScanDepth(value: unknown): 'same_as_global' | number {
-  if (value === 'same_as_global') {
-    return 'same_as_global';
-  }
-  const numeric = Math.floor(toNumberSafe(value, NaN));
-  if (Number.isFinite(numeric) && numeric > 0) {
-    return numeric;
-  }
-  return 'same_as_global';
-}
-
-function createDefaultEntry(uid: number): WorldbookEntry {
-  return {
-    uid,
-    name: `条目 ${uid}`,
-    enabled: true,
-    strategy: {
-      type: 'selective',
-      keys: [],
-      keys_secondary: {
-        logic: 'and_any',
-        keys: [],
-      },
-      scan_depth: 'same_as_global',
-    },
-    position: {
-      type: 'before_character_definition',
-      role: 'system',
-      depth: 4,
-      order: 100,
-    },
-    content: '',
-    probability: 100,
-    recursion: {
-      prevent_incoming: false,
-      prevent_outgoing: false,
-      delay_until: null,
-    },
-    effect: {
-      sticky: null,
-      cooldown: null,
-      delay: null,
-    },
-  };
-}
-
-function collectExtraFields(raw: Record<string, unknown>): Record<string, unknown> | undefined {
-  const known = new Set([
-    'uid',
-    'id',
-    'name',
-    'comment',
-    'enabled',
-    'disable',
-    'strategy',
-    'position',
-    'content',
-    'probability',
-    'recursion',
-    'effect',
-    'extra',
-    'keys',
-    'key',
-    'secondary_keys',
-    'keysecondary',
-    'filters',
-    'logic',
-    'selectiveLogic',
-    'scan_depth',
-    'constant',
-    'vectorized',
-    'selective',
-    'insertion_order',
-    'order',
-    'role',
-    'depth',
-    'preventRecursion',
-    'excludeRecursion',
-    'delayUntilRecursion',
-    'sticky',
-    'cooldown',
-    'delay',
-    'useProbability',
-  ]);
-
-  const extra: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(raw)) {
-    if (!known.has(key)) {
-      extra[key] = value;
-    }
-  }
-  if (Object.keys(extra).length === 0) {
-    return undefined;
-  }
-  return extra;
-}
-
-function normalizeEntry(rawInput: unknown, fallbackUid: number): WorldbookEntry {
-  const raw = asRecord(rawInput) ?? {};
-  const base = createDefaultEntry(fallbackUid);
-  const strategyRecord = asRecord(raw.strategy);
-  const positionRecord = asRecord(raw.position);
-  const recursionRecord = asRecord(raw.recursion);
-  const effectRecord = asRecord(raw.effect);
-  const secondaryRecord = asRecord(strategyRecord?.keys_secondary);
-
-  const uid = Math.max(0, Math.floor(toNumberSafe(raw.uid ?? raw.id, fallbackUid)));
-  const name = toStringSafe(raw.name ?? raw.comment, `条目 ${uid}`).trim() || `条目 ${uid}`;
-  const strategyType = normalizeStrategyType(raw, strategyRecord);
-  const keys = normalizeKeywordList(strategyRecord?.keys ?? raw.keys ?? raw.key);
-  const secondaryKeys = normalizeKeywordList(
-    secondaryRecord?.keys ?? raw.secondary_keys ?? raw.keysecondary ?? raw.filters,
-  );
-  const secondaryLogic = normalizeSecondaryLogic(secondaryRecord?.logic ?? raw.logic ?? raw.selectiveLogic);
-  const rawPositionType = positionRecord?.type ?? raw.position;
-  const inferredDepthRole = parseAtDepthRoleFromPositionValue(rawPositionType);
-  const positionType = normalizePositionType(rawPositionType);
-  const role = normalizeRole(positionRecord?.role ?? raw.role ?? inferredDepthRole);
-  const depth = Math.max(0, Math.floor(toNumberSafe(positionRecord?.depth ?? raw.depth, 4)));
-  const order = Math.floor(toNumberSafe(positionRecord?.order ?? raw.insertion_order ?? raw.order, 100));
-  const probability = clampNumber(toNumberSafe(raw.probability, 100), 0, 100);
-
-  const preventIncoming = recursionRecord?.prevent_incoming ?? raw.preventRecursion;
-  const preventOutgoing = recursionRecord?.prevent_outgoing ?? raw.excludeRecursion;
-
-  const entry: WorldbookEntry = {
-    ...base,
-    uid,
-    name,
-    enabled: raw.enabled === undefined ? raw.disable !== true : raw.enabled,
-    strategy: {
-      type: strategyType,
-      keys,
-      keys_secondary: {
-        logic: secondaryLogic,
-        keys: secondaryKeys,
-      },
-      scan_depth: normalizeScanDepth(strategyRecord?.scan_depth ?? raw.scan_depth),
-    },
-    position: {
-      type: positionType,
-      role: positionType === 'at_depth' ? role : 'system',
-      depth: positionType === 'at_depth' ? depth : 4,
-      order,
-    },
-    content: toStringSafe(raw.content),
-    probability,
-    recursion: {
-      prevent_incoming: Boolean(preventIncoming),
-      prevent_outgoing: Boolean(preventOutgoing),
-      delay_until: parseNullableInteger(recursionRecord?.delay_until ?? raw.delayUntilRecursion),
-    },
-    effect: {
-      sticky: parseNullableInteger(effectRecord?.sticky ?? raw.sticky),
-      cooldown: parseNullableInteger(effectRecord?.cooldown ?? raw.cooldown),
-      delay: parseNullableInteger(effectRecord?.delay ?? raw.delay),
-    },
-  };
-
-  const directExtra = asRecord(raw.extra);
-  if (directExtra && Object.keys(directExtra).length > 0) {
-    entry.extra = klona(directExtra);
-  } else {
-    const extras = collectExtraFields(raw);
-    if (extras) {
-      entry.extra = klona(extras);
-    }
-  }
-
-  return entry;
-}
-
-function normalizeEntryList(rawEntries: unknown[]): WorldbookEntry[] {
-  const result: WorldbookEntry[] = [];
-  const uidSet = new Set<number>();
-
-  for (let index = 0; index < rawEntries.length; index += 1) {
-    const rawRecord = asRecord(rawEntries[index]);
-    let uid = Math.max(0, Math.floor(toNumberSafe(rawRecord?.uid ?? rawRecord?.id, index)));
-    while (uidSet.has(uid)) {
-      uid += 1;
-    }
-    uidSet.add(uid);
-    result.push(normalizeEntry(rawEntries[index], uid));
-  }
-
-  return result;
-}
-
-function getNextUid(entries: WorldbookEntry[]): number {
-  if (entries.length === 0) {
-    return 0;
-  }
-  return Math.max(...entries.map(entry => entry.uid)) + 1;
-}
 
 function createDefaultLayoutState(): LayoutState {
   return {
@@ -9023,14 +8495,6 @@ function syncExtraTextWithSelection(): void {
     return;
   }
   selectedExtraText.value = JSON.stringify(selectedEntry.value.extra, null, 2);
-}
-
-function formatDateTime(timestamp: number): string {
-  try {
-    return new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
-  } catch {
-    return String(timestamp);
-  }
 }
 
 function formatHistoryOptionLabel(label: string, ts: number, isCurrent: boolean): string {

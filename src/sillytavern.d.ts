@@ -18,12 +18,12 @@ interface WorldbookEntry {
   probability: number;
   strategy: {
     type: 'constant' | 'selective' | 'vectorized';
-    keys: WorldbookKeyword[];
+    keys: (string | RegExp)[];
     keys_secondary: {
       logic: 'and_any' | 'and_all' | 'not_all' | 'not_any';
-      keys: WorldbookKeyword[];
+      keys: (string | RegExp)[];
     };
-    scan_depth: number | null;
+    scan_depth: 'same_as_global' | number;
   };
   position: {
     type: 'before_character_definition' | 'after_character_definition'
@@ -46,11 +46,6 @@ interface WorldbookEntry {
   };
   extra?: Record<string, unknown>;
   [key: string]: unknown;
-}
-
-interface WorldbookKeyword {
-  keyword: string;
-  exclude?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
