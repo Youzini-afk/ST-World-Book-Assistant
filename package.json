@@ -1,0 +1,49 @@
+{
+  "name": "st-world-book-assistant",
+  "private": true,
+  "scripts": {
+    "build": "webpack --mode production",
+    "build:dev": "webpack --mode development",
+    "watch": "webpack --mode development --watch --progress"
+  },
+  "browserslist": [
+    "defaults and partially supports es6-module"
+  ],
+  "devDependencies": {
+    "@types/jquery": "^3.5.34",
+    "@types/lodash": "^4.17.24",
+    "@types/toastr": "^2.1.43",
+    "autoprefixer": "^10.4.27",
+    "css-loader": "^7.1.4",
+    "mini-css-extract-plugin": "^2.10.0",
+    "postcss": "^8.5.8",
+    "postcss-loader": "^8.2.1",
+    "postcss-minify": "^1.2.0",
+    "style-loader": "^4.0.0",
+    "terser-webpack-plugin": "^5.3.17",
+    "ts-loader": "^9.5.4",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths-webpack-plugin": "^4.2.0",
+    "tslib": "^2.8.1",
+    "type-fest": "^4.41.0",
+    "typescript": "6.0.0-dev.20250807",
+    "unplugin-auto-import": "^20.3.0",
+    "unplugin-vue-components": "^29.2.0",
+    "vue-loader": "^17.4.2",
+    "vue-style-loader": "^4.1.3",
+    "webpack": "^5.105.4",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "@vueuse/core": "^13.9.0",
+    "dedent": "^1.7.2",
+    "jquery": "^3.7.1",
+    "klona": "^2.0.6",
+    "lodash": "^4.17.23",
+    "toastr": "^2.1.4",
+    "vue": "^3.5.29",
+    "vue-final-modal": "^4.5.5",
+    "yaml": "^2.8.2",
+    "zod": "^4.3.6"
+  }
+}

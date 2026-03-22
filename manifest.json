@@ -1,0 +1,11 @@
+{
+  "display_name": "世界书助手 (Worldbook Assistant)",
+  "loading_order": 100,
+  "requires": [],
+  "optional": [],
+  "js": "dist/index.js",
+  "css": "dist/style.css",
+  "author": "Youzini",
+  "version": "1.0.0",
+  "homePage": "https://github.com/Youzini-afk/ST-World-Book-Assistant"
+}
