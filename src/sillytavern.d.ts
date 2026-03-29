@@ -87,7 +87,7 @@ declare function rebindGlobalWorldbooks(names: string[]): Promise<void>;
 declare function getCharacterNames(): string[];
 declare function getCurrentCharacterName(): string | null;
 declare function getChatMessages(
-  mesId: number,
+  mesId: number | string,
 ): Array<{ message: string; [key: string]: unknown }>;
 declare function getLastMessageId(): number;
 
@@ -102,10 +102,11 @@ interface RolePrompt {
 
 interface CustomApiConfig {
   apiurl: string;
-  key: string;
+  key?: string;
   model: string;
-  max_tokens: number;
+  max_tokens?: number;
   temperature: number;
+  source?: string;
 }
 
 interface GenerateOptions {
@@ -125,14 +126,14 @@ interface GenerateRawOptions {
   user_input: string;
   should_silence?: boolean;
   custom_api?: CustomApiConfig;
-  ordered_prompts?: RolePrompt[];
+  ordered_prompts?: (RolePrompt | 'user_input')[];
   [key: string]: unknown;
 }
 
 declare function generate(options: GenerateOptions): Promise<string>;
 declare function generateRaw(options: GenerateRawOptions): Promise<string>;
 declare function stopGenerationById(generationId: string): void;
-declare function getModelList(apiUrl: string, apiKey: string): Promise<string[]>;
+declare function getModelList(options: { apiurl: string; key?: string }): Promise<string[]>;
 
 // ═══════════════════════════════════════════════════════════════════════
 // ── Event System ───────────────────────────────────────────────────────

@@ -3498,6 +3498,7 @@
 <script setup lang="ts">
 import { diffLines } from 'https://testingcf.jsdelivr.net/npm/diff/+esm';
 import { klona } from 'klona';
+import { useFindReplace, useMultiEdit, useAIChat, useAIConfig, useTagSystem, useGlobalWorldbooks } from './composables';
 import {
   createId,
   asRecord,
@@ -3541,6 +3542,39 @@ import {
   type PresetRoleBinding,
 } from './utils';
 import { THEMES, type ThemeKey } from './themes';
+import {
+  createDefaultPersistedState,
+  normalizePersistedState,
+  createDefaultLayoutState,
+  normalizeLayoutState,
+  createDefaultMultiEditPersistState,
+  normalizeMultiEditPersistState,
+  createDefaultTagEditorPersistState,
+  normalizeTagEditorPersistState,
+  createDefaultCrossCopyPersistState,
+  normalizeCrossCopyPersistState,
+  createDefaultTagFilterState,
+  normalizeTagFilterState,
+  HISTORY_LIMIT,
+  ENTRY_HISTORY_LIMIT,
+  GLOBAL_PRESET_LIMIT,
+  TAG_LIMIT,
+  TAG_COLORS,
+  AI_CHAT_SESSION_LIMIT,
+  AI_CHAT_MESSAGE_LIMIT,
+  STORAGE_KEY,
+  MAIN_PANE_DEFAULT,
+  MAIN_PANE_MIN,
+  FOCUS_MAIN_PANE_DEFAULT,
+  FOCUS_MAIN_PANE_MIN,
+  EDITOR_SIDE_DEFAULT,
+  EDITOR_SIDE_MIN,
+  FOCUS_EDITOR_SIDE_DEFAULT,
+  FOCUS_EDITOR_SIDE_MIN,
+  CROSS_COPY_DESKTOP_LEFT_DEFAULT,
+  CROSS_COPY_DESKTOP_LEFT_MIN,
+  CROSS_COPY_DESKTOP_LEFT_MAX,
+} from './store/persistedState';
 import type {
   PositionSelectValue,
   EntryVisualStatus,
@@ -3608,29 +3642,11 @@ import type {
 } from './types';
 
 
-const STORAGE_KEY = 'worldbook_assistant_state_v1';
 const DIRTY_STATE_KEY = '__WB_ASSISTANT_HAS_UNSAVED_CHANGES__';
-const HISTORY_LIMIT = 12;
-const ENTRY_HISTORY_LIMIT = 7;
 const ACTIVATION_LOG_LIMIT = 120;
 const RESIZE_HANDLE_SIZE = 10;
-const MAIN_PANE_DEFAULT = 280;
-const MAIN_PANE_MIN = 220;
-const FOCUS_MAIN_PANE_DEFAULT = 176;
-const FOCUS_MAIN_PANE_MIN = 150;
 const MAIN_EDITOR_MIN = 540;
-const EDITOR_SIDE_DEFAULT = 360;
-const EDITOR_SIDE_MIN = 280;
-const FOCUS_EDITOR_SIDE_DEFAULT = 220;
-const FOCUS_EDITOR_SIDE_MIN = 180;
 const EDITOR_CENTER_MIN = 420;
-const GLOBAL_PRESET_LIMIT = 64;
-const TAG_LIMIT = 32;
-const TAG_COLORS = [
-  '#3b82f6', '#8b5cf6', '#ec4899', '#ef4444',
-  '#f97316', '#eab308', '#22c55e', '#06b6d4',
-  '#6366f1', '#14b8a6', '#f43f5e', '#a855f7',
-];
 const FOCUS_CINE_DURATION = 1400;
 const FOCUS_CINE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 const FOCUS_CINE_STAGGER = 28;
@@ -3683,9 +3699,6 @@ const CROSS_COPY_ACTION_LABELS: Record<CrossCopyAction, string> = {
   rename_create: '另存新名',
   create: '直接创建',
 };
-const CROSS_COPY_DESKTOP_LEFT_DEFAULT = 300;
-const CROSS_COPY_DESKTOP_LEFT_MIN = 240;
-const CROSS_COPY_DESKTOP_LEFT_MAX = 440;
 const CROSS_COPY_SPLITTER_SIZE = 8;
 const CROSS_COPY_RIGHT_MIN = 360;
 const ENTRIES_DIGEST_DEBOUNCE_MS = 120;
@@ -3700,12 +3713,10 @@ const worldbookPickerRef = ref<HTMLElement | null>(null);
 const worldbookPickerSearchInputRef = ref<HTMLInputElement | null>(null);
 const focusToolbarRef = ref<HTMLElement | null>(null);
 const focusWorldbookMenuRef = ref<HTMLElement | null>(null);
-const rolePickerOpen = ref(false);
 const rolePickerRef = ref<HTMLElement | null>(null);
 const rolePickerSearchInputRef = ref<HTMLInputElement | null>(null);
 const currentTheme = ref<ThemeKey>('ocean');
 const themePickerOpen = ref(false);
-const globalWorldbookMode = ref(false);
 const aiGeneratorMode = ref(false);
 const crossCopyMode = ref(false);
 const panelMode = ref<'browse' | 'editor'>('browse');
@@ -3775,35 +3786,6 @@ function toggleFloorBtns(val: boolean): void {
   try { localStorage.setItem(FLOOR_BTN_KEY, String(val)); } catch { /* ignore */ }
   window.dispatchEvent(new CustomEvent('wb-helper:floor-btns-toggle', { detail: val }));
 }
-const aiIsGenerating = ref(false);
-const aiCurrentGenerationId = ref<string | null>(null);
-const aiStreamingText = ref('');
-const aiExtractedTags = ref<ExtractedTag[]>([]);
-const aiShowTagReview = ref(false);
-const aiTargetWorldbook = ref('');
-const aiChatInputText = ref('');
-const aiUseContext = ref(true);
-const aiChatMessagesRef = ref<HTMLDivElement | null>(null);
-const showApiSettings = ref(false);
-const apiModelList = ref<string[]>([]);
-const apiModelLoading = ref(false);
-
-// AI worldbook config state
-interface ConfigChange {
-  name: string;
-  field: string;
-  label: string;
-  oldValue: string;
-  newValue: string;
-  selected: boolean;
-  apply: (entry: WorldbookEntry) => void;
-}
-const aiConfigInput = ref('');
-const aiConfigChanges = ref<ConfigChange[]>([]);
-const aiConfigPreview = ref(false);
-const aiConfigGenerating = ref(false);
-const aiConfigTargetWorldbook = ref('');
-const aiConfigCustomPrompt = ref('');
 
 const crossCopySourceWorldbook = ref('');
 const crossCopyTargetWorldbook = ref('');
@@ -3827,11 +3809,6 @@ const crossCopyPaneResizeState = ref<CrossCopyPaneResizeState | null>(null);
 const crossCopyGridRef = ref<HTMLElement | null>(null);
 const crossCopyMobileStep = ref<CrossCopyMobileStep>(1);
 
-const AI_CHAT_SESSION_LIMIT = 50;
-const AI_CHAT_MESSAGE_LIMIT = 200;
-const selectedGlobalPresetId = ref('');
-const currentRoleContext = ref<PresetRoleBinding | null>(null);
-const roleBindingSourceCandidates = ref<PresetRoleBinding[]>([]);
 const originalEntries = ref<WorldbookEntry[]>([]);
 const draftEntries = ref<WorldbookEntry[]>([]);
 const selectedEntryUid = ref<number | null>(null);
@@ -3844,9 +3821,6 @@ const draggingEntryUids = ref<number[]>([]);
 const entryDropTargetUid = ref<number | null>(null);
 const entryDropPosition = ref<'before' | 'after' | null>(null);
 const suppressNextEntryClick = ref(false);
-const multiEditLastPatch = ref<EntryConfigPatch | null>(null);
-const multiEditSnapshotDone = ref(false);
-const multiEditApplying = ref(false);
 const draftEntriesDigest = ref('[]');
 const originalEntriesDigest = ref('[]');
 
@@ -3861,20 +3835,6 @@ let secondaryKeysDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let entriesDigestTimer: ReturnType<typeof setTimeout> | null = null;
 let worldbookLoadRequestId = 0;
 let pendingWorldbookLoadCount = 0;
-const globalAddSearchText = ref('');
-const globalFilterText = ref('');
-const roleBindSearchText = ref('');
-
-const batchFindText = ref('');
-const batchReplaceText = ref('');
-const batchExcludeText = ref('');
-const batchUseRegex = ref(false);
-const batchInName = ref(true);
-const batchInContent = ref(true);
-const batchInKeys = ref(false);
-const batchSearchScope = ref<BatchSearchScope>('all');
-const findHits = ref<FindHit[]>([]);
-const findHitIndex = ref(-1);
 
 const statusMessage = ref('就绪');
 const isBusy = ref(false);
@@ -3940,14 +3900,6 @@ if (typeof window !== 'undefined') {
 }
 const showMobileEditor = computed(() => isMobile.value && selectedEntryUid.value !== null);
 const mobileTab = ref<'list' | 'edit' | 'settings' | 'copy' | 'ai' | 'tags'>('list');
-const tagEditorMode = ref(false);
-const tagFilterPanelOpen = ref(false);
-const tagFilterSearchText = ref('');
-const tagNewName = ref('');
-const tagNewParentId = ref('');
-const tagAssignSearch = ref('');
-const tagAssignTargetId = ref('');
-const tagTreeExpandedIds = ref<string[]>([]);
 
 const bindings = reactive({
   global: [] as string[],
@@ -3975,37 +3927,124 @@ const selectedEntryIndex = computed(() => {
   return draftEntries.value.findIndex(entry => entry.uid === selectedEntry.value?.uid);
 });
 
+// ── useFindReplace composable ────────────────────────────────────────
+const {
+  batchFindText, batchReplaceText, batchExcludeText,
+  batchUseRegex, batchInName, batchInContent, batchInKeys,
+  batchSearchScope, findHits, findHitIndex,
+  activeFindHit, findHitSummaryText, batchExcludeTokensPreview,
+  getFindFieldLabel, findFirstMatch, findNextMatch, findPreviousMatch,
+  applyBatchReplace, resetFindState,
+} = useFindReplace({
+  draftEntries,
+  selectedEntry,
+  selectedEntryUid,
+  editorShellRef,
+  setStatus,
+});
+// ── end useFindReplace ───────────────────────────────────────────────
+
+// ── useMultiEdit composable ──────────────────────────────────────────
+const {
+  multiEditLastPatch, multiEditSnapshotDone, multiEditApplying,
+  multiEditEnabled, multiEditSyncExtraJson, isMultiEditSyncActive,
+  multiEditSessionKey, multiEditHintText,
+  extractEntryConfigPatch, applyEntryConfigPatch,
+  resetMultiEditSessionState, syncSelectedEntryConfigToMultiSelection,
+} = useMultiEdit({
+  persistedState,
+  selectedEntry,
+  selectedEntryUids,
+  draftEntries,
+  isMobile,
+  mobileMultiSelectMode,
+  setStatus,
+  getOrderedSelectedEntryUids,
+  pushEntrySnapshotsBulk,
+});
+// ── end useMultiEdit ─────────────────────────────────────────────────
+
+// ── useAIConfig composable ───────────────────────────────────────────
+// (depends on buildCustomApiForGenerate from useAIChat)
+
+// ── useAIChat composable ─────────────────────────────────────────────
+const {
+  aiIsGenerating, aiCurrentGenerationId, aiStreamingText,
+  aiExtractedTags, aiShowTagReview, aiTargetWorldbook,
+  aiChatInputText, aiUseContext, aiChatMessagesRef,
+  showApiSettings, apiModelList, apiModelLoading,
+  aiSessions, aiActiveSession, aiActiveMessages,
+  aiCreateSession, aiDeleteSession, aiSwitchSession, aiRenameSession,
+  aiAddMessage, updateApiConfig, loadModelList, buildCustomApiForGenerate,
+  aiSendMessage, aiStopGeneration,
+  aiExtractTags, updateIgnoreTags, resetIgnoreTags,
+  markDuplicatesInTags, extractFromChat, aiCreateSelectedEntries,
+} = useAIChat({
+  persistedState,
+  updatePersistedState,
+  setStatus,
+  selectedWorldbookName,
+});
+// ── end useAIChat ────────────────────────────────────────────────────
+
+const {
+  aiConfigInput, aiConfigChanges, aiConfigPreview,
+  aiConfigGenerating, aiConfigTargetWorldbook, aiConfigCustomPrompt,
+  buildConfigSystemPrompt, loadDefaultConfigPrompt,
+  aiConfigGenerate, aiConfigApply,
+} = useAIConfig({
+  persistedState, buildCustomApiForGenerate, loadWorldbook, setStatus,
+});
+// ── end useAIConfig ──────────────────────────────────────────────────
+
+// ── useTagSystem composable ──────────────────────────────────────────
+const {
+  tagEditorMode, tagFilterPanelOpen, tagFilterSearchText,
+  tagNewName, tagNewParentId, tagAssignSearch, tagAssignTargetId,
+  tagTreeExpandedIds,
+  tagDefinitions, tagAssignments, tagFilterState,
+  selectedTagFilterIds, selectedTagFilterIdSet,
+  tagFilterLogic, tagFilterMatchMode,
+  tagDefinitionMap, tagChildrenMap, tagRootIds,
+  tagPathMap, tagDescendantsMap, tagFilterSummary,
+  tagTreeRows, tagManagementRows,
+  tagAssignOptions, tagAssignWorldbooks,
+  getTagPathLabel, toggleTagFilterSelection, clearTagFilterSelection,
+  toggleTagTreeExpanded, normalizeTagNameKey, ensureTagAssignTargetSelected,
+  isTagDescendantOf, collectTagSubtreeIds, tagSetParent,
+  isTagParentOptionDisabled, setTagDeleteParentMode,
+  tagCreate, tagDelete, tagRename, tagSetColor,
+  tagToggleAssignment, tagToggleAssignmentForSelectedTag, tagResetAll,
+} = useTagSystem({
+  persistedState, updatePersistedState, setStatus, worldbookNames,
+});
+// ── end useTagSystem ─────────────────────────────────────────────────
+
+// ── useGlobalWorldbooks composable ───────────────────────────────────
+const {
+  globalWorldbookMode, selectedGlobalPresetId,
+  currentRoleContext, roleBindingSourceCandidates,
+  rolePickerOpen, globalAddSearchText,
+  globalWorldbookPresets, selectedGlobalPreset,
+  selectedGlobalPresetRoleBindings, isCurrentRoleBoundToSelectedPreset,
+  isGlobalBound, globalAddCandidates,
+  syncSelectedGlobalPresetFromState, applyGlobalWorldbooks,
+  addGlobalWorldbook, removeGlobalWorldbook, clearGlobalWorldbooks,
+  toggleGlobalBinding, getCurrentGlobalWorldbookSet,
+  onGlobalPresetSelectionChanged, saveCurrentAsGlobalPreset,
+  overwriteSelectedGlobalPreset, deleteSelectedGlobalPreset,
+  bindCurrentRoleToSelectedPreset, bindRoleCandidateToSelectedPreset,
+  unbindCurrentRoleFromSelectedPreset, removeRoleBindingFromSelectedPreset,
+  refreshRoleBindingCandidates, refreshCurrentRoleContext,
+  autoApplyRoleBoundPreset, toggleRolePicker, closeRolePicker,
+} = useGlobalWorldbooks({
+  persistedState, updatePersistedState, setStatus,
+  worldbookNames, bindings, refreshBindings, ensureSelectionForGlobalMode,
+});
+// ── end useGlobalWorldbooks ──────────────────────────────────────────
+
 const selectedEntryUidSet = computed(() => new Set(selectedEntryUids.value));
 const selectedEntryCount = computed(() => selectedEntryUids.value.length);
-const multiEditEnabled = computed(() => persistedState.value.multi_edit.enabled !== false);
-const multiEditSyncExtraJson = computed(() => persistedState.value.multi_edit.sync_extra_json === true);
-const isMultiEditSyncActive = computed(() => {
-  if (!multiEditEnabled.value) {
-    return false;
-  }
-  if (!selectedEntry.value || selectedEntryUids.value.length <= 1) {
-    return false;
-  }
-  if (!selectedEntryUids.value.includes(selectedEntry.value.uid)) {
-    return false;
-  }
-  if (isMobile.value && !mobileMultiSelectMode.value) {
-    return false;
-  }
-  return true;
-});
-const multiEditSessionKey = computed(() => {
-  if (!isMultiEditSyncActive.value || !selectedEntry.value) {
-    return '';
-  }
-  return `${selectedWorldbookName.value}::${selectedEntry.value.uid}::${getOrderedSelectedEntryUids().join(',')}`;
-});
-const multiEditHintText = computed(() => {
-  if (!multiEditEnabled.value) {
-    return '多选联动已关闭（可在设置中心开启）';
-  }
-  return '多选联动已开启：配置字段会同步到其余选中条目（名称/内容不同步）';
-});
 const selectedPositionSelectValue = computed<PositionSelectValue>({
   get() {
     if (!selectedEntry.value) {
@@ -4177,280 +4216,6 @@ const selectableWorldbookNames = computed(() => {
   return bindings.global.filter(name => worldbookNames.value.includes(name));
 });
 
-const globalWorldbookPresets = computed(() => persistedState.value.global_presets ?? []);
-
-const selectedGlobalPreset = computed(() => {
-  return globalWorldbookPresets.value.find(item => item.id === selectedGlobalPresetId.value) ?? null;
-});
-
-const selectedGlobalPresetRoleBindings = computed(() => selectedGlobalPreset.value?.role_bindings ?? []);
-
-const isCurrentRoleBoundToSelectedPreset = computed(() => {
-  const role = currentRoleContext.value;
-  const preset = selectedGlobalPreset.value;
-  if (!role || !preset) {
-    return false;
-  }
-  return preset.role_bindings.some(item => item.key === role.key);
-});
-
-const roleBindingCandidates = computed<RoleBindingCandidate[]>(() => {
-  const keyword = roleBindSearchText.value.trim().toLowerCase();
-  const boundSet = new Set(selectedGlobalPresetRoleBindings.value.map(item => item.key));
-  const list = roleBindingSourceCandidates.value;
-  const filtered = keyword
-    ? list.filter(item => {
-        return (
-          item.name.toLowerCase().includes(keyword) ||
-          item.avatar.toLowerCase().includes(keyword) ||
-          item.key.toLowerCase().includes(keyword)
-        );
-      })
-    : list;
-  return filtered.map(item => ({
-    ...item,
-    bound: boundSet.has(item.key),
-  }));
-});
-
-const tagDefinitions = computed(() => persistedState.value.worldbook_tags.definitions);
-const tagAssignments = computed(() => persistedState.value.worldbook_tags.assignments);
-
-const tagFilterState = computed(() => normalizeTagFilterState(persistedState.value.tag_filter));
-const selectedTagFilterIds = computed<string[]>({
-  get: () => tagFilterState.value.selected_ids,
-  set(value) {
-    const valid = [...new Set(value.map(id => toStringSafe(id).trim()).filter(Boolean))];
-    updatePersistedState(state => {
-      state.tag_filter.selected_ids = valid;
-    });
-  },
-});
-const tagFilterLogic = computed<TagFilterLogic>({
-  get: () => tagFilterState.value.logic,
-  set(value) {
-    updatePersistedState(state => {
-      state.tag_filter.logic = value === 'and' ? 'and' : 'or';
-    });
-  },
-});
-const tagFilterMatchMode = computed<TagFilterMatchMode>({
-  get: () => tagFilterState.value.match_mode,
-  set(value) {
-    updatePersistedState(state => {
-      state.tag_filter.match_mode = value === 'exact' ? 'exact' : 'descendants';
-    });
-  },
-});
-
-interface TagTreeRow {
-  id: string;
-  name: string;
-  path: string;
-  depth: number;
-  hasChildren: boolean;
-  parentId: string | null;
-  color: string;
-}
-
-const tagDefinitionMap = computed(() => {
-  const map = new Map<string, WorldbookTagDefinition>();
-  for (const def of tagDefinitions.value) {
-    map.set(def.id, def);
-  }
-  return map;
-});
-
-const tagChildrenMap = computed(() => {
-  const buckets = new Map<string | null, WorldbookTagDefinition[]>();
-  for (const def of tagDefinitions.value) {
-    const parentId = def.parent_id && tagDefinitionMap.value.has(def.parent_id) ? def.parent_id : null;
-    const list = buckets.get(parentId) ?? [];
-    list.push({ ...def, parent_id: parentId });
-    buckets.set(parentId, list);
-  }
-  for (const list of buckets.values()) {
-    list.sort((left, right) => {
-      const sortDiff = left.sort - right.sort;
-      if (sortDiff !== 0) {
-        return sortDiff;
-      }
-      return left.name.localeCompare(right.name, 'zh-Hans-CN');
-    });
-  }
-  return buckets;
-});
-
-const tagRootIds = computed(() => (tagChildrenMap.value.get(null) ?? []).map(item => item.id));
-
-function getTagPathLabel(tagId: string): string {
-  const map = tagDefinitionMap.value;
-  const names: string[] = [];
-  const seen = new Set<string>();
-  let cursor: string | null = tagId;
-  while (cursor && map.has(cursor) && !seen.has(cursor)) {
-    seen.add(cursor);
-    const current = map.get(cursor)!;
-    names.push(current.name);
-    cursor = current.parent_id && map.has(current.parent_id) ? current.parent_id : null;
-  }
-  return names.reverse().join('/');
-}
-
-const tagPathMap = computed(() => {
-  const map = new Map<string, string>();
-  for (const def of tagDefinitions.value) {
-    map.set(def.id, getTagPathLabel(def.id));
-  }
-  return map;
-});
-
-function collectDescendants(tagId: string): Set<string> {
-  const result = new Set<string>([tagId]);
-  const queue = [tagId];
-  while (queue.length) {
-    const current = queue.shift()!;
-    const children = tagChildrenMap.value.get(current) ?? [];
-    for (const child of children) {
-      if (result.has(child.id)) {
-        continue;
-      }
-      result.add(child.id);
-      queue.push(child.id);
-    }
-  }
-  return result;
-}
-
-const tagDescendantsMap = computed(() => {
-  const map = new Map<string, Set<string>>();
-  for (const def of tagDefinitions.value) {
-    map.set(def.id, collectDescendants(def.id));
-  }
-  return map;
-});
-
-const selectedTagFilterIdSet = computed(() => new Set(selectedTagFilterIds.value));
-
-const tagFilterSummary = computed(() => {
-  const ids = selectedTagFilterIds.value.filter(id => tagDefinitionMap.value.has(id));
-  if (!ids.length) {
-    return '未筛选';
-  }
-  const firstPath = tagPathMap.value.get(ids[0]) ?? '未命名标签';
-  if (ids.length === 1) {
-    return firstPath;
-  }
-  return `${firstPath} +${ids.length - 1}`;
-});
-
-const tagTreeRows = computed<TagTreeRow[]>(() => {
-  const rows: TagTreeRow[] = [];
-  const keyword = tagFilterSearchText.value.trim().toLowerCase();
-  const expanded = new Set(tagTreeExpandedIds.value);
-  const walk = (parentId: string | null, depth: number): void => {
-    const children = tagChildrenMap.value.get(parentId) ?? [];
-    for (const child of children) {
-      const path = tagPathMap.value.get(child.id) ?? child.name;
-      const row: TagTreeRow = {
-        id: child.id,
-        name: child.name,
-        path,
-        depth,
-        hasChildren: (tagChildrenMap.value.get(child.id) ?? []).length > 0,
-        parentId: child.parent_id,
-        color: child.color,
-      };
-      const hit = !keyword || row.name.toLowerCase().includes(keyword) || row.path.toLowerCase().includes(keyword);
-      if (hit) {
-        rows.push(row);
-      }
-      const shouldWalkChildren = keyword ? true : expanded.has(child.id);
-      if (shouldWalkChildren) {
-        walk(child.id, depth + 1);
-      }
-    }
-  };
-  walk(null, 0);
-  return rows;
-});
-
-const tagManagementRows = computed<TagTreeRow[]>(() => {
-  const rows: TagTreeRow[] = [];
-  const walk = (parentId: string | null, depth: number): void => {
-    const children = tagChildrenMap.value.get(parentId) ?? [];
-    for (const child of children) {
-      rows.push({
-        id: child.id,
-        name: child.name,
-        path: tagPathMap.value.get(child.id) ?? child.name,
-        depth,
-        hasChildren: (tagChildrenMap.value.get(child.id) ?? []).length > 0,
-        parentId: child.parent_id,
-        color: child.color,
-      });
-      walk(child.id, depth + 1);
-    }
-  };
-  walk(null, 0);
-  return rows;
-});
-
-const tagAssignOptions = computed(() => {
-  return tagManagementRows.value.map(row => ({
-    id: row.id,
-    name: row.name,
-    path: row.path,
-    color: row.color,
-  }));
-});
-
-function getWorldbookTags(worldbookName: string): WorldbookTagDefinition[] {
-  const ids = tagAssignments.value[worldbookName] ?? [];
-  const defs = tagDefinitions.value.filter(d => ids.includes(d.id));
-  return defs.sort((left, right) => {
-    const leftPath = tagPathMap.value.get(left.id) ?? left.name;
-    const rightPath = tagPathMap.value.get(right.id) ?? right.name;
-    return leftPath.localeCompare(rightPath, 'zh-Hans-CN');
-  });
-}
-
-function getWorldbookTagPathSummary(worldbookName: string): string {
-  const tags = getWorldbookTags(worldbookName);
-  if (!tags.length) {
-    return '未分配标签';
-  }
-  const paths = tags.map(tag => tagPathMap.value.get(tag.id) ?? tag.name);
-  if (paths.length <= 2) {
-    return paths.join(' · ');
-  }
-  return `${paths[0]} · ${paths[1]} +${paths.length - 2}`;
-}
-
-function toggleTagFilterSelection(tagId: string): void {
-  const current = new Set(selectedTagFilterIds.value);
-  if (current.has(tagId)) {
-    current.delete(tagId);
-  } else {
-    current.add(tagId);
-  }
-  selectedTagFilterIds.value = Array.from(current);
-}
-
-function clearTagFilterSelection(): void {
-  selectedTagFilterIds.value = [];
-}
-
-function toggleTagTreeExpanded(tagId: string): void {
-  const set = new Set(tagTreeExpandedIds.value);
-  if (set.has(tagId)) {
-    set.delete(tagId);
-  } else {
-    set.add(tagId);
-  }
-  tagTreeExpandedIds.value = Array.from(set);
-}
-
 function isWorldbookMatchedByTagFilter(worldbookName: string): boolean {
   const selected = selectedTagFilterIds.value.filter(id => tagDefinitionMap.value.has(id));
   if (!selected.length) {
@@ -4487,13 +4252,6 @@ const filteredSelectableWorldbookNames = computed(() => {
     names = names.filter(name => name.toLowerCase().includes(keyword));
   }
   return names;
-});
-
-const tagAssignWorldbooks = computed(() => {
-  const keyword = tagAssignSearch.value.trim().toLowerCase();
-  const names = worldbookNames.value;
-  if (!keyword) return names;
-  return names.filter(name => name.toLowerCase().includes(keyword));
 });
 
 const crossCopySourceIsCurrentWorldbook = computed(() => {
@@ -4645,34 +4403,6 @@ const crossCopyDiffHeaderText = computed(() => {
     ? (crossCopyDiffTargetEntry.value.name || `条目 ${crossCopyDiffTargetEntry.value.uid}`)
     : '无命中条目';
   return `${sourceName}  ↔  ${targetName}`;
-});
-
-const globalAddCandidates = computed(() => {
-  const keyword = globalAddSearchText.value.trim().toLowerCase();
-  return worldbookNames.value.filter(name => {
-    if (bindings.global.includes(name)) {
-      return false;
-    }
-    if (!keyword) {
-      return true;
-    }
-    return name.toLowerCase().includes(keyword);
-  });
-});
-
-const filteredGlobalWorldbooks = computed(() => {
-  const keyword = globalFilterText.value.trim().toLowerCase();
-  if (!keyword) {
-    return bindings.global;
-  }
-  return bindings.global.filter(name => name.toLowerCase().includes(keyword));
-});
-
-const isGlobalBound = computed(() => {
-  if (!selectedWorldbookName.value) {
-    return false;
-  }
-  return bindings.global.includes(selectedWorldbookName.value);
 });
 
 const snapshotsForCurrent = computed(() => {
@@ -4958,28 +4688,6 @@ function stopHistorySectionResize(): void {
   historySectionResizeState.value = null;
 }
 
-const batchExcludeTokensPreview = computed(() => parseBatchExcludeTokens(batchExcludeText.value));
-
-const activeFindHit = computed(() => {
-  if (findHitIndex.value < 0 || findHitIndex.value >= findHits.value.length) {
-    return null;
-  }
-  return findHits.value[findHitIndex.value] ?? null;
-});
-
-const findHitSummaryText = computed(() => {
-  if (!batchFindText.value.trim()) {
-    return '输入查找文本后可定位';
-  }
-  if (!findHits.value.length) {
-    return '暂无匹配';
-  }
-  if (!activeFindHit.value) {
-    return `匹配 0 / ${findHits.value.length}`;
-  }
-  return `匹配 ${findHitIndex.value + 1} / ${findHits.value.length}`;
-});
-
 const entryHistorySummary = computed(() => {
   return getEntryVersionDiffSummary(selectedEntryHistoryLeft.value, selectedEntryHistoryRight.value);
 });
@@ -5074,144 +4782,6 @@ const selectedEffectDelayText = computed({
     selectedEntry.value.effect.delay = parseNullableInteger(value);
   },
 });
-
-function extractEntryConfigPatch(entry: WorldbookEntry, includeExtra: boolean): EntryConfigPatch {
-  return {
-    enabled: entry.enabled,
-    strategy_type: entry.strategy.type,
-    keys_secondary_logic: entry.strategy.keys_secondary.logic,
-    scan_depth: entry.strategy.scan_depth,
-    position_type: entry.position.type,
-    position_order: Math.floor(toNumberSafe(entry.position.order, 100)),
-    position_role: entry.position.role,
-    position_depth: Math.max(0, Math.floor(toNumberSafe(entry.position.depth, 4))),
-    probability: clampNumber(Math.floor(toNumberSafe(entry.probability, 100)), 0, 100),
-    recursion_delay_until: parseNullableInteger(entry.recursion.delay_until),
-    prevent_incoming: Boolean(entry.recursion.prevent_incoming),
-    prevent_outgoing: Boolean(entry.recursion.prevent_outgoing),
-    effect_sticky: parseNullableInteger(entry.effect.sticky),
-    effect_cooldown: parseNullableInteger(entry.effect.cooldown),
-    effect_delay: parseNullableInteger(entry.effect.delay),
-    extra: includeExtra ? (entry.extra ? klona(entry.extra) : null) : null,
-  };
-}
-
-function applyEntryConfigPatch(entry: WorldbookEntry, patch: EntryConfigPatch, includeExtra: boolean): void {
-  entry.enabled = patch.enabled;
-
-  entry.strategy.type = patch.strategy_type;
-  entry.strategy.keys_secondary.logic = normalizeSecondaryLogic(patch.keys_secondary_logic);
-  entry.strategy.scan_depth = normalizeScanDepth(patch.scan_depth);
-
-  entry.position.type = normalizePositionType(patch.position_type);
-  entry.position.order = Math.floor(toNumberSafe(patch.position_order, entry.position.order));
-  if (entry.position.type === 'at_depth') {
-    entry.position.role = normalizeRole(patch.position_role);
-    entry.position.depth = Math.max(0, Math.floor(toNumberSafe(patch.position_depth, 4)));
-  } else {
-    entry.position.role = 'system';
-    entry.position.depth = 4;
-  }
-
-  entry.probability = clampNumber(Math.floor(toNumberSafe(patch.probability, entry.probability)), 0, 100);
-
-  entry.recursion.prevent_incoming = Boolean(patch.prevent_incoming);
-  entry.recursion.prevent_outgoing = Boolean(patch.prevent_outgoing);
-  entry.recursion.delay_until = parseNullableInteger(patch.recursion_delay_until);
-
-  entry.effect.sticky = parseNullableInteger(patch.effect_sticky);
-  entry.effect.cooldown = parseNullableInteger(patch.effect_cooldown);
-  entry.effect.delay = parseNullableInteger(patch.effect_delay);
-
-  if (includeExtra) {
-    if (patch.extra && Object.keys(patch.extra).length > 0) {
-      entry.extra = klona(patch.extra);
-    } else {
-      delete entry.extra;
-    }
-  }
-}
-
-function resetMultiEditSessionState(): void {
-  if (!isMultiEditSyncActive.value || !selectedEntry.value) {
-    multiEditLastPatch.value = null;
-    multiEditSnapshotDone.value = false;
-    return;
-  }
-  multiEditLastPatch.value = extractEntryConfigPatch(selectedEntry.value, multiEditSyncExtraJson.value);
-  multiEditSnapshotDone.value = false;
-}
-
-function syncSelectedEntryConfigToMultiSelection(nextPatch: EntryConfigPatch, previousPatch: EntryConfigPatch): void {
-  if (!selectedEntry.value || !isMultiEditSyncActive.value) {
-    return;
-  }
-  const orderedSelected = getOrderedSelectedEntryUids();
-  if (orderedSelected.length <= 1) {
-    return;
-  }
-  const primaryUid = selectedEntry.value.uid;
-  const includeExtra = multiEditSyncExtraJson.value;
-
-  const entryByUid = new Map(draftEntries.value.map(entry => [entry.uid, entry] as const));
-
-  if (!multiEditSnapshotDone.value) {
-    const snapshotItems: Array<{
-      label: string;
-      uid: number;
-      name: string;
-      entry: WorldbookEntry;
-    }> = [];
-
-    for (const uid of orderedSelected) {
-      const original = entryByUid.get(uid);
-      if (!original) {
-        continue;
-      }
-      const snapshotEntry = normalizeEntry(klona(original), uid);
-      if (uid === primaryUid) {
-        applyEntryConfigPatch(snapshotEntry, previousPatch, includeExtra);
-      }
-      snapshotItems.push({
-        label: '多选配置前快照',
-        uid,
-        name: original.name,
-        entry: snapshotEntry,
-      });
-    }
-
-    if (snapshotItems.length) {
-      pushEntrySnapshotsBulk(snapshotItems);
-    }
-    multiEditSnapshotDone.value = true;
-  }
-
-  let changedCount = 0;
-  multiEditApplying.value = true;
-  try {
-    for (const uid of orderedSelected) {
-      if (uid === primaryUid) {
-        continue;
-      }
-      const target = entryByUid.get(uid);
-      if (!target) {
-        continue;
-      }
-      const beforeDigest = JSON.stringify(extractEntryConfigPatch(target, includeExtra));
-      applyEntryConfigPatch(target, nextPatch, includeExtra);
-      const afterDigest = JSON.stringify(extractEntryConfigPatch(target, includeExtra));
-      if (beforeDigest !== afterDigest) {
-        changedCount += 1;
-      }
-    }
-  } finally {
-    multiEditApplying.value = false;
-  }
-
-  if (changedCount > 0) {
-    setStatus(`已同步配置到 ${changedCount} 个条目（名称/内容/关键词未同步）`);
-  }
-}
 
 const selectedContentChars = computed(() => {
   return selectedEntry.value?.content.length ?? 0;
@@ -5634,378 +5204,6 @@ watch(
   { immediate: true },
 );
 
-function createDefaultLayoutState(): LayoutState {
-  return {
-    focus_mode: false,
-    normal_left_width: MAIN_PANE_DEFAULT,
-    normal_right_width: EDITOR_SIDE_DEFAULT,
-    focus_left_width: FOCUS_MAIN_PANE_DEFAULT,
-    focus_right_width: FOCUS_EDITOR_SIDE_DEFAULT,
-  };
-}
-
-function createDefaultMultiEditPersistState(): MultiEditPersistState {
-  return {
-    enabled: true,
-    sync_extra_json: false,
-  };
-}
-
-function createDefaultTagEditorPersistState(): TagEditorPersistState {
-  return {
-    delete_parent_mode: 'promote',
-  };
-}
-
-function createDefaultCrossCopyPersistState(): CrossCopyPersistState {
-  return {
-    last_source_worldbook: '',
-    last_target_worldbook: '',
-    use_draft_source_when_current: true,
-    snapshot_before_apply: true,
-    desktop_left_width: CROSS_COPY_DESKTOP_LEFT_DEFAULT,
-    controls_collapsed: true,
-    workspace_tools_expanded: true,
-  };
-}
-
-function createDefaultTagFilterState(): TagFilterState {
-  return {
-    selected_ids: [],
-    logic: 'or',
-    match_mode: 'descendants',
-  };
-}
-
-function normalizeMultiEditPersistState(input: unknown): MultiEditPersistState {
-  const fallback = createDefaultMultiEditPersistState();
-  const raw = asRecord(input);
-  if (!raw) {
-    return fallback;
-  }
-  return {
-    enabled: raw.enabled !== false,
-    sync_extra_json: raw.sync_extra_json === true,
-  };
-}
-
-function normalizeCrossCopyPersistState(input: unknown): CrossCopyPersistState {
-  const fallback = createDefaultCrossCopyPersistState();
-  const raw = asRecord(input);
-  if (!raw) {
-    return fallback;
-  }
-  return {
-    last_source_worldbook: toStringSafe(raw.last_source_worldbook).trim(),
-    last_target_worldbook: toStringSafe(raw.last_target_worldbook).trim(),
-    use_draft_source_when_current: raw.use_draft_source_when_current !== false,
-    snapshot_before_apply: raw.snapshot_before_apply !== false,
-    desktop_left_width: clampNumber(
-      Math.floor(toNumberSafe(raw.desktop_left_width, fallback.desktop_left_width)),
-      CROSS_COPY_DESKTOP_LEFT_MIN,
-      CROSS_COPY_DESKTOP_LEFT_MAX,
-    ),
-    controls_collapsed: raw.controls_collapsed !== false,
-    workspace_tools_expanded: raw.workspace_tools_expanded === undefined
-      ? fallback.workspace_tools_expanded
-      : raw.workspace_tools_expanded === true,
-  };
-}
-
-function normalizeTagEditorPersistState(input: unknown): TagEditorPersistState {
-  const fallback = createDefaultTagEditorPersistState();
-  const raw = asRecord(input);
-  if (!raw) {
-    return fallback;
-  }
-  return {
-    delete_parent_mode: raw.delete_parent_mode === 'cascade' ? 'cascade' : fallback.delete_parent_mode,
-  };
-}
-
-function normalizeTagFilterState(input: unknown): TagFilterState {
-  const fallback = createDefaultTagFilterState();
-  const raw = asRecord(input);
-  if (!raw) {
-    return fallback;
-  }
-  const selected = Array.isArray(raw.selected_ids)
-    ? raw.selected_ids.map(id => toStringSafe(id).trim()).filter(Boolean)
-    : [];
-  return {
-    selected_ids: [...new Set(selected)],
-    logic: raw.logic === 'and' ? 'and' : fallback.logic,
-    match_mode: raw.match_mode === 'exact' ? 'exact' : fallback.match_mode,
-  };
-}
-
-function normalizeLayoutState(input: unknown): LayoutState {
-  const fallback = createDefaultLayoutState();
-  const raw = asRecord(input);
-  if (!raw) {
-    return fallback;
-  }
-  return {
-    focus_mode: raw.focus_mode === true,
-    normal_left_width: clampNumber(Math.floor(toNumberSafe(raw.normal_left_width, fallback.normal_left_width)), MAIN_PANE_MIN, 1200),
-    normal_right_width: clampNumber(Math.floor(toNumberSafe(raw.normal_right_width, fallback.normal_right_width)), EDITOR_SIDE_MIN, 1200),
-    focus_left_width: clampNumber(Math.floor(toNumberSafe(raw.focus_left_width, fallback.focus_left_width)), FOCUS_MAIN_PANE_MIN, 800),
-    focus_right_width: clampNumber(Math.floor(toNumberSafe(raw.focus_right_width, fallback.focus_right_width)), FOCUS_EDITOR_SIDE_MIN, 800),
-  };
-}
-
-function createDefaultPersistedState(): PersistedState {
-  return {
-    last_worldbook: '',
-    history: {},
-    entry_history: {},
-    global_presets: [],
-    last_global_preset_id: '',
-    role_override_baseline: null,
-    theme: 'ocean',
-    ai_chat: { sessions: [], activeSessionId: null },
-    worldbook_tags: { definitions: [], assignments: {} },
-    tag_filter: createDefaultTagFilterState(),
-    extract_ignore_tags: ['think', 'thinking', 'recap', 'content', 'details', 'summary'],
-    show_ai_chat: false,
-    multi_edit: createDefaultMultiEditPersistState(),
-    tag_editor: createDefaultTagEditorPersistState(),
-    ai_api_config: {
-      mode: 'tavern',
-      use_main_api: true,
-      apiurl: '',
-      key: '',
-      model: '',
-      max_tokens: 4096,
-      temperature: 1,
-    },
-    layout: createDefaultLayoutState(),
-    cross_copy: createDefaultCrossCopyPersistState(),
-    sort: { mode: 'mutate', reassign_uid: true },
-    glass_mode: true,
-    panel_mode: 'browse',
-  };
-}
-
-function normalizePersistedState(input: unknown): PersistedState {
-  const root = asRecord(input);
-  if (!root) {
-    return createDefaultPersistedState();
-  }
-
-  const historyRoot = asRecord(root.history) ?? {};
-  const history: Record<string, WorldbookSnapshot[]> = {};
-  for (const [name, rawSnapshots] of Object.entries(historyRoot)) {
-    if (!Array.isArray(rawSnapshots)) {
-      continue;
-    }
-    history[name] = rawSnapshots
-      .map(item => {
-        const record = asRecord(item);
-        if (!record) {
-          return null;
-        }
-        const entriesRaw = Array.isArray(record.entries) ? record.entries : [];
-        return {
-          id: toStringSafe(record.id, createId('snapshot')),
-          label: toStringSafe(record.label, '快照'),
-          ts: toNumberSafe(record.ts, Date.now()),
-          entries: normalizeEntryList(entriesRaw),
-        } satisfies WorldbookSnapshot;
-      })
-      .filter((item): item is WorldbookSnapshot => item !== null)
-      .slice(0, HISTORY_LIMIT);
-  }
-
-  const entryHistoryRoot = asRecord(root.entry_history) ?? {};
-  const entryHistory: Record<string, Record<string, EntrySnapshot[]>> = {};
-  for (const [worldbookName, rawByUid] of Object.entries(entryHistoryRoot)) {
-    const uidRecord = asRecord(rawByUid);
-    if (!uidRecord) {
-      continue;
-    }
-    const normalizedByUid: Record<string, EntrySnapshot[]> = {};
-    for (const [uidKey, rawItems] of Object.entries(uidRecord)) {
-      if (!Array.isArray(rawItems)) {
-        continue;
-      }
-      const uidNumber = Math.max(0, Math.floor(toNumberSafe(uidKey, 0)));
-      normalizedByUid[uidKey] = rawItems
-        .map(item => {
-          const record = asRecord(item);
-          if (!record) {
-            return null;
-          }
-          return {
-            id: toStringSafe(record.id, createId('entry-snapshot')),
-            label: toStringSafe(record.label, '条目快照'),
-            ts: toNumberSafe(record.ts, Date.now()),
-            uid: uidNumber,
-            name: toStringSafe(record.name, `条目 ${uidNumber}`),
-            entry: normalizeEntry(record.entry, uidNumber),
-          } satisfies EntrySnapshot;
-        })
-        .filter((item): item is EntrySnapshot => item !== null)
-        .slice(0, ENTRY_HISTORY_LIMIT);
-    }
-    if (Object.keys(normalizedByUid).length > 0) {
-      entryHistory[worldbookName] = normalizedByUid;
-    }
-  }
-
-  const globalPresetsRaw = Array.isArray(root.global_presets) ? root.global_presets : [];
-  const globalPresets = globalPresetsRaw
-    .map(item => {
-      const record = asRecord(item);
-      if (!record) {
-        return null;
-      }
-      const worldbooksRaw = Array.isArray(record.worldbooks) ? record.worldbooks : [];
-      const worldbooks = [...new Set(worldbooksRaw.map(name => toStringSafe(name).trim()).filter(Boolean))];
-      const roleBindings = normalizePresetRoleBindings(record.role_bindings);
-      return {
-        id: toStringSafe(record.id, createId('global-preset')),
-        name: toStringSafe(record.name, '未命名预设'),
-        worldbooks,
-        role_bindings: roleBindings,
-        updated_at: toNumberSafe(record.updated_at, Date.now()),
-      } satisfies GlobalWorldbookPreset;
-    })
-    .filter((item): item is GlobalWorldbookPreset => item !== null)
-    .slice(0, GLOBAL_PRESET_LIMIT);
-
-  const rawBaseline = asRecord(root.role_override_baseline);
-  let roleOverrideBaseline: PersistedState['role_override_baseline'] = null;
-  if (rawBaseline) {
-    const baselineWorldbooks = Array.isArray(rawBaseline.worldbooks)
-      ? rawBaseline.worldbooks.map(name => toStringSafe(name).trim()).filter(Boolean)
-      : [];
-    roleOverrideBaseline = {
-      preset_id: toStringSafe(rawBaseline.preset_id),
-      worldbooks: [...new Set(baselineWorldbooks)],
-    };
-  }
-
-  const aiChatRaw = asRecord(root.ai_chat);
-  const aiChat: AIGeneratorState = { sessions: [], activeSessionId: null };
-  if (aiChatRaw) {
-    aiChat.activeSessionId = toStringSafe(aiChatRaw.activeSessionId) || null;
-    if (Array.isArray(aiChatRaw.sessions)) {
-      aiChat.sessions = aiChatRaw.sessions
-        .map((s: unknown) => {
-          const sr = asRecord(s);
-          if (!sr) return null;
-          const msgs = Array.isArray(sr.messages)
-            ? sr.messages.map((m: unknown) => {
-                const mr = asRecord(m);
-                if (!mr) return null;
-                return {
-                  role: mr.role === 'assistant' ? 'assistant' : 'user',
-                  content: toStringSafe(mr.content),
-                  timestamp: toNumberSafe(mr.timestamp, Date.now()),
-                } satisfies AIChatMessage;
-              }).filter((m): m is AIChatMessage => m !== null)
-            : [];
-          return {
-            id: toStringSafe(sr.id, createId('ai-chat')),
-            title: toStringSafe(sr.title, '新对话'),
-            createdAt: toNumberSafe(sr.createdAt, Date.now()),
-            messages: msgs.slice(0, AI_CHAT_MESSAGE_LIMIT),
-          } satisfies AIChatSession;
-        })
-        .filter((s): s is AIChatSession => s !== null)
-        .slice(0, AI_CHAT_SESSION_LIMIT);
-    }
-  }
-
-  // 标签数据规范化
-  const rawTags = asRecord(root.worldbook_tags);
-  const tagDefs: WorldbookTagDefinition[] = [];
-  const tagIdSet = new Set<string>();
-  if (rawTags && Array.isArray(rawTags.definitions)) {
-    rawTags.definitions.forEach((d, index) => {
-      const dr = asRecord(d);
-      if (!dr) return;
-      const id = toStringSafe(dr.id).trim();
-      const name = toStringSafe(dr.name).trim();
-      if (!id || !name || tagIdSet.has(id)) return;
-      const parentIdRaw = toStringSafe(dr.parent_id).trim();
-      const parentId = parentIdRaw || null;
-      tagDefs.push({
-        id,
-        name,
-        color: toStringSafe(dr.color, TAG_COLORS[0]),
-        parent_id: parentId,
-        sort: Math.max(0, Math.floor(toNumberSafe(dr.sort, index))),
-      });
-      tagIdSet.add(id);
-    });
-  }
-  const tagIdSetFromDefs = new Set(tagDefs.map(tag => tag.id));
-  for (const def of tagDefs) {
-    if (def.parent_id && !tagIdSetFromDefs.has(def.parent_id)) {
-      def.parent_id = null;
-    }
-  }
-  const tagAssignmentsRaw = asRecord(rawTags?.assignments);
-  const tagAssignmentsNorm: Record<string, string[]> = {};
-  if (tagAssignmentsRaw) {
-    for (const [wbName, ids] of Object.entries(tagAssignmentsRaw)) {
-      if (Array.isArray(ids)) {
-        const normalizedIds = [...new Set(ids.map(id => toStringSafe(id)).filter(id => tagIdSetFromDefs.has(id)))];
-        if (normalizedIds.length) {
-          tagAssignmentsNorm[wbName] = normalizedIds;
-        }
-      }
-    }
-  }
-  const normalizedTagFilter = normalizeTagFilterState(root.tag_filter);
-  normalizedTagFilter.selected_ids = normalizedTagFilter.selected_ids.filter(id => tagIdSetFromDefs.has(id));
-
-  return {
-    last_worldbook: toStringSafe(root.last_worldbook),
-    history,
-    entry_history: entryHistory,
-    global_presets: globalPresets,
-    last_global_preset_id: toStringSafe(root.last_global_preset_id),
-    role_override_baseline: roleOverrideBaseline,
-    theme: (toStringSafe(root.theme) as ThemeKey) || 'ocean',
-    ai_chat: aiChat,
-    worldbook_tags: { definitions: tagDefs.slice(0, TAG_LIMIT), assignments: tagAssignmentsNorm },
-    tag_filter: normalizedTagFilter,
-    extract_ignore_tags: Array.isArray(root.extract_ignore_tags)
-      ? root.extract_ignore_tags.map((t: unknown) => toStringSafe(t).trim().toLowerCase()).filter(Boolean)
-      : ['thinking', 'recap', 'content', 'details', 'summary'],
-    show_ai_chat: root.show_ai_chat === true,
-    multi_edit: normalizeMultiEditPersistState(root.multi_edit),
-    tag_editor: normalizeTagEditorPersistState(root.tag_editor),
-    ai_api_config: (() => {
-      const raw = asRecord(root.ai_api_config);
-      if (!raw) return createDefaultPersistedState().ai_api_config;
-      return {
-        mode: raw.mode === 'custom' ? 'custom' : 'tavern',
-        use_main_api: raw.use_main_api !== false,
-        apiurl: toStringSafe(raw.apiurl),
-        key: toStringSafe(raw.key),
-        model: toStringSafe(raw.model),
-        max_tokens: toNumberSafe(raw.max_tokens, 4096),
-        temperature: toNumberSafe(raw.temperature, 1),
-      } as AIApiConfig;
-    })(),
-    layout: normalizeLayoutState(root.layout),
-    cross_copy: normalizeCrossCopyPersistState(root.cross_copy),
-    sort: (() => {
-      const raw = asRecord(root.sort);
-      return {
-        mode: raw?.mode === 'view' ? 'view' as const : 'mutate' as const,
-        reassign_uid: raw?.reassign_uid !== false,
-      };
-    })(),
-    glass_mode: root.glass_mode === true,
-    panel_mode: root.panel_mode === 'editor' ? 'editor' : 'browse',
-  };
-}
-
 function readPersistedState(): PersistedState {
   const ctx = (window as any).SillyTavern?.getContext?.();
   if (!ctx) return createDefaultPersistedState();
@@ -6013,20 +5211,6 @@ function readPersistedState(): PersistedState {
     ctx.extensionSettings.worldbookAssistant = {};
   }
   return normalizePersistedState(ctx.extensionSettings.worldbookAssistant[STORAGE_KEY]);
-}
-
-function syncSelectedGlobalPresetFromState(): void {
-  const presets = persistedState.value.global_presets;
-  const byId = new Set(presets.map(item => item.id));
-  const preferredId = persistedState.value.last_global_preset_id;
-  if (preferredId && byId.has(preferredId)) {
-    selectedGlobalPresetId.value = preferredId;
-    return;
-  }
-  if (selectedGlobalPresetId.value && byId.has(selectedGlobalPresetId.value)) {
-    return;
-  }
-  selectedGlobalPresetId.value = '';
 }
 
 function writePersistedState(state: PersistedState): void {
@@ -6207,688 +5391,6 @@ function normalizeCrossCopyWorldbookSelection(): void {
   }
 }
 
-// ── AI Chat: computed ──────────────────────────────────────────────
-const aiSessions = computed(() => persistedState.value.ai_chat.sessions);
-
-const aiActiveSession = computed((): AIChatSession | null => {
-  const id = persistedState.value.ai_chat.activeSessionId;
-  if (!id) return null;
-  return aiSessions.value.find(s => s.id === id) ?? null;
-});
-
-const aiActiveMessages = computed((): AIChatMessage[] => aiActiveSession.value?.messages ?? []);
-
-// ── AI Chat: CRUD ──────────────────────────────────────────────────
-function aiCreateSession(): void {
-  const id = createId('ai-chat');
-  const session: AIChatSession = {
-    id,
-    title: `对话 ${aiSessions.value.length + 1}`,
-    createdAt: Date.now(),
-    messages: [],
-  };
-  updatePersistedState(state => {
-    state.ai_chat.sessions.unshift(session);
-    state.ai_chat.activeSessionId = id;
-  });
-  setStatus('已创建新对话');
-}
-
-function aiDeleteSession(id: string): void {
-  updatePersistedState(state => {
-    state.ai_chat.sessions = state.ai_chat.sessions.filter(s => s.id !== id);
-    if (state.ai_chat.activeSessionId === id) {
-      state.ai_chat.activeSessionId = state.ai_chat.sessions[0]?.id ?? null;
-    }
-  });
-  setStatus('已删除对话');
-}
-
-function aiSwitchSession(id: string): void {
-  updatePersistedState(state => {
-    state.ai_chat.activeSessionId = id;
-  });
-}
-
-function aiRenameSession(id: string, title: string): void {
-  updatePersistedState(state => {
-    const session = state.ai_chat.sessions.find(s => s.id === id);
-    if (session) {
-      session.title = title.trim() || session.title;
-    }
-  });
-}
-
-function aiAddMessage(role: 'user' | 'assistant', content: string): void {
-  const sessionId = persistedState.value.ai_chat.activeSessionId;
-  if (!sessionId) return;
-  updatePersistedState(state => {
-    const session = state.ai_chat.sessions.find(s => s.id === sessionId);
-    if (session) {
-      session.messages.push({ role, content, timestamp: Date.now() });
-      if (session.messages.length > AI_CHAT_MESSAGE_LIMIT) {
-        session.messages = session.messages.slice(-AI_CHAT_MESSAGE_LIMIT);
-      }
-    }
-  });
-}
-
-// ── AI: API config helpers ──────────────────────────────────────────
-function updateApiConfig(partial: Partial<AIApiConfig>): void {
-  updatePersistedState(state => {
-    Object.assign(state.ai_api_config, partial);
-  });
-}
-
-async function loadModelList(): Promise<void> {
-  const cfg = persistedState.value.ai_api_config;
-  if (!cfg.apiurl) {
-    toastr.warning('请先填写 API 基础 URL');
-    return;
-  }
-  apiModelLoading.value = true;
-  try {
-    let models: string[];
-
-    // Try TavernHelper's built-in getModelList first; fall back to direct fetch
-    if (typeof getModelList === 'function') {
-      models = await getModelList({ apiurl: cfg.apiurl, key: cfg.key || undefined });
-    } else {
-      // Fallback: direct fetch to OpenAI-compatible /v1/models
-      let baseUrl = cfg.apiurl.replace(/\/+$/, '');
-      if (!baseUrl.endsWith('/v1')) {
-        baseUrl += '/v1';
-      }
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (cfg.key) {
-        headers['Authorization'] = `Bearer ${cfg.key}`;
-      }
-      const resp = await fetch(`${baseUrl}/models`, { method: 'GET', headers });
-      if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
-      }
-      const json = await resp.json();
-      models = (json.data || []).map((m: any) => m.id as string).filter(Boolean).sort();
-    }
-
-    apiModelList.value = models;
-    if (models.length === 0) {
-      toastr.info('未获取到模型列表');
-    } else {
-      toastr.success(`加载到 ${models.length} 个模型`);
-    }
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    toastr.error(`加载模型列表失败: ${msg}`);
-    apiModelList.value = [];
-  } finally {
-    apiModelLoading.value = false;
-  }
-}
-
-function buildCustomApiForGenerate(): { custom_api?: CustomApiConfig } {
-  const cfg = persistedState.value.ai_api_config;
-  if (cfg.mode === 'tavern' || cfg.use_main_api) {
-    return {};
-  }
-  return {
-    custom_api: {
-      apiurl: cfg.apiurl,
-      key: cfg.key || undefined,
-      model: cfg.model,
-      source: 'openai',
-      max_tokens: cfg.max_tokens || undefined,
-      temperature: cfg.temperature,
-    },
-  };
-}
-
-// ── AI: Worldbook Config ────────────────────────────────────────────
-const POSITION_TYPE_LABELS: Record<string, string> = {
-  before_character_definition: '角色定义之前',
-  after_character_definition: '角色定义之后',
-  before_example_messages: '示例消息前（↑EM）',
-  after_example_messages: '示例消息后（↓EM）',
-  before_author_note: '作者注释之前',
-  after_author_note: '作者注释之后',
-  at_depth: '@D 在深度',
-};
-
-const STRATEGY_TYPE_LABELS: Record<string, string> = {
-  constant: '蓝灯（常驻）',
-  selective: '绿灯（关键词）',
-  vectorized: '向量化',
-};
-
-function buildConfigSystemPrompt(entries: WorldbookEntry[], forceDefault = false): string {
-  if (!forceDefault && aiConfigCustomPrompt.value.trim()) {
-    return aiConfigCustomPrompt.value;
-  }
-  const names = [...new Set(entries.map(e => e.name))].map(n => `"${n}"`).join(', ');
-
-  return `你是世界书条目配置助手。根据用户的自然语言指令，输出对应的JSON配置。
-
-## 可用条目
-${names || '无'}
-
-## JSON Schema
-每个配置对象的可用字段如下（只包含需要修改的字段，name必填）：
-{
-  "name": "str! 必须精确匹配上方条目名",
-  "new_name": "str 重命名条目",
-  "enabled": "bool",
-  "strategy_type": "constant(蓝灯常驻) | selective(绿灯关键词)",
-  "keys": ["str 主要关键词"],
-  "keys_secondary": ["str 次要关键词"],
-  "keys_secondary_logic": "and_any | and_all | not_all | not_any",
-  "scan_depth": "int | 'same_as_global'",
-  "position_type": "before_character_definition(角色定义之前) | after_character_definition(角色定义之后) | before_example_messages(示例消息前) | after_example_messages(示例消息后) | before_author_note(作者注释之前) | after_author_note(作者注释之后) | at_depth(指定深度)",
-  "position_order": "int 排序顺序",
-  "position_depth": "int 深度(at_depth时)",
-  "position_role": "system | assistant | user",
-  "prevent_incoming": "bool 不可递归",
-  "prevent_outgoing": "bool 防止进一步递归",
-  "probability": "int 0-100",
-  "sticky": "int|null 黏性",
-  "cooldown": "int|null 冷却"
-}
-
-## 思考步骤（内部思考，不要输出思考过程，直接输出结果）
-1. 识别用户提到了哪些条目（精确匹配"可用条目"中的名称）
-2. 识别每个条目需要修改什么设置（蓝灯/绿灯、位置、顺序、递归等）
-3. 如果用户给条目起了新名字，使用new_name字段
-4. 只输出有变更的字段，不要输出未提及的字段
-5. 注意：同名条目只需写一次，修改会自动应用到所有同名条目
-
-## 输出格式
-将结果包裹在 <worldbook_config></worldbook_config> 中，内容为纯JSON数组，无注释无markdown。
-
-<worldbook_config>
-[{"name":"现有条目名","new_name":"新名字","strategy_type":"constant","position_type":"before_character_definition","position_order":1,"prevent_incoming":true,"prevent_outgoing":true}]
-</worldbook_config>`;
-}
-
-async function loadDefaultConfigPrompt(): Promise<void> {
-  const targetName = aiConfigTargetWorldbook.value;
-  if (!targetName) {
-    toastr.warning('请先选择目标世界书');
-    return;
-  }
-  try {
-    const entries = await getWorldbook(targetName);
-    aiConfigCustomPrompt.value = buildConfigSystemPrompt(entries, true);
-  } catch (e) {
-    toastr.error('加载失败');
-  }
-}
-
-
-async function aiConfigGenerate(): Promise<void> {
-  const input = aiConfigInput.value.trim();
-  const targetName = aiConfigTargetWorldbook.value;
-  if (!input || !targetName) {
-    toastr.warning('请先选择目标世界书并输入配置指令');
-    return;
-  }
-  aiConfigGenerating.value = true;
-  try {
-    const existingEntries = await getWorldbook(targetName);
-
-    const systemPrompt = buildConfigSystemPrompt(existingEntries);
-
-    const result = await generateRaw({
-      user_input: input,
-      should_silence: true,
-      ordered_prompts: [
-        { role: 'system', content: systemPrompt },
-        'user_input',
-      ],
-      ...buildCustomApiForGenerate(),
-    });
-
-    // Strip AI thinking/reasoning blocks that may contain false tag matches
-    const cleaned = result
-      .replace(/<(?:thinking|Think)>[\s\S]*?<\/(?:thinking|Think)>/gi, '')
-      .replace(/<!--[\s\S]*?-->/g, '');
-
-    // Parse <worldbook_config> tag — use lastIndexOf to find the LAST tag pair
-    let jsonStr = '';
-    const startTag = '<worldbook_config>';
-    const endTag = '</worldbook_config>';
-    const lastStart = cleaned.lastIndexOf(startTag);
-    const lastEnd = cleaned.lastIndexOf(endTag);
-    if (lastStart !== -1 && lastEnd !== -1 && lastEnd > lastStart) {
-      jsonStr = cleaned.substring(lastStart + startTag.length, lastEnd).trim();
-    } else {
-      // Fallback 1: look for JSON array inside markdown code block
-      const codeBlockMatch = cleaned.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/);
-      if (codeBlockMatch) {
-        jsonStr = codeBlockMatch[1];
-      } else {
-        // Fallback 2: find a JSON array that contains "name"
-        const arrayMatch = cleaned.match(/\[\s*\{[\s\S]*?"name"[\s\S]*?\}\s*\]/);
-        if (arrayMatch) {
-          jsonStr = arrayMatch[0];
-        } else {
-          console.error('[AI Config] No JSON found in response:\n', result);
-          toastr.error(`① AI 未返回有效 JSON。AI 响应长度: ${result.length} 字符。请检查 API 设置或重试`);
-          return;
-        }
-      }
-    }
-    // Clean up common AI formatting issues
-    jsonStr = jsonStr
-      .replace(/```(?:json)?\s*/g, '')  // strip markdown code fences
-      .replace(/```\s*/g, '')
-      .replace(/\/\/.*$/gm, '')          // strip single-line comments
-      .replace(/,\s*([}\]])/g, '$1')     // strip trailing commas
-      .trim();
-    let configs: any[];
-    try {
-      configs = JSON.parse(jsonStr);
-    } catch (parseErr) {
-      console.error('[AI Config] JSON parse error:', parseErr, '\nCleaned JSON:', jsonStr, '\nFull response:\n', result);
-      toastr.error(`② JSON 格式错误: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}\n请在控制台(F12)查看 [AI Config] 了解详情`);
-      return;
-    }
-    if (!Array.isArray(configs) || configs.length === 0) {
-      toastr.info('AI 返回的配置与当前一致，无需变更（AI 可能未理解指令，可尝试更明确的描述）');
-      return;
-    }
-
-    // Build ConfigChange[] by diffing against existing entries
-    const changes: ConfigChange[] = [];
-
-    for (const cfg of configs) {
-      const name = cfg.name;
-      if (!name) continue;
-      const matchedEntries = existingEntries.filter(e => e.name === name);
-      if (matchedEntries.length === 0) {
-        toastr.warning(`条目 "${name}" 在世界书中不存在，已跳过`);
-        continue;
-      }
-      // Use first matched entry for diff comparison (all same-name entries share config)
-      const entry = matchedEntries[0];
-
-      // Check each settable field
-      if (cfg.strategy_type !== undefined && cfg.strategy_type !== entry.strategy.type) {
-        const oldLabel = STRATEGY_TYPE_LABELS[entry.strategy.type] || entry.strategy.type;
-        const newLabel = STRATEGY_TYPE_LABELS[cfg.strategy_type] || cfg.strategy_type;
-        changes.push({ name, field: 'strategy_type', label: '激活策略', oldValue: oldLabel, newValue: newLabel, selected: true, apply: e => { e.strategy.type = cfg.strategy_type; } });
-      }
-
-      if (cfg.keys !== undefined) {
-        const oldKeys = entry.strategy.keys.map(k => String(k)).join(', ') || '（无）';
-        const newKeys = cfg.keys.join(', ') || '（无）';
-        if (oldKeys !== newKeys) {
-          changes.push({ name, field: 'keys', label: '主要关键词', oldValue: oldKeys, newValue: newKeys, selected: true, apply: e => { e.strategy.keys = cfg.keys; } });
-        }
-      }
-
-      if (cfg.keys_secondary !== undefined) {
-        const oldSecKeys = entry.strategy.keys_secondary.keys.map(k => String(k)).join(', ') || '（无）';
-        const newSecKeys = cfg.keys_secondary.join(', ') || '（无）';
-        if (oldSecKeys !== newSecKeys) {
-          changes.push({ name, field: 'keys_secondary', label: '次要关键词', oldValue: oldSecKeys, newValue: newSecKeys, selected: true, apply: e => { e.strategy.keys_secondary.keys = cfg.keys_secondary; } });
-        }
-      }
-
-      if (cfg.keys_secondary_logic !== undefined && cfg.keys_secondary_logic !== entry.strategy.keys_secondary.logic) {
-        changes.push({ name, field: 'keys_secondary_logic', label: '次要关键词逻辑', oldValue: entry.strategy.keys_secondary.logic, newValue: cfg.keys_secondary_logic, selected: true, apply: e => { e.strategy.keys_secondary.logic = cfg.keys_secondary_logic; } });
-      }
-
-      if (cfg.scan_depth !== undefined) {
-        const oldSd = String(entry.strategy.scan_depth);
-        const newSd = String(cfg.scan_depth);
-        if (oldSd !== newSd) {
-          changes.push({ name, field: 'scan_depth', label: '扫描深度', oldValue: oldSd, newValue: newSd, selected: true, apply: e => { e.strategy.scan_depth = cfg.scan_depth === 'same_as_global' ? 'same_as_global' : Number(cfg.scan_depth); } });
-        }
-      }
-
-      if (cfg.position_type !== undefined && cfg.position_type !== entry.position.type) {
-        const oldLabel = POSITION_TYPE_LABELS[entry.position.type] || entry.position.type;
-        const newLabel = POSITION_TYPE_LABELS[cfg.position_type] || cfg.position_type;
-        changes.push({ name, field: 'position_type', label: '插入位置', oldValue: oldLabel, newValue: newLabel, selected: true, apply: e => { e.position.type = cfg.position_type; } });
-      }
-
-      if (cfg.position_order !== undefined && cfg.position_order !== entry.position.order) {
-        changes.push({ name, field: 'position_order', label: '顺序', oldValue: String(entry.position.order), newValue: String(cfg.position_order), selected: true, apply: e => { e.position.order = cfg.position_order; } });
-      }
-
-      if (cfg.position_depth !== undefined && cfg.position_depth !== entry.position.depth) {
-        changes.push({ name, field: 'position_depth', label: '深度', oldValue: String(entry.position.depth), newValue: String(cfg.position_depth), selected: true, apply: e => { e.position.depth = cfg.position_depth; } });
-      }
-
-      if (cfg.position_role !== undefined && cfg.position_role !== entry.position.role) {
-        changes.push({ name, field: 'position_role', label: '角色', oldValue: entry.position.role, newValue: cfg.position_role, selected: true, apply: e => { e.position.role = cfg.position_role; } });
-      }
-
-      if (cfg.prevent_incoming !== undefined && cfg.prevent_incoming !== entry.recursion.prevent_incoming) {
-        changes.push({ name, field: 'prevent_incoming', label: '不可递归', oldValue: entry.recursion.prevent_incoming ? '是' : '否', newValue: cfg.prevent_incoming ? '是' : '否', selected: true, apply: e => { e.recursion.prevent_incoming = cfg.prevent_incoming; } });
-      }
-
-      if (cfg.prevent_outgoing !== undefined && cfg.prevent_outgoing !== entry.recursion.prevent_outgoing) {
-        changes.push({ name, field: 'prevent_outgoing', label: '防止进一步递归', oldValue: entry.recursion.prevent_outgoing ? '是' : '否', newValue: cfg.prevent_outgoing ? '是' : '否', selected: true, apply: e => { e.recursion.prevent_outgoing = cfg.prevent_outgoing; } });
-      }
-
-      if (cfg.new_name !== undefined && cfg.new_name !== entry.name) {
-        changes.push({ name, field: 'new_name', label: '条目名称', oldValue: entry.name, newValue: cfg.new_name, selected: true, apply: e => { e.name = cfg.new_name; } });
-      }
-
-      if (cfg.enabled !== undefined && cfg.enabled !== entry.enabled) {
-        changes.push({ name, field: 'enabled', label: '启用', oldValue: entry.enabled ? '是' : '否', newValue: cfg.enabled ? '是' : '否', selected: true, apply: e => { e.enabled = cfg.enabled; } });
-      }
-
-      if (cfg.probability !== undefined && cfg.probability !== entry.probability) {
-        changes.push({ name, field: 'probability', label: '激活概率%', oldValue: String(entry.probability), newValue: String(cfg.probability), selected: true, apply: e => { e.probability = cfg.probability; } });
-      }
-
-      if (cfg.sticky !== undefined && cfg.sticky !== entry.effect.sticky) {
-        changes.push({ name, field: 'sticky', label: '黏性', oldValue: String(entry.effect.sticky ?? '无'), newValue: String(cfg.sticky ?? '无'), selected: true, apply: e => { e.effect.sticky = cfg.sticky; } });
-      }
-
-      if (cfg.cooldown !== undefined && cfg.cooldown !== entry.effect.cooldown) {
-        changes.push({ name, field: 'cooldown', label: '冷却', oldValue: String(entry.effect.cooldown ?? '无'), newValue: String(cfg.cooldown ?? '无'), selected: true, apply: e => { e.effect.cooldown = cfg.cooldown; } });
-      }
-    }
-
-    if (changes.length === 0) {
-      toastr.info('③ 解析完成但无实际变更 — AI 返回的配置与当前完全一致');
-      return;
-    }
-
-    aiConfigChanges.value = changes;
-    aiConfigPreview.value = true;
-    toastr.success(`解析到 ${changes.length} 项变更`);
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error('[AI Config] Generation failed:', error);
-    toastr.error(`AI 生成失败: ${msg}`);
-    if (msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')) {
-      toastr.warning('可能是网络问题或 API 配置有误，请检查 ⚙️ API 设置');
-    }
-  } finally {
-    aiConfigGenerating.value = false;
-  }
-}
-
-async function aiConfigApply(): Promise<void> {
-  const targetName = aiConfigTargetWorldbook.value;
-  const selected = aiConfigChanges.value.filter(c => c.selected);
-  if (!targetName || selected.length === 0) return;
-
-  try {
-    await updateWorldbookWith(targetName, entries => {
-      for (const change of selected) {
-        // Apply to ALL entries with matching name (handles duplicates)
-        const matched = entries.filter(e => e.name === change.name);
-        for (const entry of matched) {
-          change.apply(entry);
-        }
-      }
-      return entries;
-    });
-    aiConfigPreview.value = false;
-    aiConfigChanges.value = [];
-    toastr.success(`已应用 ${selected.length} 项配置变更`);
-    await loadWorldbook(targetName);
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    toastr.error(`应用配置失败: ${msg}`);
-  }
-}
-
-// ── AI Chat: generate ──────────────────────────────────────────────
-let aiStreamSubscription: { stop: () => void } | null = null;
-
-async function aiSendMessage(): Promise<void> {
-  const text = aiChatInputText.value.trim();
-  if (!text || aiIsGenerating.value) return;
-
-  const sessionId = persistedState.value.ai_chat.activeSessionId;
-  if (!sessionId) {
-    aiCreateSession();
-  }
-
-  aiChatInputText.value = '';
-  aiAddMessage('user', text);
-
-  const session = persistedState.value.ai_chat.sessions.find(
-    s => s.id === persistedState.value.ai_chat.activeSessionId
-  );
-  if (!session) return;
-
-  // Build prompts from session history (excluding the user message we just added since generate will use user_input)
-  const historyPrompts: RolePrompt[] = session.messages.slice(0, -1).map(m => ({
-    role: m.role,
-    content: m.content,
-  }));
-
-  const generationId = createId('ai-gen');
-  aiCurrentGenerationId.value = generationId;
-  aiIsGenerating.value = true;
-  aiStreamingText.value = '';
-
-  // Subscribe to streaming events
-  aiStreamSubscription = eventOn(
-    iframe_events.STREAM_TOKEN_RECEIVED_FULLY,
-    (fullText: string, genId: string) => {
-      if (genId === generationId) {
-        aiStreamingText.value = fullText;
-      }
-    }
-  );
-
-  try {
-    const generateConfig: Parameters<typeof generate>[0] = {
-      generation_id: generationId,
-      user_input: text,
-      should_stream: true,
-      should_silence: true,
-      ...buildCustomApiForGenerate(),
-    };
-
-    if (!aiUseContext.value) {
-      // 纯净模式: 覆盖 chat_history, 不使用酒馆上下文
-      generateConfig.overrides = {
-        chat_history: { prompts: historyPrompts },
-      };
-    }
-    // 附带上下文模式: 不设置 chat_history, 让酒馆构建完整 prompt (预设+世界书+正则)
-
-    const result = await generate(generateConfig);
-
-    aiAddMessage('assistant', result);
-    aiStreamingText.value = '';
-
-    // Auto-extract tags
-    const ignoreSet = new Set(persistedState.value.extract_ignore_tags.map(t => t.toLowerCase()));
-    const tags = aiExtractTags(result, ignoreSet);
-    if (tags.length > 0) {
-      aiExtractedTags.value = tags;
-      aiShowTagReview.value = true;
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    toastr.error(`AI 生成失败: ${message}`);
-    setStatus(`AI 生成失败: ${message}`);
-  } finally {
-    aiIsGenerating.value = false;
-    aiCurrentGenerationId.value = null;
-    aiStreamSubscription?.stop();
-    aiStreamSubscription = null;
-  }
-}
-
-function aiStopGeneration(): void {
-  if (aiCurrentGenerationId.value) {
-    stopGenerationById(aiCurrentGenerationId.value);
-  }
-}
-
-// ── AI Chat: tag extraction ────────────────────────────────────────
-function aiExtractTags(text: string, ignoreTags?: Set<string>): ExtractedTag[] {
-  const regex = /<([^/<>\s]+)>([\s\S]*?)<\/\1>/g;
-  const results: ExtractedTag[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(text)) !== null) {
-    const tagName = match[1];
-    const innerContent = match[2];
-    if (ignoreTags && ignoreTags.has(tagName.toLowerCase())) {
-      // Tag is ignored — skip it, but recursively scan its inner content
-      const nested = aiExtractTags(innerContent, ignoreTags);
-      results.push(...nested);
-    } else {
-      results.push({
-        tag: tagName,
-        content: innerContent.trim(),
-        selected: true,
-      });
-    }
-  }
-  return results;
-}
-
-function updateIgnoreTags(raw: string): void {
-  const tags = raw
-    .split(/[,\n]+/)
-    .map(t => t.trim().toLowerCase())
-    .filter(Boolean);
-  const unique = [...new Set(tags)];
-  updatePersistedState(state => {
-    state.extract_ignore_tags = unique;
-  });
-}
-
-function resetIgnoreTags(): void {
-  updatePersistedState(state => {
-    state.extract_ignore_tags = ['think', 'thinking', 'recap', 'content', 'details', 'summary'];
-  });
-}
-
-async function markDuplicatesInTags(): Promise<void> {
-  const targetName = aiTargetWorldbook.value;
-  if (!targetName || aiExtractedTags.value.length === 0) {
-    for (const tag of aiExtractedTags.value) {
-      tag.duplicate = false;
-      tag.updated = false;
-    }
-    return;
-  }
-  try {
-    const existing = await getWorldbook(targetName);
-    // Build a map: lowercase name → normalized content
-    const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
-    const existingMap = new Map<string, string>();
-    for (const e of existing) {
-      existingMap.set(e.name.toLowerCase(), norm(e.content));
-    }
-    for (const tag of aiExtractedTags.value) {
-      const key = tag.tag.toLowerCase();
-      const existingNorm = existingMap.get(key);
-      const tagNorm = norm(tag.content);
-      if (existingNorm === undefined) {
-        // Not in worldbook
-        tag.duplicate = false;
-        tag.updated = false;
-      } else if (existingNorm === tagNorm) {
-        // Same name + same content (after normalization) → true duplicate
-        tag.duplicate = true;
-        tag.updated = false;
-        tag.selected = false;
-      } else {
-        // Same name + different content → updated
-        tag.duplicate = false;
-        tag.updated = true;
-        // Keep selected — user likely wants the new version
-      }
-    }
-  } catch {
-    for (const tag of aiExtractedTags.value) {
-      tag.duplicate = false;
-      tag.updated = false;
-    }
-  }
-}
-
-async function extractFromChat(): Promise<void> {
-  try {
-    const lastId = getLastMessageId();
-    if (lastId < 0) {
-      toastr.warning('当前没有聊天记录');
-      return;
-    }
-    const messages = getChatMessages(`0-${lastId}`);
-    const ignoreSet = new Set(persistedState.value.extract_ignore_tags.map(t => t.toLowerCase()));
-    const allTags: ExtractedTag[] = [];
-    for (const msg of messages) {
-      const tags = aiExtractTags(msg.message || '', ignoreSet);
-      allTags.push(...tags);
-    }
-
-    if (allTags.length === 0) {
-      toastr.info('聊天记录中未找到 <tag>content</tag> 格式的条目');
-      return;
-    }
-
-    // Dedup by tag name: keep the LAST occurrence (most recent message wins)
-    const tagNameMap = new Map<string, ExtractedTag>();
-    for (const t of allTags) {
-      tagNameMap.set(t.tag.toLowerCase(), t);
-    }
-    const byName = [...tagNameMap.values()];
-
-    // Also dedup by normalized content (different tag name, same content)
-    const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
-    const seenContent = new Set<string>();
-    const deduped = byName.filter(t => {
-      const contentKey = norm(t.content);
-      if (seenContent.has(contentKey)) return false;
-      seenContent.add(contentKey);
-      return true;
-    });
-
-    aiExtractedTags.value = deduped;
-    aiTargetWorldbook.value = selectedWorldbookName.value || '';
-    aiShowTagReview.value = true;
-    await markDuplicatesInTags();
-    toastr.success(`从聊天记录中提取到 ${deduped.length} 个条目`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    toastr.error(`提取失败: ${message}`);
-  }
-}
-
-async function aiCreateSelectedEntries(): Promise<void> {
-  const selected = aiExtractedTags.value.filter(t => t.selected);
-  if (selected.length === 0) {
-    toastr.warning('请至少勾选一个条目');
-    return;
-  }
-
-  const targetName = aiTargetWorldbook.value;
-  if (!targetName) {
-    toastr.warning('请选择目标世界书');
-    return;
-  }
-
-  try {
-    const newEntries = selected.map(t => ({
-      name: t.tag,
-      content: t.content,
-    }));
-
-    await createWorldbookEntries(targetName, newEntries);
-    toastr.success(`已创建 ${selected.length} 个条目到 "${targetName}"`);
-    setStatus(`已创建 ${selected.length} 个条目到 "${targetName}"`);
-    aiShowTagReview.value = false;
-    aiExtractedTags.value = [];
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    toastr.error(`创建条目失败: ${message}`);
-  }
-}
-
 function aiToggleMode(): void {
   if (isAnyCineLocked.value) {
     return;
@@ -6911,250 +5413,6 @@ function tagToggleMode(): void {
     globalWorldbookMode.value = false;
     crossCopyMode.value = false;
   }
-}
-
-function normalizeTagNameKey(name: string): string {
-  return toStringSafe(name).trim().toLowerCase();
-}
-
-function ensureTagAssignTargetSelected(): void {
-  if (tagAssignTargetId.value && tagDefinitionMap.value.has(tagAssignTargetId.value)) {
-    return;
-  }
-  tagAssignTargetId.value = tagAssignOptions.value[0]?.id ?? '';
-}
-
-function isTagDescendantOf(targetId: string, potentialAncestorId: string): boolean {
-  if (!targetId || !potentialAncestorId) {
-    return false;
-  }
-  let cursor = tagDefinitionMap.value.get(targetId)?.parent_id ?? null;
-  const seen = new Set<string>();
-  while (cursor && !seen.has(cursor)) {
-    if (cursor === potentialAncestorId) {
-      return true;
-    }
-    seen.add(cursor);
-    cursor = tagDefinitionMap.value.get(cursor)?.parent_id ?? null;
-  }
-  return false;
-}
-
-function collectTagSubtreeIds(rootId: string): string[] {
-  const ids: string[] = [];
-  const queue: string[] = [rootId];
-  const seen = new Set<string>();
-  while (queue.length) {
-    const current = queue.shift()!;
-    if (seen.has(current)) {
-      continue;
-    }
-    seen.add(current);
-    ids.push(current);
-    const children = tagChildrenMap.value.get(current) ?? [];
-    for (const child of children) {
-      queue.push(child.id);
-    }
-  }
-  return ids;
-}
-
-function tagSetParent(tagId: string, parentId: string | null): void {
-  const normalizedParent = parentId && tagDefinitionMap.value.has(parentId) ? parentId : null;
-  const current = tagDefinitionMap.value.get(tagId);
-  if (!current) {
-    return;
-  }
-  if (normalizedParent === tagId || (normalizedParent && isTagDescendantOf(normalizedParent, tagId))) {
-    toastr.warning('不能将标签移动到自己或其子节点下');
-    return;
-  }
-  const siblingExists = tagDefinitions.value.some(def => {
-    if (def.id === tagId) {
-      return false;
-    }
-    const parentSame = (def.parent_id ?? null) === normalizedParent;
-    return parentSame && normalizeTagNameKey(def.name) === normalizeTagNameKey(current.name);
-  });
-  if (siblingExists) {
-    toastr.warning('同一父节点下已存在同名标签');
-    return;
-  }
-  updatePersistedState(state => {
-    const defs = state.worldbook_tags.definitions;
-    const target = defs.find(def => def.id === tagId);
-    if (!target) {
-      return;
-    }
-    target.parent_id = normalizedParent;
-    const siblingSorts = defs
-      .filter(def => def.id !== tagId && (def.parent_id ?? null) === normalizedParent)
-      .map(def => Math.max(0, Math.floor(toNumberSafe(def.sort, 0))));
-    const nextSort = siblingSorts.length ? Math.max(...siblingSorts) + 1 : 0;
-    target.sort = nextSort;
-  });
-}
-
-function isTagParentOptionDisabled(tagId: string, parentId: string): boolean {
-  if (!parentId) {
-    return false;
-  }
-  if (parentId === tagId) {
-    return true;
-  }
-  return isTagDescendantOf(parentId, tagId);
-}
-
-function setTagDeleteParentMode(modeRaw: string): void {
-  const mode: TagDeleteParentMode = modeRaw === 'cascade' ? 'cascade' : 'promote';
-  updatePersistedState(state => {
-    state.tag_editor.delete_parent_mode = mode;
-  });
-}
-
-function tagCreate(): void {
-  const name = tagNewName.value.trim();
-  if (!name) return;
-  const parentId = tagNewParentId.value && tagDefinitionMap.value.has(tagNewParentId.value) ? tagNewParentId.value : null;
-  const currentDefs = persistedState.value.worldbook_tags.definitions;
-  if (currentDefs.length >= TAG_LIMIT) {
-    const message = `标签数量已达上限（${TAG_LIMIT}）`;
-    toastr.warning(message);
-    setStatus(message);
-    return;
-  }
-  const siblingDup = currentDefs.some(def => {
-    const sameParent = (def.parent_id ?? null) === parentId;
-    return sameParent && normalizeTagNameKey(def.name) === normalizeTagNameKey(name);
-  });
-  if (siblingDup) {
-    const message = '同一父节点下已存在同名标签';
-    toastr.warning(message);
-    setStatus(message);
-    return;
-  }
-  let created = false;
-  updatePersistedState(state => {
-    const colorIndex = state.worldbook_tags.definitions.length % TAG_COLORS.length;
-    const siblingSorts = state.worldbook_tags.definitions
-      .filter(def => (def.parent_id ?? null) === parentId)
-      .map(def => Math.max(0, Math.floor(toNumberSafe(def.sort, 0))));
-    const nextSort = siblingSorts.length ? Math.max(...siblingSorts) + 1 : 0;
-    state.worldbook_tags.definitions.push({
-      id: createId('wbtag'),
-      name,
-      color: TAG_COLORS[colorIndex],
-      parent_id: parentId,
-      sort: nextSort,
-    });
-    created = true;
-  });
-  if (!created) {
-    const message = '创建标签失败，请重试';
-    toastr.warning(message);
-    setStatus(message);
-    return;
-  }
-  tagNewName.value = '';
-  ensureTagAssignTargetSelected();
-  setStatus(`已创建标签：${name}`);
-}
-
-function tagDelete(tagId: string): void {
-  const target = tagDefinitionMap.value.get(tagId);
-  if (!target) {
-    return;
-  }
-  const hasChildren = (tagChildrenMap.value.get(tagId) ?? []).length > 0;
-  const cascadeDelete = hasChildren && persistedState.value.tag_editor.delete_parent_mode === 'cascade';
-  const deleteIds = cascadeDelete ? collectTagSubtreeIds(tagId) : [tagId];
-  const deleteSet = new Set(deleteIds);
-  updatePersistedState(state => {
-    if (!cascadeDelete) {
-      const parent = state.worldbook_tags.definitions.find(def => def.id === tagId)?.parent_id ?? null;
-      for (const def of state.worldbook_tags.definitions) {
-        if (def.parent_id === tagId) {
-          def.parent_id = parent;
-        }
-      }
-    }
-    state.worldbook_tags.definitions = state.worldbook_tags.definitions.filter(def => !deleteSet.has(def.id));
-    for (const key of Object.keys(state.worldbook_tags.assignments)) {
-      const remained = (state.worldbook_tags.assignments[key] ?? []).filter(id => !deleteSet.has(id));
-      if (remained.length) {
-        state.worldbook_tags.assignments[key] = remained;
-      } else {
-        delete state.worldbook_tags.assignments[key];
-      }
-    }
-    state.tag_filter.selected_ids = (state.tag_filter.selected_ids ?? []).filter(id => !deleteSet.has(id));
-  });
-  if (tagAssignTargetId.value && deleteSet.has(tagAssignTargetId.value)) {
-    tagAssignTargetId.value = '';
-    ensureTagAssignTargetSelected();
-  }
-}
-
-function tagRename(tagId: string, newName: string): void {
-  const trimmed = newName.trim();
-  if (!trimmed) return;
-  const target = tagDefinitionMap.value.get(tagId);
-  if (!target) {
-    return;
-  }
-  const hasConflict = tagDefinitions.value.some(def => {
-    if (def.id === tagId) {
-      return false;
-    }
-    return (def.parent_id ?? null) === (target.parent_id ?? null) && normalizeTagNameKey(def.name) === normalizeTagNameKey(trimmed);
-  });
-  if (hasConflict) {
-    toastr.warning('同一父节点下已存在同名标签');
-    return;
-  }
-  updatePersistedState(state => {
-    const def = state.worldbook_tags.definitions.find(d => d.id === tagId);
-    if (def) def.name = trimmed;
-  });
-}
-
-function tagSetColor(tagId: string, color: string): void {
-  updatePersistedState(state => {
-    const def = state.worldbook_tags.definitions.find(d => d.id === tagId);
-    if (def) def.color = color;
-  });
-}
-
-function tagToggleAssignment(worldbookName: string, tagId: string): void {
-  updatePersistedState(state => {
-    const current = state.worldbook_tags.assignments[worldbookName] ?? [];
-    if (current.includes(tagId)) {
-      state.worldbook_tags.assignments[worldbookName] = current.filter(id => id !== tagId);
-      if (!state.worldbook_tags.assignments[worldbookName].length) {
-        delete state.worldbook_tags.assignments[worldbookName];
-      }
-    } else {
-      state.worldbook_tags.assignments[worldbookName] = [...current, tagId];
-    }
-  });
-}
-
-function tagToggleAssignmentForSelectedTag(worldbookName: string): void {
-  const tagId = tagAssignTargetId.value;
-  if (!tagId) {
-    return;
-  }
-  tagToggleAssignment(worldbookName, tagId);
-}
-
-function tagResetAll(): void {
-  if (!confirm('确定要清除所有标签和分配吗？')) return;
-  updatePersistedState(state => {
-    state.worldbook_tags = { definitions: [], assignments: {} };
-    state.tag_filter = createDefaultTagFilterState();
-  });
-  tagAssignTargetId.value = '';
-  tagNewParentId.value = '';
 }
 
 function setStatus(message: string): void {
@@ -8239,359 +6497,6 @@ function getEntryVersionDiffSummary(left: EntryVersionView | null, right: EntryV
   return `字段 ${fieldChanged}/${fieldRows.length} 不同 · 新增行 ${content.added} / 修改行 ${content.changed} / 删除行 ${content.removed}`;
 }
 
-function parseBatchExcludeTokens(value: string): string[] {
-  const seen = new Set<string>();
-  const tokens: string[] = [];
-  for (const raw of value.split(/[\n,]/g)) {
-    const token = raw.trim().toLowerCase();
-    if (!token || seen.has(token)) {
-      continue;
-    }
-    seen.add(token);
-    tokens.push(token);
-  }
-  return tokens;
-}
-
-function shouldExcludeEntryForBatch(entry: WorldbookEntry, tokens: string[]): boolean {
-  if (!tokens.length) {
-    return false;
-  }
-  const name = entry.name.toLowerCase();
-  const content = entry.content.toLowerCase();
-  const keys = entry.strategy.keys.map(key => stringifyKeyword(key).toLowerCase()).join(' ');
-  const secondaryKeys = entry.strategy.keys_secondary.keys.map(key => stringifyKeyword(key).toLowerCase()).join(' ');
-
-  for (const token of tokens) {
-    const uidMatch = token.match(/^(?:#|uid:)?(\d+)$/);
-    if (uidMatch && Number(uidMatch[1]) === entry.uid) {
-      return true;
-    }
-
-    const scoped = token.match(/^(name|content|keys|secondary|secondary_keys):(.+)$/);
-    if (scoped) {
-      const scope = scoped[1];
-      const needle = scoped[2].trim();
-      if (!needle) {
-        continue;
-      }
-
-      if (scope === 'name' && name.includes(needle)) {
-        return true;
-      }
-      if (scope === 'content' && content.includes(needle)) {
-        return true;
-      }
-      if (scope === 'keys' && keys.includes(needle)) {
-        return true;
-      }
-      if ((scope === 'secondary' || scope === 'secondary_keys') && secondaryKeys.includes(needle)) {
-        return true;
-      }
-      continue;
-    }
-
-    const plain = token.trim();
-    if (!plain) {
-      continue;
-    }
-
-    if (
-      name.includes(plain) ||
-      content.includes(plain) ||
-      keys.includes(plain) ||
-      secondaryKeys.includes(plain)
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function getFindFieldLabel(field: FindFieldKey): string {
-  if (field === 'name') {
-    return '名称';
-  }
-  if (field === 'content') {
-    return '内容';
-  }
-  return '关键词';
-}
-
-function resolveBatchRegex(findText: string): RegExp | null {
-  if (!batchUseRegex.value) {
-    return null;
-  }
-  try {
-    return new RegExp(findText, 'g');
-  } catch (error) {
-    toastr.error(`正则表达式无效: ${error instanceof Error ? error.message : String(error)}`);
-    return null;
-  }
-}
-
-function getBatchTargetEntries(): WorldbookEntry[] {
-  if (batchSearchScope.value === 'current') {
-    return selectedEntry.value ? [selectedEntry.value] : [];
-  }
-  return draftEntries.value;
-}
-
-function getEnabledFindFields(): FindFieldKey[] {
-  const fields: FindFieldKey[] = [];
-  if (batchInName.value) {
-    fields.push('name');
-  }
-  if (batchInContent.value) {
-    fields.push('content');
-  }
-  if (batchInKeys.value) {
-    fields.push('keys');
-  }
-  return fields;
-}
-
-function getEntryFieldText(entry: WorldbookEntry, field: FindFieldKey): string {
-  if (field === 'name') {
-    return entry.name;
-  }
-  if (field === 'content') {
-    return entry.content;
-  }
-  return entry.strategy.keys.map(key => stringifyKeyword(key)).join(', ');
-}
-
-function collectMatchIndexes(text: string, findText: string, regex: RegExp | null): Array<{ start: number; end: number; matchedText: string }> {
-  const hits: Array<{ start: number; end: number; matchedText: string }> = [];
-  if (!text || !findText) {
-    return hits;
-  }
-
-  if (!regex) {
-    let cursor = 0;
-    while (cursor <= text.length) {
-      const start = text.indexOf(findText, cursor);
-      if (start < 0) {
-        break;
-      }
-      const end = start + findText.length;
-      hits.push({
-        start,
-        end,
-        matchedText: text.slice(start, end),
-      });
-      cursor = Math.max(end, start + 1);
-    }
-    return hits;
-  }
-
-  const runtime = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : `${regex.flags}g`);
-  let result: RegExpExecArray | null = null;
-  while ((result = runtime.exec(text)) !== null) {
-    const matched = result[0] ?? '';
-    if (!matched) {
-      runtime.lastIndex += 1;
-      continue;
-    }
-    const start = result.index;
-    const end = start + matched.length;
-    hits.push({
-      start,
-      end,
-      matchedText: matched,
-    });
-  }
-  return hits;
-}
-
-function buildFindPreview(text: string, start: number, end: number): string {
-  const left = Math.max(0, start - 18);
-  const right = Math.min(text.length, end + 22);
-  const prefix = left > 0 ? '...' : '';
-  const suffix = right < text.length ? '...' : '';
-  return `${prefix}${text.slice(left, right).replace(/\s+/g, ' ')}${suffix}`;
-}
-
-function collectFindHits(findText: string, regex: RegExp | null, excludeTokens: string[]): FindHit[] {
-  const fields = getEnabledFindFields();
-  if (!fields.length) {
-    return [];
-  }
-  const entries = getBatchTargetEntries();
-  const hits: FindHit[] = [];
-
-  for (const entry of entries) {
-    if (shouldExcludeEntryForBatch(entry, excludeTokens)) {
-      continue;
-    }
-    for (const field of fields) {
-      const text = getEntryFieldText(entry, field);
-      const indexes = collectMatchIndexes(text, findText, regex);
-      for (const match of indexes) {
-        hits.push({
-          entryUid: entry.uid,
-          entryName: entry.name,
-          field,
-          start: match.start,
-          end: match.end,
-          matchedText: match.matchedText,
-          preview: buildFindPreview(text, match.start, match.end),
-        });
-      }
-    }
-  }
-
-  return hits;
-}
-
-function isSameFindHit(left: FindHit, right: FindHit): boolean {
-  return (
-    left.entryUid === right.entryUid &&
-    left.field === right.field &&
-    left.start === right.start &&
-    left.end === right.end &&
-    left.matchedText === right.matchedText
-  );
-}
-
-function resetFindState(): void {
-  findHits.value = [];
-  findHitIndex.value = -1;
-}
-
-function getFindTargetElement(field: FindFieldKey): HTMLInputElement | HTMLTextAreaElement | null {
-  const root = editorShellRef.value;
-  if (!root) {
-    return null;
-  }
-  if (field === 'name') {
-    return root.querySelector('.editor-comment input.text-input');
-  }
-  if (field === 'content') {
-    return root.querySelector('.editor-content-area');
-  }
-  return root.querySelector('.editor-keyword-grid .field textarea');
-}
-
-function getTextareaLineHeight(element: HTMLTextAreaElement): number {
-  const style = window.getComputedStyle(element);
-  const lineHeight = Number.parseFloat(style.lineHeight);
-  if (Number.isFinite(lineHeight) && lineHeight > 0) {
-    return lineHeight;
-  }
-  const fontSize = Number.parseFloat(style.fontSize);
-  if (Number.isFinite(fontSize) && fontSize > 0) {
-    return fontSize * 1.4;
-  }
-  return 18;
-}
-
-function scrollTextareaToSelection(element: HTMLTextAreaElement, start: number): void {
-  const lineHeight = getTextareaLineHeight(element);
-  const before = element.value.slice(0, start);
-  const lineIndex = before.split('\n').length - 1;
-  const desiredTop = Math.max(0, lineIndex * lineHeight - element.clientHeight * 0.35);
-  element.scrollTop = desiredTop;
-}
-
-async function revealFindHitInEditor(hit: FindHit): Promise<void> {
-  await nextTick();
-  let target = getFindTargetElement(hit.field);
-  if (!target) {
-    await nextTick();
-    target = getFindTargetElement(hit.field);
-    if (!target) {
-      return;
-    }
-  }
-
-  const maxLen = target.value.length;
-  const start = Math.max(0, Math.min(hit.start, maxLen));
-  const end = Math.max(start, Math.min(hit.end, maxLen));
-
-  target.focus();
-  target.setSelectionRange(start, end);
-  if (target instanceof HTMLTextAreaElement) {
-    scrollTextareaToSelection(target, start);
-  }
-  target.scrollIntoView({ block: 'center', inline: 'nearest' });
-  requestAnimationFrame(() => {
-    target?.scrollIntoView({ block: 'center', inline: 'nearest' });
-    if (target instanceof HTMLTextAreaElement) {
-      scrollTextareaToSelection(target, start);
-    }
-  });
-}
-
-function moveToFindHit(hit: FindHit, index: number, total: number): void {
-  findHitIndex.value = index;
-  selectedEntryUid.value = hit.entryUid;
-  void revealFindHitInEditor(hit);
-  const entryLabel = hit.entryName || `条目 ${hit.entryUid}`;
-  setStatus(`查找 ${index + 1}/${total}: ${entryLabel} · ${getFindFieldLabel(hit.field)} · ${hit.preview}`);
-}
-
-function runFind(step: -1 | 0 | 1): void {
-  const findText = batchFindText.value;
-  if (!findText) {
-    toastr.warning('请先输入查找文本');
-    return;
-  }
-
-  if (!getEnabledFindFields().length) {
-    toastr.warning('请至少勾选一个查找字段');
-    return;
-  }
-
-  if (batchSearchScope.value === 'current' && !selectedEntry.value) {
-    toastr.warning('当前条目模式下请先选择一个条目');
-    return;
-  }
-
-  const excludeTokens = parseBatchExcludeTokens(batchExcludeText.value);
-  const regex = resolveBatchRegex(findText);
-  if (batchUseRegex.value && !regex) {
-    return;
-  }
-
-  const hits = collectFindHits(findText, regex, excludeTokens);
-  findHits.value = hits;
-
-  if (!hits.length) {
-    findHitIndex.value = -1;
-    setStatus('查找完成：未找到匹配');
-    toastr.info('未找到匹配项');
-    return;
-  }
-
-  if (step === 0) {
-    moveToFindHit(hits[0], 0, hits.length);
-    return;
-  }
-
-  const prevHit = activeFindHit.value;
-  const currentIndex = prevHit ? hits.findIndex(item => isSameFindHit(item, prevHit)) : findHitIndex.value;
-  let nextIndex: number;
-  if (currentIndex < 0) {
-    nextIndex = step > 0 ? 0 : hits.length - 1;
-  } else {
-    nextIndex = (currentIndex + step + hits.length) % hits.length;
-  }
-  moveToFindHit(hits[nextIndex], nextIndex, hits.length);
-}
-
-function findFirstMatch(): void {
-  runFind(0);
-}
-
-function findNextMatch(): void {
-  runFind(1);
-}
-
-function findPreviousMatch(): void {
-  runFind(-1);
-}
-
 function getOrderedSelectedEntryUids(): number[] {
   if (!selectedEntryUids.value.length) {
     return [];
@@ -9442,88 +7347,6 @@ function setEnabledForAll(enabled: boolean): void {
   setStatus(enabled ? '已启用全部条目' : '已禁用全部条目');
 }
 
-function applyBatchReplace(): void {
-  const findText = batchFindText.value;
-  if (!findText) {
-    toastr.warning('请先输入查找文本');
-    return;
-  }
-  if (!getEnabledFindFields().length) {
-    toastr.warning('请至少勾选一个查找字段');
-    return;
-  }
-  if (batchSearchScope.value === 'current' && !selectedEntry.value) {
-    toastr.warning('当前条目模式下请先选择一个条目');
-    return;
-  }
-
-  const targetEntries = getBatchTargetEntries();
-  if (!targetEntries.length) {
-    toastr.warning('没有可处理的条目');
-    return;
-  }
-
-  const excludeTokens = parseBatchExcludeTokens(batchExcludeText.value);
-  const regex = resolveBatchRegex(findText);
-  if (batchUseRegex.value && !regex) {
-    return;
-  }
-
-  let touched = 0;
-  let skipped = 0;
-  for (const entry of targetEntries) {
-    if (shouldExcludeEntryForBatch(entry, excludeTokens)) {
-      skipped += 1;
-      continue;
-    }
-
-    let changed = false;
-
-    if (batchInName.value) {
-      const next = regex
-        ? entry.name.replace(regex, batchReplaceText.value)
-        : entry.name.split(findText).join(batchReplaceText.value);
-      if (next !== entry.name) {
-        entry.name = next;
-        changed = true;
-      }
-    }
-
-    if (batchInContent.value) {
-      const next = regex
-        ? entry.content.replace(regex, batchReplaceText.value)
-        : entry.content.split(findText).join(batchReplaceText.value);
-      if (next !== entry.content) {
-        entry.content = next;
-        changed = true;
-      }
-    }
-
-    if (batchInKeys.value) {
-      const nextKeys = entry.strategy.keys.map(key => {
-        const text = stringifyKeyword(key);
-        return regex ? text.replace(regex, batchReplaceText.value) : text.split(findText).join(batchReplaceText.value);
-      });
-      const normalized = normalizeKeywordList(nextKeys);
-      if (
-        JSON.stringify(normalized.map(stringifyKeyword)) !== JSON.stringify(entry.strategy.keys.map(stringifyKeyword))
-      ) {
-        entry.strategy.keys = normalized;
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      touched += 1;
-    }
-  }
-
-  resetFindState();
-  setStatus(
-    `查找替换完成（${batchSearchScope.value === 'current' ? '当前条目' : '全部条目'}），修改 ${touched} 条，排除 ${skipped} 条`,
-  );
-}
-
 function downloadJson(filename: string, payload: unknown): void {
   const text = JSON.stringify(payload, null, 2);
   const blob = new Blob([text], { type: 'application/json' });
@@ -9768,81 +7591,6 @@ function toggleGlobalMode(): void {
   setStatus('已切换到上下文世界书模式');
 }
 
-async function applyGlobalWorldbooks(nextGlobal: string[], statusLabel = '已更新全局世界书'): Promise<boolean> {
-  const normalized = [...new Set(nextGlobal.map(name => name.trim()).filter(Boolean))].filter(name =>
-    worldbookNames.value.includes(name),
-  );
-  try {
-    await rebindGlobalWorldbooks(normalized);
-    await refreshBindings();
-    ensureSelectionForGlobalMode({
-      source: 'manual',
-      reason: '更新全局世界书后同步当前选择',
-    });
-    setStatus(`${statusLabel}（${normalized.length} 本）`);
-    return true;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    toastr.error(`更新全局世界书失败: ${message}`);
-    return false;
-  }
-}
-
-function addFirstGlobalCandidate(): void {
-  const first = globalAddCandidates.value[0];
-  if (!first) {
-    return;
-  }
-  void addGlobalWorldbook(first);
-}
-
-async function addGlobalWorldbook(name: string): Promise<void> {
-  if (!name || bindings.global.includes(name)) {
-    return;
-  }
-  const success = await applyGlobalWorldbooks([...bindings.global, name], `已添加到全局: ${name}`);
-  if (success) {
-    globalAddSearchText.value = '';
-    updatePersistedState(state => {
-      state.role_override_baseline = null;
-    });
-  }
-}
-
-async function removeGlobalWorldbook(name: string): Promise<void> {
-  if (!name || !bindings.global.includes(name)) {
-    return;
-  }
-  const success = await applyGlobalWorldbooks(
-    bindings.global.filter(item => item !== name),
-    `已移出全局: ${name}`,
-  );
-  if (success) {
-    updatePersistedState(state => {
-      state.role_override_baseline = null;
-    });
-  }
-}
-
-async function clearGlobalWorldbooks(): Promise<void> {
-  if (!bindings.global.length) {
-    return;
-  }
-  if (!confirm('确定清空所有全局世界书吗？')) {
-    return;
-  }
-  const success = await applyGlobalWorldbooks([], '已清空全局世界书');
-  if (success) {
-    updatePersistedState(state => {
-      state.role_override_baseline = null;
-    });
-  }
-}
-
-function getCurrentGlobalWorldbookSet(): string[] {
-  return [...new Set(bindings.global.map(name => name.trim()).filter(Boolean))];
-}
-
 function normalizeWorldbookSet(input: string[]): string[] {
   return [...new Set(input.map(name => name.trim()).filter(Boolean))];
 }
@@ -9859,374 +7607,6 @@ function isSameWorldbookSet(left: string[], right: string[]): boolean {
     }
   }
   return true;
-}
-
-function refreshRoleBindingCandidates(): void {
-  let names: string[] = [];
-  try {
-    names = typeof getCharacterNames === 'function' ? getCharacterNames() : [];
-  } catch (error) {
-    console.warn('[WorldbookAssistant] getCharacterNames failed:', error);
-  }
-
-  const dedupe = new Set<string>();
-  const result: PresetRoleBinding[] = [];
-
-  for (const charName of names) {
-    const trimmed = charName.trim();
-    if (!trimmed) {
-      continue;
-    }
-    const key = `char:${trimmed}`;
-    if (dedupe.has(key)) {
-      continue;
-    }
-    dedupe.add(key);
-    result.push({
-      key,
-      name: trimmed,
-      avatar: '',
-      updated_at: Date.now(),
-    });
-  }
-
-  result.sort((left, right) => left.name.localeCompare(right.name, 'zh-Hans-CN'));
-
-  const current = resolveCurrentRoleContext();
-  if (current && !result.some(item => item.key === current.key)) {
-    result.unshift(current);
-  }
-  roleBindingSourceCandidates.value = result;
-}
-
-function resolveCurrentRoleContext(): PresetRoleBinding | null {
-  let name: string | null = null;
-  try {
-    name = typeof getCurrentCharacterName === 'function' ? getCurrentCharacterName() : null;
-  } catch (error) {
-    console.warn('[WorldbookAssistant] getCurrentCharacterName failed:', error);
-  }
-  if (!name) {
-    return null;
-  }
-  const trimmed = name.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return {
-    key: `char:${trimmed}`,
-    name: trimmed,
-    avatar: '',
-    updated_at: Date.now(),
-  };
-}
-
-function refreshCurrentRoleContext(): void {
-  currentRoleContext.value = resolveCurrentRoleContext();
-}
-
-async function applyPresetWorldbooks(
-  preset: GlobalWorldbookPreset,
-  options: { statusPrefix?: string; silentWhenSame?: boolean } = {},
-): Promise<boolean> {
-  const normalized = normalizeWorldbookSet(preset.worldbooks);
-  const missing = normalized.filter(name => !worldbookNames.value.includes(name));
-  const matched = normalized.filter(name => worldbookNames.value.includes(name));
-
-  if (options.silentWhenSame && isSameWorldbookSet(getCurrentGlobalWorldbookSet(), matched)) {
-    updatePersistedState(state => {
-      state.last_global_preset_id = preset.id;
-    });
-    return true;
-  }
-
-  const statusPrefix = options.statusPrefix ?? '已应用预设';
-  const success = await applyGlobalWorldbooks(matched, `${statusPrefix}: ${preset.name}`);
-  if (!success) {
-    return false;
-  }
-  updatePersistedState(state => {
-    state.last_global_preset_id = preset.id;
-  });
-  if (missing.length) {
-    toastr.warning(`预设内有 ${missing.length} 本世界书在当前环境不存在，已自动忽略`);
-  }
-  return true;
-}
-
-async function applySelectedGlobalPreset(): Promise<void> {
-  const preset = selectedGlobalPreset.value;
-  if (!preset) {
-    return;
-  }
-  const success = await applyPresetWorldbooks(preset);
-  if (success) {
-    updatePersistedState(state => {
-      state.role_override_baseline = null;
-    });
-  }
-}
-
-function getRoleBoundPresetForCurrentContext(): GlobalWorldbookPreset | null {
-  const role = currentRoleContext.value;
-  if (!role) {
-    return null;
-  }
-  return (
-    globalWorldbookPresets.value.find(item => item.role_bindings.some(binding => binding.key === role.key)) ?? null
-  );
-}
-
-async function autoApplyRoleBoundPreset(): Promise<void> {
-  const rolePreset = getRoleBoundPresetForCurrentContext();
-  if (!rolePreset) {
-    const baseline = persistedState.value.role_override_baseline;
-    if (baseline) {
-      updatePersistedState(state => {
-        state.role_override_baseline = null;
-        state.last_global_preset_id = baseline.preset_id;
-      });
-      selectedGlobalPresetId.value = baseline.preset_id;
-      if (baseline.preset_id) {
-        const baselinePreset = globalWorldbookPresets.value.find(item => item.id === baseline.preset_id);
-        if (baselinePreset) {
-          await applyPresetWorldbooks(baselinePreset, {
-            statusPrefix: '已恢复角色切换前的预设',
-            silentWhenSame: true,
-          });
-        } else {
-          await applyGlobalWorldbooks(
-            baseline.worldbooks,
-            '已恢复角色切换前的全局世界书',
-          );
-        }
-      } else {
-        await applyGlobalWorldbooks(
-          baseline.worldbooks,
-          '已恢复角色切换前的全局世界书',
-        );
-      }
-    }
-    return;
-  }
-  if (!persistedState.value.role_override_baseline) {
-    updatePersistedState(state => {
-      state.role_override_baseline = {
-        preset_id: selectedGlobalPresetId.value,
-        worldbooks: getCurrentGlobalWorldbookSet(),
-      };
-    });
-  }
-  selectedGlobalPresetId.value = rolePreset.id;
-  await applyPresetWorldbooks(rolePreset, {
-    statusPrefix: `已按角色自动切换预设（${currentRoleContext.value?.name ?? '当前角色'}）`,
-    silentWhenSame: true,
-  });
-}
-
-function onGlobalPresetSelectionChanged(): void {
-  closeRolePicker();
-  if (!selectedGlobalPresetId.value) {
-    updatePersistedState(state => {
-      state.last_global_preset_id = '';
-      state.role_override_baseline = null;
-    });
-    if (bindings.global.length) {
-      void applyGlobalWorldbooks([], '已切换到默认预设（清空全局世界书）');
-    } else {
-      setStatus('已切换到默认预设');
-    }
-    return;
-  }
-  void applySelectedGlobalPreset();
-}
-
-function bindRoleToSelectedPreset(role: PresetRoleBinding): void {
-  const preset = selectedGlobalPreset.value;
-  if (!preset) {
-    toastr.warning('请先选择预设');
-    return;
-  }
-  updatePersistedState(state => {
-    state.global_presets = (state.global_presets ?? []).map(item => {
-      if (item.id !== preset.id) {
-        return item;
-      }
-      const nextBindings = normalizePresetRoleBindings([
-        ...item.role_bindings.filter(binding => binding.key !== role.key),
-        {
-          key: role.key,
-          name: role.name,
-          avatar: role.avatar,
-          updated_at: Date.now(),
-        } satisfies PresetRoleBinding,
-      ]);
-      return {
-        ...item,
-        role_bindings: nextBindings,
-        updated_at: Date.now(),
-      };
-    });
-    state.last_global_preset_id = preset.id;
-  });
-  setStatus(`已绑定角色到预设: ${role.name} → ${preset.name}`);
-}
-
-function bindCurrentRoleToSelectedPreset(): void {
-  const role = currentRoleContext.value;
-  if (!role) {
-    toastr.warning('当前没有可绑定的角色');
-    return;
-  }
-  bindRoleToSelectedPreset(role);
-}
-
-function bindRoleCandidateToSelectedPreset(candidate: RoleBindingCandidate): void {
-  if (candidate.bound) {
-    return;
-  }
-  bindRoleToSelectedPreset(candidate);
-  closeRolePicker();
-}
-
-function removeRoleBindingFromSelectedPreset(bindingKey: string): void {
-  const preset = selectedGlobalPreset.value;
-  if (!preset || !bindingKey) {
-    return;
-  }
-  updatePersistedState(state => {
-    state.global_presets = (state.global_presets ?? []).map(item => {
-      if (item.id !== preset.id) {
-        return item;
-      }
-      return {
-        ...item,
-        role_bindings: item.role_bindings.filter(binding => binding.key !== bindingKey),
-        updated_at: Date.now(),
-      };
-    });
-  });
-}
-
-function unbindCurrentRoleFromSelectedPreset(): void {
-  const role = currentRoleContext.value;
-  if (!role) {
-    toastr.warning('当前没有可解绑的角色');
-    return;
-  }
-  removeRoleBindingFromSelectedPreset(role.key);
-  setStatus(`已解绑角色: ${role.name}`);
-}
-
-function saveCurrentAsGlobalPreset(): void {
-  const current = getCurrentGlobalWorldbookSet();
-  if (!current.length) {
-    toastr.warning('当前全局世界书为空，无法保存预设');
-    return;
-  }
-  const defaultName = selectedGlobalPreset.value?.name || `全局预设 ${globalWorldbookPresets.value.length + 1}`;
-  const nameRaw = prompt('请输入预设名称', defaultName);
-  const name = toStringSafe(nameRaw).trim();
-  if (!name) {
-    return;
-  }
-  const sameNamePreset = globalWorldbookPresets.value.find(item => item.name === name);
-  if (sameNamePreset && !confirm(`预设 "${name}" 已存在，是否覆盖？`)) {
-    return;
-  }
-  const presetId = sameNamePreset?.id || createId('global-preset');
-  const nextPreset: GlobalWorldbookPreset = {
-    id: presetId,
-    name,
-    worldbooks: current,
-    role_bindings: sameNamePreset?.role_bindings ?? [],
-    updated_at: Date.now(),
-  };
-  updatePersistedState(state => {
-    const list = (state.global_presets ?? []).filter(item => item.id !== presetId);
-    list.unshift(nextPreset);
-    state.global_presets = list.slice(0, GLOBAL_PRESET_LIMIT);
-    state.last_global_preset_id = presetId;
-  });
-  selectedGlobalPresetId.value = presetId;
-  setStatus(`已保存预设: ${name}（${current.length} 本）`);
-  toastr.success(`已保存预设: ${name}`);
-}
-
-function overwriteSelectedGlobalPreset(): void {
-  const preset = selectedGlobalPreset.value;
-  if (!preset) {
-    return;
-  }
-  const current = getCurrentGlobalWorldbookSet();
-  if (!current.length) {
-    toastr.warning('当前全局世界书为空，无法覆盖预设');
-    return;
-  }
-  if (!confirm(`确定用当前全局世界书覆盖预设 "${preset.name}" 吗？`)) {
-    return;
-  }
-  updatePersistedState(state => {
-    state.global_presets = (state.global_presets ?? []).map(item => {
-      if (item.id !== preset.id) {
-        return item;
-      }
-      return {
-        ...item,
-        worldbooks: current,
-        updated_at: Date.now(),
-      };
-    });
-    state.last_global_preset_id = preset.id;
-  });
-  setStatus(`已覆盖预设: ${preset.name}（${current.length} 本）`);
-  toastr.success(`已覆盖预设: ${preset.name}`);
-}
-
-function deleteSelectedGlobalPreset(): void {
-  const preset = selectedGlobalPreset.value;
-  if (!preset) {
-    return;
-  }
-  if (!confirm(`确定删除预设 "${preset.name}" 吗？`)) {
-    return;
-  }
-  updatePersistedState(state => {
-    state.global_presets = (state.global_presets ?? []).filter(item => item.id !== preset.id);
-    if (state.last_global_preset_id === preset.id) {
-      state.last_global_preset_id = '';
-    }
-  });
-  selectedGlobalPresetId.value = '';
-  setStatus(`已删除预设: ${preset.name}`);
-}
-
-function closeWorldbookPicker(): void {
-  worldbookPickerOpen.value = false;
-}
-
-function closeRolePicker(): void {
-  rolePickerOpen.value = false;
-}
-
-function openWorldbookPicker(): void {
-  worldbookPickerSearchText.value = '';
-  worldbookPickerOpen.value = true;
-  void nextTick(() => {
-    worldbookPickerSearchInputRef.value?.focus();
-  });
-}
-
-function openRolePicker(): void {
-  if (!selectedGlobalPreset.value) {
-    return;
-  }
-  roleBindSearchText.value = '';
-  refreshRoleBindingCandidates();
-  rolePickerOpen.value = true;
-  void nextTick(() => {
-    rolePickerSearchInputRef.value?.focus();
-  });
 }
 
 function resetFocusPanels(): void {
@@ -10916,14 +8296,6 @@ function toggleWorldbookPicker(): void {
   openWorldbookPicker();
 }
 
-function toggleRolePicker(): void {
-  if (rolePickerOpen.value) {
-    closeRolePicker();
-    return;
-  }
-  void openRolePicker();
-}
-
 function toggleTheme(): void {
   const keys = Object.keys(THEMES) as ThemeKey[];
   const index = keys.indexOf(currentTheme.value);
@@ -11252,19 +8624,6 @@ async function deleteCurrentWorldbook(): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     toastr.error(`删除失败: ${message}`);
   }
-}
-
-async function toggleGlobalBinding(): Promise<void> {
-  if (!selectedWorldbookName.value) {
-    return;
-  }
-  const next = new Set(getGlobalWorldbookNames());
-  if (next.has(selectedWorldbookName.value)) {
-    next.delete(selectedWorldbookName.value);
-  } else {
-    next.add(selectedWorldbookName.value);
-  }
-  await applyGlobalWorldbooks([...next], '已更新全局绑定');
 }
 
 function pushActivationLogs(entries: Array<{ world: string } & Record<string, unknown>>): void {

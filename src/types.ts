@@ -5,6 +5,7 @@
 
 import type { StrategyType, SecondaryLogic, PositionType, RoleType, PresetRoleBinding } from './utils';
 import type { ThemeKey } from './themes';
+export type { PresetRoleBinding } from './utils';
 
 export type PositionSelectValue = PositionType | 'at_depth_as_system' | 'at_depth_as_assistant' | 'at_depth_as_user';
 

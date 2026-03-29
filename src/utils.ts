@@ -464,7 +464,7 @@ export function getNextUid(entries: WorldbookEntry[]): number {
 
 // ── Preset role binding helpers ────────────────────────────────────
 
-interface PresetRoleBinding {
+export interface PresetRoleBinding {
   key: string;
   name: string;
   avatar: string;
@@ -518,4 +518,4 @@ export function compareEntriesByPositionThenOrder(a: WorldbookEntry, b: Worldboo
 }
 
 // Re-export used types
-export type { StrategyType, SecondaryLogic, PositionType, RoleType, PresetRoleBinding };
+export type { StrategyType, SecondaryLogic, PositionType, RoleType };
