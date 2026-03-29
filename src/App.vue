@@ -3502,27 +3502,17 @@ import {
   createId,
   asRecord,
   toStringSafe,
-  toNumberSafe,
-  clampNumber,
   parseNullableInteger,
   nullableNumberToText,
   stringifyKeyword,
-  parseKeywordToken,
-  normalizeKeywordList,
   parseKeywordsFromText,
-  normalizePresetRoleBindings,
   formatDateTime,
-  getStrategyTypeLabel,
   getSecondaryLogicLabel,
   getPositionTypeLabel,
-  getPositionTypeLabelWithRole,
-  parseAtDepthRoleFromPositionValue,
   getEntryVisualStatus,
   getEntryStatusLabel,
   getEntryKeyPreview,
-  strategyTypeOptions,
   secondaryLogicOptions,
-  positionTypeOptions,
   normalizeSecondaryLogic,
   normalizeStrategyType,
   normalizePositionType,
@@ -3538,9 +3528,9 @@ import {
   type SecondaryLogic,
   type PositionType,
   type RoleType,
-  type PresetRoleBinding,
 } from './utils';
 import { THEMES, type ThemeKey } from './themes';
+import { normalizeCrossCopyNameKey, normalizeCrossCopyContentKey } from './diffUtils';
 import {
   createDefaultPersistedState,
   normalizePersistedState,
@@ -3647,6 +3637,7 @@ const worldbookPickerSearchText = ref('');
 const worldbookPickerRef = ref<HTMLElement | null>(null);
 const worldbookPickerSearchInputRef = ref<HTMLInputElement | null>(null);
 const focusToolbarRef = ref<HTMLElement | null>(null);
+const roleBindSearchText = ref('');
 const focusWorldbookMenuRef = ref<HTMLElement | null>(null);
 const rolePickerRef = ref<HTMLElement | null>(null);
 const rolePickerSearchInputRef = ref<HTMLInputElement | null>(null);
@@ -3873,7 +3864,7 @@ const {
 // ── useGlobalWorldbooks composable ───────────────────────────────────
 const {
   globalWorldbookMode, selectedGlobalPresetId,
-  currentRoleContext, roleBindingSourceCandidates: roleBindingCandidates,
+  currentRoleContext, roleBindingSourceCandidates,
   rolePickerOpen, globalAddSearchText,
   globalWorldbookPresets, selectedGlobalPreset,
   selectedGlobalPresetRoleBindings, isCurrentRoleBoundToSelectedPreset,
@@ -3892,6 +3883,25 @@ const {
   worldbookNames, bindings, refreshBindings, ensureSelectionForGlobalMode,
 });
 // ── end useGlobalWorldbooks ──────────────────────────────────────────
+
+const roleBindingCandidates = computed<RoleBindingCandidate[]>(() => {
+  const keyword = roleBindSearchText.value.trim().toLowerCase();
+  const boundSet = new Set(selectedGlobalPresetRoleBindings.value.map(item => item.key));
+  const list = roleBindingSourceCandidates.value;
+  const filtered = keyword
+    ? list.filter(item => {
+      return (
+        item.name.toLowerCase().includes(keyword)
+        || item.avatar.toLowerCase().includes(keyword)
+        || item.key.toLowerCase().includes(keyword)
+      );
+    })
+    : list;
+  return filtered.map(item => ({
+    ...item,
+    bound: boundSet.has(item.key),
+  }));
+});
 
 // ── useHistorySnapshots ───────────────────────────────────────────────
 const {
@@ -4748,6 +4758,15 @@ watch(worldbookPickerOpen, opened => {
   tagFilterSearchText.value = '';
 });
 
+watch(rolePickerOpen, opened => {
+  if (!opened) {
+    return;
+  }
+  roleBindSearchText.value = '';
+  refreshRoleBindingCandidates();
+  void nextTick(() => { rolePickerSearchInputRef.value?.focus(); });
+});
+
 watch(tagDefinitions, () => {
   ensureTagAssignTargetSelected();
   if (tagNewParentId.value && !tagDefinitionMap.value.has(tagNewParentId.value)) {
@@ -5023,14 +5042,6 @@ function tagToggleMode(): void {
 
 function setStatus(message: string): void {
   statusMessage.value = message;
-}
-
-function normalizeCrossCopyNameKey(name: string): string {
-  return toStringSafe(name).trim().toLowerCase();
-}
-
-function normalizeCrossCopyContentKey(content: string): string {
-  return toStringSafe(content).replace(/\s+/g, ' ').trim();
 }
 
 function syncExtraTextWithSelection(): void {
@@ -6082,24 +6093,6 @@ function toggleGlobalMode(): void {
     trySelectWorldbookByContext({ source: 'manual' });
   }
   setStatus('已切换到上下文世界书模式');
-}
-
-function normalizeWorldbookSet(input: string[]): string[] {
-  return [...new Set(input.map(name => name.trim()).filter(Boolean))];
-}
-
-function isSameWorldbookSet(left: string[], right: string[]): boolean {
-  const leftSorted = [...normalizeWorldbookSet(left)].sort();
-  const rightSorted = [...normalizeWorldbookSet(right)].sort();
-  if (leftSorted.length !== rightSorted.length) {
-    return false;
-  }
-  for (let index = 0; index < leftSorted.length; index += 1) {
-    if (leftSorted[index] !== rightSorted[index]) {
-      return false;
-    }
-  }
-  return true;
 }
 
 
