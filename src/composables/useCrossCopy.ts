@@ -140,6 +140,7 @@ export interface UseCrossCopyReturn {
   setCrossCopyModeActive: (next: boolean) => void;
   toggleCrossCopyMode: () => void;
   startCrossCopyPaneResize: (event: PointerEvent) => void;
+  stopCrossCopyPaneResize: () => void;
   goToCrossCopyMobileStep: (step: CrossCopyMobileStep) => void;
   goToPreviousCrossCopyMobileStep: () => void;
   goToNextCrossCopyMobileStep: () => void;
@@ -718,6 +719,7 @@ export function useCrossCopy(options: UseCrossCopyOptions): UseCrossCopyReturn {
     toggleCrossCopyWorkspaceTools, toggleCrossCopyControlsCollapsed,
     setCrossCopyModeActive, toggleCrossCopyMode,
     startCrossCopyPaneResize, goToCrossCopyMobileStep,
+    stopCrossCopyPaneResize,
     goToPreviousCrossCopyMobileStep, goToNextCrossCopyMobileStep,
   };
 }

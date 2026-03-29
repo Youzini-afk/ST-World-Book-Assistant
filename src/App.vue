@@ -3496,9 +3496,8 @@
 </template>
 
 <script setup lang="ts">
-import { diffLines } from 'https://testingcf.jsdelivr.net/npm/diff/+esm';
 import { klona } from 'klona';
-import { useFindReplace, useMultiEdit, useAIChat, useAIConfig, useTagSystem, useGlobalWorldbooks } from './composables';
+import { useFindReplace, useMultiEdit, useAIChat, useAIConfig, useTagSystem, useGlobalWorldbooks, useHistorySnapshots, useFocusMode, useEditorLayout, useCrossCopy } from './composables';
 import {
   createId,
   asRecord,
@@ -3551,8 +3550,6 @@ import {
   normalizeMultiEditPersistState,
   createDefaultTagEditorPersistState,
   normalizeTagEditorPersistState,
-  createDefaultCrossCopyPersistState,
-  normalizeCrossCopyPersistState,
   createDefaultTagFilterState,
   normalizeTagFilterState,
   HISTORY_LIMIT,
@@ -3563,17 +3560,10 @@ import {
   AI_CHAT_SESSION_LIMIT,
   AI_CHAT_MESSAGE_LIMIT,
   STORAGE_KEY,
-  MAIN_PANE_DEFAULT,
   MAIN_PANE_MIN,
-  FOCUS_MAIN_PANE_DEFAULT,
   FOCUS_MAIN_PANE_MIN,
-  EDITOR_SIDE_DEFAULT,
   EDITOR_SIDE_MIN,
-  FOCUS_EDITOR_SIDE_DEFAULT,
   FOCUS_EDITOR_SIDE_MIN,
-  CROSS_COPY_DESKTOP_LEFT_DEFAULT,
-  CROSS_COPY_DESKTOP_LEFT_MIN,
-  CROSS_COPY_DESKTOP_LEFT_MAX,
 } from './store/persistedState';
 import type {
   PositionSelectValue,
@@ -3584,13 +3574,6 @@ import type {
   BatchSearchScope,
   FindFieldKey,
   SelectionSource,
-  FocusSidePanelKey,
-  FocusMetaPanelKey,
-  FocusCinePhase,
-  FocusCineDirection,
-  CopyCinePhase,
-  CopyCineDirection,
-  FocusHeroKey,
   CrossCopyRowStatus,
   CrossCopyAction,
   CrossCopyStatusFilter,
@@ -3613,8 +3596,6 @@ import type {
   PaneResizeState,
   HistorySectionResizeState,
   CrossCopyPaneResizeState,
-  FocusHeroSnapshot,
-  FocusSinkSnapshot,
   WorldbookSnapshot,
   EntrySnapshot,
   EntryVersionView,
@@ -3647,38 +3628,6 @@ const ACTIVATION_LOG_LIMIT = 120;
 const RESIZE_HANDLE_SIZE = 10;
 const MAIN_EDITOR_MIN = 540;
 const EDITOR_CENTER_MIN = 420;
-const FOCUS_CINE_DURATION = 1400;
-const FOCUS_CINE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
-const FOCUS_CINE_STAGGER = 28;
-const FOCUS_CINE_MAX_STAGGER_STEPS = 8;
-const COPY_CINE_DURATION = 1100;
-const COPY_CINE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
-const COPY_CINE_STAGGER = 22;
-const COPY_CINE_MAX_STAGGER_STEPS = 14;
-const FOCUS_FALLBACK_PRIORITY: FocusHeroKey[] = [
-  'focus_toggle',
-  'find_btn',
-  'save_btn',
-  'more_btn',
-  'tools_btn',
-];
-const COPY_FALLBACK_PRIORITY: FocusHeroKey[] = [
-  'tool_copy',
-  'find_btn',
-  'focus_toggle',
-  'save_btn',
-  'more_btn',
-  'tools_btn',
-  'tool_global',
-  'tool_entry_history',
-  'tool_worldbook_history',
-  'tool_activation',
-  'tool_ai_generate',
-  'tool_extract',
-  'tool_tag',
-  'tool_settings',
-  'tool_ai_config',
-];
 const CROSS_COPY_STATUS_PRIORITY: CrossCopyRowStatus[] = [
   'same_name_changed',
   'content_duplicate_other_name',
@@ -3686,21 +3635,7 @@ const CROSS_COPY_STATUS_PRIORITY: CrossCopyRowStatus[] = [
   'new',
   'invalid_same_source_target',
 ];
-const CROSS_COPY_STATUS_LABELS: Record<CrossCopyRowStatus, string> = {
-  new: '新增',
-  duplicate_exact: '同名同内容',
-  same_name_changed: '同名内容不同',
-  content_duplicate_other_name: '异名同内容',
-  invalid_same_source_target: '来源与目标相同',
-};
-const CROSS_COPY_ACTION_LABELS: Record<CrossCopyAction, string> = {
-  skip: '跳过',
-  overwrite: '覆盖同名',
-  rename_create: '另存新名',
-  create: '直接创建',
-};
 const CROSS_COPY_SPLITTER_SIZE = 8;
-const CROSS_COPY_RIGHT_MIN = 360;
 const ENTRIES_DIGEST_DEBOUNCE_MS = 120;
 const MOBILE_MULTI_LONG_PRESS_MS = 420;
 const MOBILE_MULTI_LONG_PRESS_MOVE_PX = 12;
@@ -3718,40 +3653,12 @@ const rolePickerSearchInputRef = ref<HTMLInputElement | null>(null);
 const currentTheme = ref<ThemeKey>('ocean');
 const themePickerOpen = ref(false);
 const aiGeneratorMode = ref(false);
-const crossCopyMode = ref(false);
 const panelMode = ref<'browse' | 'editor'>('browse');
 const expandedBrowseCardUids = ref<Set<number>>(new Set());
 const BROWSE_RENDER_BATCH = 30;
 const browseRenderLimit = ref(BROWSE_RENDER_BATCH);
 const browseLoadMoreSentinelRef = ref<HTMLElement | null>(null);
 let _browseIntersectionObserver: IntersectionObserver | null = null;
-const isFocusEditing = ref(false);
-const focusWorldbookMenuOpen = ref(false);
-const focusToolsExpanded = ref(false);
-const focusToolsTriggerVisible = ref(true);
-const focusCinePhase = ref<FocusCinePhase>('idle');
-const focusCineDirection = ref<FocusCineDirection>('enter');
-const focusCineLocked = ref(false);
-const focusCineOverlayRef = ref<HTMLElement | null>(null);
-let focusCineToken = 0;
-let focusCineGhostNodes: HTMLElement[] = [];
-let focusCineHiddenNodes: HTMLElement[] = [];
-const copyCinePhase = ref<CopyCinePhase>('idle');
-const copyCineDirection = ref<CopyCineDirection>('enter');
-const copyCineLocked = ref(false);
-const copyCineOverlayRef = ref<HTMLElement | null>(null);
-let copyCineToken = 0;
-let copyCineGhostNodes: HTMLElement[] = [];
-let copyCineHiddenNodes: HTMLElement[] = [];
-const focusMetaPanel = reactive<Record<FocusMetaPanelKey, boolean>>({
-  comment: false,
-  keywords: false,
-});
-const focusSidePanelState = reactive<Record<FocusSidePanelKey, boolean>>({
-  strategy: true,
-  insertion: true,
-  recursion: true,
-});
 
 // Floor extraction button visibility (synced via localStorage + custom event)
 const FAB_VISIBLE_KEY = '__WB_FAB_VISIBLE__';
@@ -3787,28 +3694,6 @@ function toggleFloorBtns(val: boolean): void {
   window.dispatchEvent(new CustomEvent('wb-helper:floor-btns-toggle', { detail: val }));
 }
 
-const crossCopySourceWorldbook = ref('');
-const crossCopyTargetWorldbook = ref('');
-const crossCopyUseDraftSourceWhenCurrent = ref(true);
-const crossCopySnapshotBeforeApply = ref(true);
-const crossCopyControlsCollapsed = ref(true);
-const crossCopyWorkspaceToolsExpanded = ref(false);
-const crossCopyDesktopLeftWidth = ref(CROSS_COPY_DESKTOP_LEFT_DEFAULT);
-const crossCopyRows = ref<CrossCopyRow[]>([]);
-const crossCopySourceBaselineEntries = ref<WorldbookEntry[]>([]);
-const crossCopyTargetBaselineEntries = ref<WorldbookEntry[]>([]);
-const crossCopyCompareLoading = ref(false);
-const crossCopyApplyLoading = ref(false);
-const crossCopySearchText = ref('');
-const crossCopyStatusFilter = ref<CrossCopyStatusFilter>('all');
-const crossCopyBulkAction = ref<CrossCopyAction>('skip');
-const crossCopyCompareSummary = ref('');
-const crossCopyLastResultSummary = ref('');
-const crossCopyLastComparedAt = ref<number>(0);
-const crossCopyPaneResizeState = ref<CrossCopyPaneResizeState | null>(null);
-const crossCopyGridRef = ref<HTMLElement | null>(null);
-const crossCopyMobileStep = ref<CrossCopyMobileStep>(1);
-
 const originalEntries = ref<WorldbookEntry[]>([]);
 const draftEntries = ref<WorldbookEntry[]>([]);
 const selectedEntryUid = ref<number | null>(null);
@@ -3839,43 +3724,8 @@ let pendingWorldbookLoadCount = 0;
 const statusMessage = ref('就绪');
 const isBusy = ref(false);
 const isSaving = ref(false);
-const showCrossCopyDiffModal = ref(false);
-const crossCopyDiffRowId = ref('');
-const showEntryHistoryModal = ref(false);
-const showWorldbookHistoryModal = ref(false);
-const entryHistoryLeftId = ref('');
-const entryHistoryRightId = ref('');
-const worldbookHistoryLeftId = ref('');
-const worldbookHistoryRightId = ref('');
-const worldbookHistoryActiveRowKey = ref('');
-const entryHistoryLayoutRef = ref<HTMLElement | null>(null);
-const worldbookHistoryLayoutRef = ref<HTMLElement | null>(null);
-const entryHistorySectionRatios = ref<[number, number, number]>([24, 34, 42]);
-const worldbookHistorySectionRatios = ref<[number, number, number]>([24, 32, 44]);
-const historySectionResizeState = ref<HistorySectionResizeState | null>(null);
-const floatingZCounter = ref(10005);
-const floatingPanels = reactive<Record<FloatingPanelKey, FloatingPanelState>>({
-  find: { visible: false, x: 420, y: 170, z: 10006, width: 500 },
-  activation: { visible: false, x: 760, y: 230, z: 10008, width: 480 },
-});
-const activeFloatingDrag = ref<{
-  key: FloatingPanelKey;
-  pointerId: number;
-  offsetX: number;
-  offsetY: number;
-  doc: Document;
-  win: Window;
-} | null>(null);
-const floatingPanelKeys: FloatingPanelKey[] = ['find', 'activation'];
-const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1440);
 const mainLayoutRef = ref<HTMLElement | null>(null);
 const editorShellRef = ref<HTMLElement | null>(null);
-const contentTextareaRef = ref<HTMLTextAreaElement | null>(null);
-const mainPaneWidth = ref(MAIN_PANE_DEFAULT);
-const editorSideWidth = ref(EDITOR_SIDE_DEFAULT);
-const focusMainPaneWidth = ref(FOCUS_MAIN_PANE_DEFAULT);
-const focusEditorSideWidth = ref(FOCUS_EDITOR_SIDE_DEFAULT);
-const paneResizeState = ref<PaneResizeState | null>(null);
 const hostResizeWindow = ref<Window | null>(null);
 
 const screenWidth = ref(typeof window !== 'undefined' ? window.screen.width : 1440);
@@ -4023,7 +3873,7 @@ const {
 // ── useGlobalWorldbooks composable ───────────────────────────────────
 const {
   globalWorldbookMode, selectedGlobalPresetId,
-  currentRoleContext, roleBindingSourceCandidates,
+  currentRoleContext, roleBindingSourceCandidates: roleBindingCandidates,
   rolePickerOpen, globalAddSearchText,
   globalWorldbookPresets, selectedGlobalPreset,
   selectedGlobalPresetRoleBindings, isCurrentRoleBoundToSelectedPreset,
@@ -4042,6 +3892,127 @@ const {
   worldbookNames, bindings, refreshBindings, ensureSelectionForGlobalMode,
 });
 // ── end useGlobalWorldbooks ──────────────────────────────────────────
+
+// ── useHistorySnapshots ───────────────────────────────────────────────
+const {
+  showEntryHistoryModal, showWorldbookHistoryModal,
+  entryHistoryLeftId, entryHistoryRightId,
+  worldbookHistoryLeftId, worldbookHistoryRightId,
+  worldbookHistoryActiveRowKey,
+  entryHistoryLayoutRef, worldbookHistoryLayoutRef,
+  entryHistorySectionRatios, worldbookHistorySectionRatios,
+  historySectionResizeState,
+  snapshotsForCurrent, entrySnapshotsForSelected,
+  entryVersionViews, worldbookVersionViews,
+  selectedEntryHistoryLeft, selectedEntryHistoryRight,
+  selectedWorldbookHistoryLeft, selectedWorldbookHistoryRight,
+  canRestoreEntryFromLeft, canRestoreWorldbookFromLeft,
+  entryHistoryFieldDiffRows, entryHistoryContentDiff,
+  entryHistoryFieldDiffSummary, entryHistoryContentDiffSummary,
+  worldbookHistoryCompareRows, worldbookHistoryCompareSummary,
+  worldbookHistoryActiveRow,
+  worldbookHistoryFieldDiffRows, worldbookHistoryFieldDiffSummary,
+  worldbookHistoryContentDiff, worldbookHistoryContentDiffSummary,
+  entryHistorySummary,
+  pushSnapshotForWorldbook, pushSnapshot, createManualSnapshot,
+  createEntrySnapshotRecord, pushEntrySnapshotsBulk, pushEntrySnapshot,
+  collectEntrySnapshotsBeforeSave,
+  restoreSnapshot, restoreWorldbookFromLeftHistory,
+  deleteSnapshot, clearCurrentSnapshots,
+  restoreEntrySnapshot, restoreEntryFromLeftHistory,
+  deleteEntrySnapshot, clearCurrentEntrySnapshots,
+  createManualEntrySnapshot,
+  openEntryHistoryModal, openWorldbookHistoryModal,
+  getHistorySectionRatios, setHistorySectionRatios,
+  getHistorySectionStyle, startHistorySectionResize,
+} = useHistorySnapshots({
+  persistedState, updatePersistedState, setStatus,
+  selectedWorldbookName, draftEntries, originalEntries,
+  selectedEntry, selectedEntryIndex, selectedEntryUid,
+  ensureSelectedEntryExists,
+  canResizeHistorySections: computed(() => !isMobile.value && viewportWidth.value > 1380),
+});
+// ── end useHistorySnapshots ───────────────────────────────────────────
+
+// ── useFocusMode + useEditorLayout (forward refs) ─────────────────────
+let _layoutViewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1440);
+let _focusClampPaneWidths: () => void = () => {};
+let _focusPersistLayoutState: () => void = () => {};
+let _setCrossCopyModeActive: (next: boolean) => void = () => {};
+const isCompactLayout = computed(() => _layoutViewportWidth.value <= 1100);
+
+const {
+  isFocusEditing,
+  focusWorldbookMenuOpen,
+  focusToolsExpanded,
+  focusToolsTriggerVisible,
+  focusCinePhase,
+  focusCineLocked,
+  focusCineOverlayRef,
+  copyCinePhase,
+  copyCineOverlayRef,
+  focusMetaPanel,
+  focusSidePanelState,
+  copyCineEnabled,
+  isAnyCineLocked,
+  focusCineRootClass,
+  focusCommentSummary,
+  focusKeywordSummary,
+  focusStrategySummary,
+  focusInsertionSummary,
+  focusRecursionSummary,
+  resetFocusPanels,
+  toggleFocusMetaPanel,
+  toggleFocusSidePanel,
+  closeFocusWorldbookMenu,
+  toggleFocusWorldbookMenu,
+  openFocusToolsBand,
+  closeFocusToolsBand,
+  onFocusToolsBandAfterLeave,
+  toggleFocusEditing,
+  runCrossCopyCinematicTransition,
+  cleanupAllCineArtifacts,
+} = useFocusMode({
+  rootRef,
+  isMobile,
+  viewportWidth: _layoutViewportWidth,
+  selectedEntry,
+  selectedEffectDelayText: computed(() => (selectedEntry.value ? nullableNumberToText(selectedEntry.value.effect.delay) : '')),
+  clampPaneWidths: () => _focusClampPaneWidths(),
+  persistLayoutState: () => _focusPersistLayoutState(),
+  setCrossCopyModeActive: (next: boolean) => _setCrossCopyModeActive(next),
+  getEntryStatusLabel,
+  getPositionTypeLabel: (type, role) => getPositionTypeLabel(type as PositionType, role as RoleType),
+});
+
+const isDesktopFocusMode = computed(() => !isMobile.value && !isCompactLayout.value && isFocusEditing.value);
+
+const {
+  viewportWidth,
+  mainPaneWidth, editorSideWidth,
+  focusMainPaneWidth, focusEditorSideWidth,
+  paneResizeState, contentTextareaRef, editorContentBlockRef,
+  floatingPanels, floatingPanelKeys, floatingZCounter,
+  clampPaneWidths, startPaneResize, startContentResize, startContentTopDrag,
+  applyLayoutStateFromPersisted, persistLayoutState,
+  handleFloatingWindowResize, bringFloatingToFront,
+  openFloatingPanel, closeFloatingPanel, toggleFloatingPanel,
+  startFloatingDrag, clampFloatingPanelToViewport,
+} = useEditorLayout({
+  persistedState, updatePersistedState,
+  isCompactLayout,
+  isDesktopFocusMode,
+  isFocusEditing,
+  focusCineLocked: computed(() => focusCineLocked.value),
+  mainLayoutRef,
+  editorShellRef,
+});
+_layoutViewportWidth = viewportWidth;
+_focusClampPaneWidths = clampPaneWidths;
+_focusPersistLayoutState = persistLayoutState;
+// ── end useFocusMode + useEditorLayout ───────────────────────────────
+
+
 
 const selectedEntryUidSet = computed(() => new Set(selectedEntryUids.value));
 const selectedEntryCount = computed(() => selectedEntryUids.value.length);
@@ -4119,24 +4090,137 @@ const totalContentChars = computed(() =>
 );
 
 const hasUnsavedChanges = computed(() => draftEntriesDigest.value !== originalEntriesDigest.value);
-const isCompactLayout = computed(() => viewportWidth.value <= 1100);
-const isDesktopFocusMode = computed(() => !isMobile.value && !isCompactLayout.value && isFocusEditing.value);
-const canResizeHistorySections = computed(() => !isMobile.value && viewportWidth.value > 1380);
-const focusCineEnabled = computed(() => !isMobile.value && viewportWidth.value > 1100);
-const isFocusCineRunning = computed(() => focusCinePhase.value === 'running' || focusCinePhase.value === 'settling');
-const copyCineEnabled = computed(() => !isMobile.value && viewportWidth.value > 1100);
-const isCopyCineRunning = computed(() => copyCinePhase.value === 'running' || copyCinePhase.value === 'settling');
-const isAnyCineLocked = computed(() => focusCineLocked.value || copyCineLocked.value);
-const focusCineRootClass = computed(() => ({
-  'focus-cine-running': isFocusCineRunning.value,
-  'focus-cine-enter': isFocusCineRunning.value && focusCineDirection.value === 'enter',
-  'focus-cine-exit': isFocusCineRunning.value && focusCineDirection.value === 'exit',
-  'focus-cine-locked': focusCineLocked.value,
-  'copy-cine-running': isCopyCineRunning.value,
-  'copy-cine-enter': isCopyCineRunning.value && copyCineDirection.value === 'enter',
-  'copy-cine-exit': isCopyCineRunning.value && copyCineDirection.value === 'exit',
-  'copy-cine-locked': copyCineLocked.value,
-}));
+
+const {
+  crossCopyMode,
+  crossCopySourceWorldbook,
+  crossCopyTargetWorldbook,
+  crossCopyUseDraftSourceWhenCurrent,
+  crossCopySnapshotBeforeApply,
+  crossCopyControlsCollapsed,
+  crossCopyWorkspaceToolsExpanded,
+  crossCopyDesktopLeftWidth,
+  crossCopyRows,
+  crossCopySourceBaselineEntries,
+  crossCopyTargetBaselineEntries,
+  crossCopyCompareLoading,
+  crossCopyApplyLoading,
+  crossCopySearchText,
+  crossCopyStatusFilter,
+  crossCopyBulkAction,
+  crossCopyCompareSummary,
+  crossCopyLastResultSummary,
+  crossCopyLastComparedAt,
+  crossCopyPaneResizeState,
+  crossCopyGridRef,
+  crossCopyMobileStep,
+  showCrossCopyDiffModal,
+  crossCopyDesktopLeftWidthClamped,
+  crossCopySourceIsCurrentWorldbook,
+  crossCopySourceVersionLabel,
+  crossCopyHasCompared,
+  crossCopyWorkspaceSummary,
+  crossCopySourceTargetInvalid,
+  crossCopySourceRowsFiltered,
+  crossCopyRowsFiltered,
+  crossCopySelectedRows,
+  crossCopyStatusCounts,
+  crossCopySelectedCount,
+  crossCopyCanCompare,
+  crossCopyMobileCanGoStep2,
+  crossCopyMobileCanGoStep3,
+  crossCopyDiffActiveRow: crossCopyDiffRow,
+  crossCopyDiffFieldRows: crossCopyFieldDiffRows,
+  crossCopyDiffTextResult: crossCopyContentDiff,
+  normalizeCrossCopyWorldbookSelection,
+  applyCrossCopyStateFromPersisted,
+  persistCrossCopyState,
+  getCrossCopyStatusLabel,
+  getCrossCopyActionLabel,
+  getCrossCopyStatusBadgeClass,
+  getCrossCopyEntryProfile,
+  getCrossCopyPrimaryTargetMatch,
+  getCrossCopyRowDiffSummary,
+  getCrossCopyPreviewText,
+  refreshCrossCopyComparison,
+  setCrossCopySelectionForFiltered,
+  setCrossCopySelectionForAll,
+  applyCrossCopyBulkAction,
+  applyCrossCopyActionByStatus,
+  onCrossCopyRowActionChange,
+  onCrossCopyRowRenameBlur,
+  applyCrossCopySelection,
+  openCrossCopyDiff,
+  closeCrossCopyDiff,
+  toggleCrossCopyWorkspaceTools,
+  toggleCrossCopyControlsCollapsed,
+  setCrossCopyModeActive: setCrossCopyModeActiveRaw,
+  startCrossCopyPaneResize,
+  stopCrossCopyPaneResize,
+  goToCrossCopyMobileStep,
+  goToPreviousCrossCopyMobileStep,
+  goToNextCrossCopyMobileStep,
+} = useCrossCopy({
+  persistedState,
+  updatePersistedState,
+  setStatus,
+  worldbookNames,
+  selectedWorldbookName,
+  draftEntries,
+  hasUnsavedChanges,
+  isAnyCineLocked,
+  isMobile,
+  saveCurrentWorldbook,
+  loadWorldbook,
+  pushSnapshotForWorldbook,
+});
+
+function setCrossCopyModeActive(next: boolean): void {
+  if (!next) {
+    closeCrossCopyDiff();
+    stopCrossCopyPaneResize();
+    crossCopyMobileStep.value = 1;
+    setCrossCopyModeActiveRaw(false);
+    closeFocusWorldbookMenu();
+    closeFocusToolsBand();
+    return;
+  }
+  crossCopyWorkspaceToolsExpanded.value = true;
+  aiGeneratorMode.value = false;
+  tagEditorMode.value = false;
+  globalWorldbookMode.value = false;
+  crossCopyMobileStep.value = 1;
+  closeFocusWorldbookMenu();
+  closeFocusToolsBand();
+  setCrossCopyModeActiveRaw(true);
+  persistCrossCopyState();
+}
+_setCrossCopyModeActive = setCrossCopyModeActive;
+
+function toggleCrossCopyMode(): void {
+  if (isAnyCineLocked.value) {
+    return;
+  }
+  const nextCrossCopy = !crossCopyMode.value;
+  if (!copyCineEnabled.value) {
+    setCrossCopyModeActive(nextCrossCopy);
+    return;
+  }
+  void runCrossCopyCinematicTransition(nextCrossCopy);
+}
+
+function resetCrossCopyCompare(reason = ''): void {
+  closeCrossCopyDiff();
+  crossCopyRows.value = [];
+  crossCopySourceBaselineEntries.value = [];
+  crossCopyTargetBaselineEntries.value = [];
+  crossCopyCompareSummary.value = '';
+  crossCopyLastComparedAt.value = 0;
+  if (reason) {
+    crossCopyLastResultSummary.value = reason;
+  }
+}
+
 const isFocusToolbarCompact = computed(() => isDesktopFocusMode.value && viewportWidth.value < 1360);
 const activeMainPaneMin = computed(() => (isDesktopFocusMode.value ? FOCUS_MAIN_PANE_MIN : MAIN_PANE_MIN));
 const activeEditorSideMin = computed(() => (isDesktopFocusMode.value ? FOCUS_EDITOR_SIDE_MIN : EDITOR_SIDE_MIN));
@@ -4254,24 +4338,6 @@ const filteredSelectableWorldbookNames = computed(() => {
   return names;
 });
 
-const crossCopySourceIsCurrentWorldbook = computed(() => {
-  return Boolean(crossCopySourceWorldbook.value) && crossCopySourceWorldbook.value === selectedWorldbookName.value;
-});
-
-const crossCopySourceVersionLabel = computed(() => {
-  if (!crossCopySourceIsCurrentWorldbook.value) {
-    return '来源为其他世界书，固定读取已保存版本';
-  }
-  return crossCopyUseDraftSourceWhenCurrent.value ? '来源读取当前草稿（含未保存修改）' : '来源读取已保存版本';
-});
-const crossCopyHasCompared = computed(() => crossCopyLastComparedAt.value > 0);
-
-const crossCopyWorkspaceSummary = computed(() => {
-  const source = crossCopySourceWorldbook.value || '未选择来源';
-  const target = crossCopyTargetWorldbook.value || '未选择目标';
-  return `${source} → ${target}`;
-});
-
 const crossCopyWorkspaceComparedText = computed(() => {
   if (!crossCopyHasCompared.value) {
     return '尚未比较';
@@ -4279,61 +4345,11 @@ const crossCopyWorkspaceComparedText = computed(() => {
   return `上次比较：${formatDateTime(crossCopyLastComparedAt.value)}`;
 });
 
-const crossCopySourceTargetInvalid = computed(() => {
-  if (!crossCopySourceWorldbook.value || !crossCopyTargetWorldbook.value) {
-    return false;
-  }
-  return crossCopySourceWorldbook.value === crossCopyTargetWorldbook.value;
-});
-
-const crossCopySourceRowsFiltered = computed(() => {
-  const keyword = crossCopySearchText.value.trim().toLowerCase();
-  return crossCopyRows.value.filter(row => {
-    if (!keyword) {
-      return true;
-    }
-    return (
-      row.source_entry.name.toLowerCase().includes(keyword) ||
-      row.source_entry.content.toLowerCase().includes(keyword)
-    );
-  });
-});
-
-const crossCopyRowsFiltered = computed(() => {
-  if (crossCopyStatusFilter.value === 'all') {
-    return crossCopySourceRowsFiltered.value;
-  }
-  return crossCopySourceRowsFiltered.value.filter(row => row.status === crossCopyStatusFilter.value);
-});
-
-const crossCopySelectedRows = computed(() => crossCopyRows.value.filter(row => row.selected));
-
-const crossCopyStatusCounts = computed(() => {
-  const counts: Record<CrossCopyRowStatus, number> = {
-    new: 0,
-    duplicate_exact: 0,
-    same_name_changed: 0,
-    content_duplicate_other_name: 0,
-    invalid_same_source_target: 0,
-  };
-  for (const row of crossCopyRows.value) {
-    counts[row.status] += 1;
-  }
-  return counts;
-});
-
-const crossCopySelectedCount = computed(() => crossCopySelectedRows.value.length);
-const crossCopyCanCompare = computed(() =>
-  Boolean(crossCopySourceWorldbook.value && crossCopyTargetWorldbook.value) && !crossCopySourceTargetInvalid.value,
-);
 const crossCopyCanApply = computed(() =>
-  crossCopyCanCompare.value && crossCopySelectedRows.value.length > 0 && !crossCopyApplyLoading.value,
+  crossCopyCanCompare.value && crossCopySelectedCount.value > 0 && !crossCopyApplyLoading.value,
 );
 
 const crossCopyDesktopSingleColumn = computed(() => viewportWidth.value <= 1200);
-const crossCopyDesktopLeftWidthClamped = computed(() =>
-  clampNumber(Math.floor(crossCopyDesktopLeftWidth.value), CROSS_COPY_DESKTOP_LEFT_MIN, CROSS_COPY_DESKTOP_LEFT_MAX),
-);
 const crossCopyGridStyle = computed((): Record<string, string> | undefined => {
   if (crossCopyDesktopSingleColumn.value) {
     return undefined;
@@ -4343,8 +4359,6 @@ const crossCopyGridStyle = computed((): Record<string, string> | undefined => {
   };
 });
 
-const crossCopyMobileCanGoStep2 = computed(() => crossCopyHasCompared.value && crossCopyRows.value.length > 0);
-const crossCopyMobileCanGoStep3 = computed(() => crossCopyMobileCanGoStep2.value);
 const crossCopyMobileNextDisabled = computed(() => {
   if (crossCopyMobileStep.value === 1) {
     return !crossCopyMobileCanGoStep2.value || crossCopyCompareLoading.value;
@@ -4355,28 +4369,11 @@ const crossCopyMobileNextDisabled = computed(() => {
   return !crossCopyCanApply.value;
 });
 
-const crossCopyDiffRow = computed(() => {
-  if (!crossCopyDiffRowId.value) {
-    return null;
-  }
-  return crossCopyRows.value.find(row => row.id === crossCopyDiffRowId.value) ?? null;
-});
-
 const crossCopyDiffTargetEntry = computed(() => {
   if (!crossCopyDiffRow.value) {
     return null;
   }
   return getCrossCopyPrimaryTargetMatch(crossCopyDiffRow.value);
-});
-
-const crossCopyFieldDiffRows = computed<CrossCopyFieldDiffRow[]>(() => {
-  return buildCrossCopyFieldDiffRows(crossCopyDiffRow.value?.source_entry ?? null, crossCopyDiffTargetEntry.value);
-});
-
-const crossCopyContentDiff = computed<CrossCopyTextDiffResult>(() => {
-  const left = crossCopyDiffRow.value?.source_entry.content ?? '';
-  const right = crossCopyDiffTargetEntry.value?.content ?? '';
-  return buildCrossCopyTextDiff(toStringSafe(left), toStringSafe(right));
 });
 
 const crossCopyContentDiffSummary = computed(() => {
@@ -4403,293 +4400,6 @@ const crossCopyDiffHeaderText = computed(() => {
     ? (crossCopyDiffTargetEntry.value.name || `条目 ${crossCopyDiffTargetEntry.value.uid}`)
     : '无命中条目';
   return `${sourceName}  ↔  ${targetName}`;
-});
-
-const snapshotsForCurrent = computed(() => {
-  if (!selectedWorldbookName.value) {
-    return [];
-  }
-  return persistedState.value.history[selectedWorldbookName.value] ?? [];
-});
-
-const entrySnapshotsForSelected = computed(() => {
-  if (!selectedWorldbookName.value || !selectedEntry.value) {
-    return [];
-  }
-  const byWorldbook = persistedState.value.entry_history[selectedWorldbookName.value] ?? {};
-  return byWorldbook[String(selectedEntry.value.uid)] ?? [];
-});
-
-const entryVersionViews = computed<EntryVersionView[]>(() => {
-  if (!selectedEntry.value) {
-    return [];
-  }
-  const baselineEntry = originalEntries.value.find(item => item.uid === selectedEntry.value?.uid) ?? null;
-  const current: EntryVersionView = {
-    id: '__current__',
-    label: '当前版本',
-    ts: Date.now(),
-    name: selectedEntry.value.name,
-    entry: selectedEntry.value,
-    isCurrent: true,
-  };
-  const baseline = baselineEntry
-    ? ({
-        id: '__baseline__',
-        label: '加载基线',
-        ts: 0,
-        name: baselineEntry.name,
-        entry: baselineEntry,
-        isCurrent: false,
-      } satisfies EntryVersionView)
-    : null;
-  const history = entrySnapshotsForSelected.value.map(item => ({
-    id: item.id,
-    label: item.label,
-    ts: item.ts,
-    name: item.name,
-    entry: item.entry,
-    isCurrent: false,
-  }));
-  return [current, ...(baseline ? [baseline] : []), ...history];
-});
-
-const selectedEntryHistoryLeft = computed(() => {
-  return entryVersionViews.value.find(item => item.id === entryHistoryLeftId.value) ?? null;
-});
-
-const selectedEntryHistoryRight = computed(() => {
-  return entryVersionViews.value.find(item => item.id === entryHistoryRightId.value) ?? null;
-});
-
-const canRestoreEntryFromLeft = computed(() => {
-  return Boolean(selectedEntry.value && selectedEntryHistoryLeft.value && !selectedEntryHistoryLeft.value.isCurrent);
-});
-
-const worldbookVersionViews = computed<WorldbookVersionView[]>(() => {
-  if (!selectedWorldbookName.value) {
-    return [];
-  }
-  const current: WorldbookVersionView = {
-    id: '__current__',
-    label: '当前草稿',
-    ts: Date.now(),
-    entries: draftEntries.value,
-    isCurrent: true,
-  };
-  const baseline: WorldbookVersionView | null = {
-    id: '__baseline__',
-    label: '加载基线',
-    ts: 0,
-    entries: originalEntries.value,
-    isCurrent: false,
-  };
-  const history = snapshotsForCurrent.value.map(item => ({
-    id: item.id,
-    label: item.label,
-    ts: item.ts,
-    entries: item.entries,
-    isCurrent: false,
-  }));
-  return [current, ...(originalEntries.value.length ? [baseline] : []), ...history];
-});
-
-const selectedWorldbookHistoryLeft = computed(() => {
-  return worldbookVersionViews.value.find(item => item.id === worldbookHistoryLeftId.value) ?? null;
-});
-
-const selectedWorldbookHistoryRight = computed(() => {
-  return worldbookVersionViews.value.find(item => item.id === worldbookHistoryRightId.value) ?? null;
-});
-
-const canRestoreWorldbookFromLeft = computed(() => {
-  return Boolean(selectedWorldbookHistoryLeft.value && !selectedWorldbookHistoryLeft.value.isCurrent);
-});
-
-const entryHistoryFieldDiffRows = computed<CrossCopyFieldDiffRow[]>(() => {
-  return buildEntryFieldDiffRows(
-    selectedEntryHistoryLeft.value?.entry ?? null,
-    selectedEntryHistoryRight.value?.entry ?? null,
-    { left_fallback: '（不存在）', right_fallback: '（不存在）' },
-  );
-});
-
-const entryHistoryContentDiff = computed<CrossCopyTextDiffResult>(() => {
-  const left = selectedEntryHistoryLeft.value?.entry?.content ?? '';
-  const right = selectedEntryHistoryRight.value?.entry?.content ?? '';
-  return buildCrossCopyTextDiff(toStringSafe(left), toStringSafe(right));
-});
-
-const entryHistoryFieldDiffSummary = computed(() => {
-  const rows = entryHistoryFieldDiffRows.value;
-  if (!rows.length) {
-    return '无可对比字段';
-  }
-  const changed = rows.filter(row => row.changed).length;
-  return `不同字段 ${changed} / ${rows.length}`;
-});
-
-const entryHistoryContentDiffSummary = computed(() => {
-  const result = entryHistoryContentDiff.value;
-  return `新增行 ${result.added} / 修改行 ${result.changed} / 删除行 ${result.removed}`;
-});
-
-const worldbookHistoryCompareRows = computed<WorldbookHistoryCompareRow[]>(() => {
-  return buildWorldbookHistoryCompareRows(selectedWorldbookHistoryLeft.value, selectedWorldbookHistoryRight.value);
-});
-
-const worldbookHistoryCompareSummary = computed(() => {
-  const rows = worldbookHistoryCompareRows.value;
-  let added = 0;
-  let removed = 0;
-  let changed = 0;
-  for (const row of rows) {
-    if (row.status === 'added') {
-      added += 1;
-    } else if (row.status === 'removed') {
-      removed += 1;
-    } else {
-      changed += 1;
-    }
-  }
-  return `新增 ${added} / 修改 ${changed} / 删除 ${removed}`;
-});
-
-const worldbookHistoryActiveRow = computed(() => {
-  if (!worldbookHistoryActiveRowKey.value) {
-    return null;
-  }
-  return worldbookHistoryCompareRows.value.find(row => row.key === worldbookHistoryActiveRowKey.value) ?? null;
-});
-
-const worldbookHistoryFieldDiffRows = computed<CrossCopyFieldDiffRow[]>(() => {
-  return buildEntryFieldDiffRows(
-    worldbookHistoryActiveRow.value?.left_entry ?? null,
-    worldbookHistoryActiveRow.value?.right_entry ?? null,
-    { left_fallback: '（不存在）', right_fallback: '（不存在）' },
-  );
-});
-
-const worldbookHistoryFieldDiffSummary = computed(() => {
-  const rows = worldbookHistoryFieldDiffRows.value;
-  if (!rows.length) {
-    return '无可对比字段';
-  }
-  const changed = rows.filter(row => row.changed).length;
-  return `不同字段 ${changed} / ${rows.length}`;
-});
-
-const worldbookHistoryContentDiff = computed<CrossCopyTextDiffResult>(() => {
-  const left = worldbookHistoryActiveRow.value?.left_entry?.content ?? '';
-  const right = worldbookHistoryActiveRow.value?.right_entry?.content ?? '';
-  return buildCrossCopyTextDiff(toStringSafe(left), toStringSafe(right));
-});
-
-const worldbookHistoryContentDiffSummary = computed(() => {
-  const result = worldbookHistoryContentDiff.value;
-  return `新增行 ${result.added} / 修改行 ${result.changed} / 删除行 ${result.removed}`;
-});
-
-function getHistorySectionRatios(target: HistoryResizeTarget): [number, number, number] {
-  return target === 'entry' ? entryHistorySectionRatios.value : worldbookHistorySectionRatios.value;
-}
-
-function setHistorySectionRatios(target: HistoryResizeTarget, next: [number, number, number]): void {
-  const normalized: [number, number, number] = [
-    Number(next[0].toFixed(2)),
-    Number(next[1].toFixed(2)),
-    Number(next[2].toFixed(2)),
-  ];
-  const delta = Number((100 - (normalized[0] + normalized[1] + normalized[2])).toFixed(2));
-  normalized[2] = Number((normalized[2] + delta).toFixed(2));
-  if (target === 'entry') {
-    entryHistorySectionRatios.value = normalized;
-    return;
-  }
-  worldbookHistorySectionRatios.value = normalized;
-}
-
-function getHistorySectionStyle(target: HistoryResizeTarget, sectionIndex: 0 | 1 | 2): Record<string, string> | undefined {
-  if (!canResizeHistorySections.value) {
-    return undefined;
-  }
-  const ratios = getHistorySectionRatios(target);
-  return {
-    flex: `0 0 ${ratios[sectionIndex]}%`,
-  };
-}
-
-function startHistorySectionResize(target: HistoryResizeTarget, handleIndex: 0 | 1, event: PointerEvent): void {
-  if (!canResizeHistorySections.value) {
-    return;
-  }
-  if (event.pointerType === 'mouse' && event.button !== 0) {
-    return;
-  }
-
-  const container = target === 'entry' ? entryHistoryLayoutRef.value : worldbookHistoryLayoutRef.value;
-  const containerHeight = container?.getBoundingClientRect().height ?? 0;
-  if (!container || containerHeight < 120) {
-    return;
-  }
-
-  const trigger = event.currentTarget as HTMLElement | null;
-  const hostDoc = trigger?.ownerDocument ?? document;
-  const hostWin = hostDoc.defaultView ?? window;
-  historySectionResizeState.value = {
-    target,
-    handleIndex,
-    pointerId: event.pointerId,
-    startY: event.clientY,
-    containerHeight,
-    startRatios: [...getHistorySectionRatios(target)] as [number, number, number],
-    doc: hostDoc,
-    win: hostWin,
-  };
-
-  trigger?.setPointerCapture?.(event.pointerId);
-  hostDoc.addEventListener('pointermove', onHistorySectionResizeMove);
-  hostDoc.addEventListener('pointerup', stopHistorySectionResize);
-  hostDoc.addEventListener('pointercancel', stopHistorySectionResize);
-  hostWin.addEventListener('blur', stopHistorySectionResize);
-  event.preventDefault();
-}
-
-function onHistorySectionResizeMove(event: PointerEvent): void {
-  const state = historySectionResizeState.value;
-  if (!state || state.pointerId !== event.pointerId) {
-    return;
-  }
-  const deltaPercent = ((event.clientY - state.startY) / state.containerHeight) * 100;
-  const minPercent = 14;
-  const [a, b, c] = state.startRatios;
-
-  if (state.handleIndex === 0) {
-    const nextA = clampNumber(a + deltaPercent, minPercent, 100 - minPercent - c);
-    const nextB = 100 - nextA - c;
-    setHistorySectionRatios(state.target, [nextA, nextB, c]);
-    return;
-  }
-
-  const nextB = clampNumber(b + deltaPercent, minPercent, 100 - minPercent - a);
-  const nextC = 100 - a - nextB;
-  setHistorySectionRatios(state.target, [a, nextB, nextC]);
-}
-
-function stopHistorySectionResize(): void {
-  const state = historySectionResizeState.value;
-  if (!state) {
-    return;
-  }
-  state.doc.removeEventListener('pointermove', onHistorySectionResizeMove);
-  state.doc.removeEventListener('pointerup', stopHistorySectionResize);
-  state.doc.removeEventListener('pointercancel', stopHistorySectionResize);
-  state.win.removeEventListener('blur', stopHistorySectionResize);
-  historySectionResizeState.value = null;
-}
-
-const entryHistorySummary = computed(() => {
-  return getEntryVersionDiffSummary(selectedEntryHistoryLeft.value, selectedEntryHistoryRight.value);
 });
 
 const selectedKeysText = computed(() => {
@@ -4793,46 +4503,6 @@ const selectedTokenEstimate = computed(() => {
     return 0;
   }
   return Math.max(1, Math.round(chars / 3.6));
-});
-
-const focusCommentSummary = computed(() => {
-  const name = selectedEntry.value?.name?.trim();
-  if (!name) {
-    return '未命名';
-  }
-  return name.length > 20 ? `${name.slice(0, 20)}...` : name;
-});
-
-const focusKeywordSummary = computed(() => {
-  if (!selectedEntry.value) {
-    return '主0 / 次0';
-  }
-  return `主${selectedEntry.value.strategy.keys.length} / 次${selectedEntry.value.strategy.keys_secondary.keys.length}`;
-});
-
-const focusStrategySummary = computed(() => {
-  if (!selectedEntry.value) {
-    return '-';
-  }
-  return `${getEntryStatusLabel(selectedEntry.value)} · ${selectedEntry.value.probability}%`;
-});
-
-const focusInsertionSummary = computed(() => {
-  if (!selectedEntry.value) {
-    return '-';
-  }
-  return `${getPositionTypeLabel(selectedEntry.value.position.type, selectedEntry.value.position.role)} · #${selectedEntry.value.position.order}`;
-});
-
-const focusRecursionSummary = computed(() => {
-  if (!selectedEntry.value) {
-    return '-';
-  }
-  const tags: string[] = [];
-  tags.push(selectedEntry.value.recursion.prevent_incoming ? '🚫入' : '入✓');
-  tags.push(selectedEntry.value.recursion.prevent_outgoing ? '🚫出' : '出✓');
-  tags.push(`d:${selectedEffectDelayText.value || 'null'}`);
-  return tags.join(' · ');
 });
 
 function confirmDiscardUnsavedChanges(options: { source?: SelectionSource; reason?: string } = {}): boolean {
@@ -5232,52 +4902,6 @@ function updatePersistedState(mutator: (state: PersistedState) => void): void {
   writePersistedState(state);
 }
 
-function applyLayoutStateFromPersisted(): void {
-  const layout = normalizeLayoutState(persistedState.value.layout);
-  isFocusEditing.value = layout.focus_mode;
-  mainPaneWidth.value = layout.normal_left_width;
-  editorSideWidth.value = layout.normal_right_width;
-  focusMainPaneWidth.value = layout.focus_left_width;
-  focusEditorSideWidth.value = layout.focus_right_width;
-}
-
-function persistLayoutState(): void {
-  updatePersistedState(state => {
-    state.layout = {
-      focus_mode: isFocusEditing.value,
-      normal_left_width: mainPaneWidth.value,
-      normal_right_width: editorSideWidth.value,
-      focus_left_width: focusMainPaneWidth.value,
-      focus_right_width: focusEditorSideWidth.value,
-    };
-  });
-}
-
-function applyCrossCopyStateFromPersisted(): void {
-  const state = normalizeCrossCopyPersistState(persistedState.value.cross_copy);
-  crossCopySourceWorldbook.value = state.last_source_worldbook;
-  crossCopyTargetWorldbook.value = state.last_target_worldbook;
-  crossCopyUseDraftSourceWhenCurrent.value = state.use_draft_source_when_current;
-  crossCopySnapshotBeforeApply.value = state.snapshot_before_apply;
-  crossCopyDesktopLeftWidth.value = state.desktop_left_width;
-  crossCopyControlsCollapsed.value = state.controls_collapsed;
-  crossCopyWorkspaceToolsExpanded.value = state.workspace_tools_expanded;
-}
-
-function persistCrossCopyState(): void {
-  updatePersistedState(state => {
-    state.cross_copy = {
-      last_source_worldbook: crossCopySourceWorldbook.value,
-      last_target_worldbook: crossCopyTargetWorldbook.value,
-      use_draft_source_when_current: crossCopyUseDraftSourceWhenCurrent.value,
-      snapshot_before_apply: crossCopySnapshotBeforeApply.value,
-      desktop_left_width: crossCopyDesktopLeftWidthClamped.value,
-      controls_collapsed: crossCopyControlsCollapsed.value,
-      workspace_tools_expanded: crossCopyWorkspaceToolsExpanded.value,
-    };
-  });
-}
-
 // ═══ Browse Mode Helpers ═══
 
 function toggleBrowseCard(uid: number): void {
@@ -5373,24 +4997,6 @@ watch(browseLoadMoreSentinelRef, (el) => {
   else teardownBrowseIntersectionObserver();
 });
 
-function normalizeCrossCopyWorldbookSelection(): void {
-  const names = worldbookNames.value;
-  if (!names.length) {
-    crossCopySourceWorldbook.value = '';
-    crossCopyTargetWorldbook.value = '';
-    return;
-  }
-  if (!crossCopySourceWorldbook.value || !names.includes(crossCopySourceWorldbook.value)) {
-    crossCopySourceWorldbook.value = selectedWorldbookName.value && names.includes(selectedWorldbookName.value)
-      ? selectedWorldbookName.value
-      : names[0];
-  }
-  if (!crossCopyTargetWorldbook.value || !names.includes(crossCopyTargetWorldbook.value)) {
-    const firstDifferent = names.find(name => name !== crossCopySourceWorldbook.value) ?? names[0];
-    crossCopyTargetWorldbook.value = firstDifferent;
-  }
-}
-
 function aiToggleMode(): void {
   if (isAnyCineLocked.value) {
     return;
@@ -5399,7 +5005,7 @@ function aiToggleMode(): void {
   if (aiGeneratorMode.value) {
     globalWorldbookMode.value = false;
     tagEditorMode.value = false;
-    crossCopyMode.value = false;
+    setCrossCopyModeActive(false);
   }
 }
 
@@ -5411,7 +5017,7 @@ function tagToggleMode(): void {
   if (tagEditorMode.value) {
     aiGeneratorMode.value = false;
     globalWorldbookMode.value = false;
-    crossCopyMode.value = false;
+    setCrossCopyModeActive(false);
   }
 }
 
@@ -5425,826 +5031,6 @@ function normalizeCrossCopyNameKey(name: string): string {
 
 function normalizeCrossCopyContentKey(content: string): string {
   return toStringSafe(content).replace(/\s+/g, ' ').trim();
-}
-
-function getCrossCopyStatusLabel(status: CrossCopyRowStatus): string {
-  return CROSS_COPY_STATUS_LABELS[status];
-}
-
-function getCrossCopyActionLabel(action: CrossCopyAction): string {
-  return CROSS_COPY_ACTION_LABELS[action];
-}
-
-function getCrossCopyStatusBadgeClass(status: CrossCopyRowStatus): string {
-  if (status === 'new') {
-    return 'new';
-  }
-  if (status === 'same_name_changed') {
-    return 'changed';
-  }
-  if (status === 'duplicate_exact') {
-    return 'duplicate';
-  }
-  if (status === 'content_duplicate_other_name') {
-    return 'content-duplicate';
-  }
-  return 'invalid';
-}
-
-function getCrossCopyPreviewText(text: string, maxLength = 180): string {
-  const compact = toStringSafe(text).replace(/\s+/g, ' ').trim();
-  if (!compact) {
-    return '(空内容)';
-  }
-  if (compact.length <= maxLength) {
-    return compact;
-  }
-  return `${compact.slice(0, maxLength)}...`;
-}
-
-function getCrossCopyEntryProfile(entry: WorldbookEntry): string {
-  return [
-    getEntryStatusLabel(entry),
-    `Keys ${entry.strategy.keys.length}/${entry.strategy.keys_secondary.keys.length}`,
-    `${getPositionTypeLabel(entry.position.type, entry.position.role)} #${entry.position.order}`,
-    `${entry.recursion.prevent_incoming ? '🚫入' : '入✓'} ${entry.recursion.prevent_outgoing ? '🚫出' : '出✓'}`,
-    `p:${entry.probability}`,
-  ].join(' · ');
-}
-
-function getCrossCopyPrimaryTargetMatch(row: CrossCopyRow): WorldbookEntry | null {
-  if (row.target_summary.same_name_matches.length) {
-    return row.target_summary.same_name_matches[0];
-  }
-  if (row.target_summary.content_duplicate_other_name_matches.length) {
-    return row.target_summary.content_duplicate_other_name_matches[0];
-  }
-  return null;
-}
-
-function getCrossCopyRowDiffSummary(row: CrossCopyRow): string {
-  const target = getCrossCopyPrimaryTargetMatch(row);
-  if (!target) {
-    return '目标无直接命中';
-  }
-  return getEntryPairDiffSummary(row.source_entry, target, { left: '来源', right: '目标' });
-}
-
-function formatCrossCopyDiffScalar(value: unknown): string {
-  if (value === null || value === undefined) {
-    return 'null';
-  }
-  if (typeof value === 'boolean') {
-    return value ? '是' : '否';
-  }
-  const rendered = toStringSafe(value).trim();
-  return rendered || '(空)';
-}
-
-function formatCrossCopyDiffKeywords(list: unknown[]): string {
-  if (!Array.isArray(list) || !list.length) {
-    return '(空)';
-  }
-  return list.map(item => stringifyKeyword(item as WorldbookKeyword)).join(' , ');
-}
-
-function formatCrossCopyDiffExtra(extra: WorldbookEntry['extra']): string {
-  if (!extra || typeof extra !== 'object') {
-    return '无';
-  }
-  const keys = Object.keys(extra);
-  if (!keys.length) {
-    return '无';
-  }
-  const preview = keys.slice(0, 6).join(', ');
-  return keys.length > 6 ? `${keys.length} 项: ${preview} ...` : `${keys.length} 项: ${preview}`;
-}
-
-function buildEntryFieldDiffRows(
-  leftEntry: WorldbookEntry | null,
-  rightEntry: WorldbookEntry | null,
-  options: EntryFieldDiffOptions = {},
-): CrossCopyFieldDiffRow[] {
-  if (!leftEntry && !rightEntry) {
-    return [];
-  }
-  const leftFallback = options.left_fallback ?? '（无命中）';
-  const rightFallback = options.right_fallback ?? '（无命中）';
-  const rows: CrossCopyFieldDiffRow[] = [];
-  const pushRow = (key: string, label: string, left: string, right: string): void => {
-    rows.push({
-      key,
-      label,
-      left,
-      right,
-      changed: left !== right,
-    });
-  };
-
-  pushRow('name', '名称', leftEntry ? (leftEntry.name || '(空)') : leftFallback, rightEntry ? (rightEntry.name || '(空)') : rightFallback);
-  pushRow('enabled', '启用', leftEntry ? (leftEntry.enabled ? '启用' : '禁用') : leftFallback, rightEntry ? (rightEntry.enabled ? '启用' : '禁用') : rightFallback);
-  pushRow(
-    'strategy_type',
-    '触发模式',
-    leftEntry ? getStrategyTypeLabel(leftEntry.strategy.type) : leftFallback,
-    rightEntry ? getStrategyTypeLabel(rightEntry.strategy.type) : rightFallback,
-  );
-  pushRow('probability', '概率', leftEntry ? `${leftEntry.probability}%` : leftFallback, rightEntry ? `${rightEntry.probability}%` : rightFallback);
-  pushRow('keys', '主要关键词', leftEntry ? formatCrossCopyDiffKeywords(leftEntry.strategy.keys) : leftFallback, rightEntry ? formatCrossCopyDiffKeywords(rightEntry.strategy.keys) : rightFallback);
-  pushRow(
-    'secondary_keys',
-    '次要关键词',
-    leftEntry ? formatCrossCopyDiffKeywords(leftEntry.strategy.keys_secondary.keys) : leftFallback,
-    rightEntry ? formatCrossCopyDiffKeywords(rightEntry.strategy.keys_secondary.keys) : rightFallback,
-  );
-  pushRow(
-    'secondary_logic',
-    '次要逻辑',
-    leftEntry ? getSecondaryLogicLabel(leftEntry.strategy.keys_secondary.logic) : leftFallback,
-    rightEntry ? getSecondaryLogicLabel(rightEntry.strategy.keys_secondary.logic) : rightFallback,
-  );
-  pushRow(
-    'position_type',
-    '插入位置',
-    leftEntry ? getPositionTypeLabel(leftEntry.position.type, leftEntry.position.role) : leftFallback,
-    rightEntry ? getPositionTypeLabel(rightEntry.position.type, rightEntry.position.role) : rightFallback,
-  );
-  pushRow('position_order', '插入权重', leftEntry ? String(leftEntry.position.order) : leftFallback, rightEntry ? String(rightEntry.position.order) : rightFallback);
-  pushRow(
-    'at_depth_role',
-    '深度角色',
-    leftEntry ? (leftEntry.position.type === 'at_depth' ? leftEntry.position.role : '-') : leftFallback,
-    rightEntry ? (rightEntry.position.type === 'at_depth' ? rightEntry.position.role : '-') : rightFallback,
-  );
-  pushRow(
-    'at_depth_depth',
-    '深度层级',
-    leftEntry ? (leftEntry.position.type === 'at_depth' ? String(leftEntry.position.depth) : '-') : leftFallback,
-    rightEntry ? (rightEntry.position.type === 'at_depth' ? String(rightEntry.position.depth) : '-') : rightFallback,
-  );
-  pushRow(
-    'recursion_in',
-    '不可递归命中',
-    leftEntry ? (leftEntry.recursion.prevent_incoming ? '是' : '否') : leftFallback,
-    rightEntry ? (rightEntry.recursion.prevent_incoming ? '是' : '否') : rightFallback,
-  );
-  pushRow(
-    'recursion_out',
-    '阻止后续递归',
-    leftEntry ? (leftEntry.recursion.prevent_outgoing ? '是' : '否') : leftFallback,
-    rightEntry ? (rightEntry.recursion.prevent_outgoing ? '是' : '否') : rightFallback,
-  );
-  pushRow(
-    'recursion_delay_until',
-    '递归 delay_until',
-    leftEntry ? formatCrossCopyDiffScalar(leftEntry.recursion.delay_until) : leftFallback,
-    rightEntry ? formatCrossCopyDiffScalar(rightEntry.recursion.delay_until) : rightFallback,
-  );
-  pushRow('effect_sticky', 'sticky', leftEntry ? formatCrossCopyDiffScalar(leftEntry.effect.sticky) : leftFallback, rightEntry ? formatCrossCopyDiffScalar(rightEntry.effect.sticky) : rightFallback);
-  pushRow('effect_cooldown', 'cooldown', leftEntry ? formatCrossCopyDiffScalar(leftEntry.effect.cooldown) : leftFallback, rightEntry ? formatCrossCopyDiffScalar(rightEntry.effect.cooldown) : rightFallback);
-  pushRow('effect_delay', 'delay', leftEntry ? formatCrossCopyDiffScalar(leftEntry.effect.delay) : leftFallback, rightEntry ? formatCrossCopyDiffScalar(rightEntry.effect.delay) : rightFallback);
-  pushRow(
-    'effect_delay_until',
-    'delay_until',
-    leftEntry ? formatCrossCopyDiffScalar(leftEntry.effect.delay_until) : leftFallback,
-    rightEntry ? formatCrossCopyDiffScalar(rightEntry.effect.delay_until) : rightFallback,
-  );
-  pushRow('extra', 'extra 字段', leftEntry ? formatCrossCopyDiffExtra(leftEntry.extra) : leftFallback, rightEntry ? formatCrossCopyDiffExtra(rightEntry.extra) : rightFallback);
-  return rows;
-}
-
-function buildCrossCopyFieldDiffRows(source: WorldbookEntry | null, target: WorldbookEntry | null): CrossCopyFieldDiffRow[] {
-  return buildEntryFieldDiffRows(source, target, { left_fallback: '（无命中）', right_fallback: '（无命中）' });
-}
-
-function buildCrossCopyTextDiff(leftText: string, rightText: string): CrossCopyTextDiffResult {
-  const left: CrossCopyTextDiffLine[] = [];
-  const right: CrossCopyTextDiffLine[] = [];
-  let leftLineNo = 1;
-  let rightLineNo = 1;
-  let addLines = 0;
-  let delLines = 0;
-  const parts = diffLines(leftText, rightText);
-
-  for (const part of parts as Array<{ value: string; added?: boolean; removed?: boolean }>) {
-    const lines = part.value.split('\n');
-    if (lines.length && lines[lines.length - 1] === '') {
-      lines.pop();
-    }
-    if (!lines.length) {
-      continue;
-    }
-
-    if (part.added) {
-      for (const line of lines) {
-        left.push({ type: 'empty', line_no: null, text: '' });
-        right.push({ type: 'add', line_no: rightLineNo, text: line });
-        rightLineNo += 1;
-        addLines += 1;
-      }
-      continue;
-    }
-
-    if (part.removed) {
-      for (const line of lines) {
-        left.push({ type: 'del', line_no: leftLineNo, text: line });
-        right.push({ type: 'empty', line_no: null, text: '' });
-        leftLineNo += 1;
-        delLines += 1;
-      }
-      continue;
-    }
-
-    for (const line of lines) {
-      left.push({ type: 'same', line_no: leftLineNo, text: line });
-      right.push({ type: 'same', line_no: rightLineNo, text: line });
-      leftLineNo += 1;
-      rightLineNo += 1;
-    }
-  }
-
-  if (!left.length && !right.length) {
-    left.push({ type: 'same', line_no: 1, text: '(空内容)' });
-    right.push({ type: 'same', line_no: 1, text: '(空内容)' });
-  }
-
-  const changed = Math.min(addLines, delLines);
-  return {
-    left,
-    right,
-    added: Math.max(0, addLines - changed),
-    removed: Math.max(0, delLines - changed),
-    changed,
-  };
-}
-
-function generateCrossCopyUniqueName(baseName: string, occupiedNameKeys: Set<string>): string {
-  const base = toStringSafe(baseName).trim() || '未命名条目';
-  const first = `${base} (复制)`;
-  if (!occupiedNameKeys.has(normalizeCrossCopyNameKey(first))) {
-    return first;
-  }
-  for (let index = 2; index < 2000; index += 1) {
-    const candidate = `${base} (复制${index})`;
-    if (!occupiedNameKeys.has(normalizeCrossCopyNameKey(candidate))) {
-      return candidate;
-    }
-  }
-  return `${base} (复制${Date.now()})`;
-}
-
-function getCrossCopyReservedNameKeys(excludeRowId = ''): Set<string> {
-  const occupied = new Set(crossCopyTargetBaselineEntries.value.map(entry => normalizeCrossCopyNameKey(entry.name)));
-  for (const row of crossCopyRows.value) {
-    if (row.id === excludeRowId || row.action !== 'rename_create') {
-      continue;
-    }
-    const key = normalizeCrossCopyNameKey(row.rename_name);
-    if (key) {
-      occupied.add(key);
-    }
-  }
-  return occupied;
-}
-
-function ensureCrossCopyRenameForRow(row: CrossCopyRow): void {
-  if (row.action !== 'rename_create') {
-    return;
-  }
-  const occupied = getCrossCopyReservedNameKeys(row.id);
-  const typed = toStringSafe(row.rename_name).trim();
-  if (!typed) {
-    row.rename_name = generateCrossCopyUniqueName(row.source_entry.name, occupied);
-    return;
-  }
-  const typedKey = normalizeCrossCopyNameKey(typed);
-  if (occupied.has(typedKey)) {
-    row.rename_name = generateCrossCopyUniqueName(typed, occupied);
-    return;
-  }
-  row.rename_name = typed;
-}
-
-function openCrossCopyDiff(row: CrossCopyRow): void {
-  crossCopyDiffRowId.value = row.id;
-  showCrossCopyDiffModal.value = true;
-}
-
-function closeCrossCopyDiff(): void {
-  showCrossCopyDiffModal.value = false;
-  crossCopyDiffRowId.value = '';
-}
-
-function toggleCrossCopyWorkspaceTools(): void {
-  if (isAnyCineLocked.value) {
-    return;
-  }
-  crossCopyWorkspaceToolsExpanded.value = !crossCopyWorkspaceToolsExpanded.value;
-}
-
-function toggleCrossCopyControlsCollapsed(): void {
-  crossCopyControlsCollapsed.value = !crossCopyControlsCollapsed.value;
-}
-
-function canEnterCrossCopyMobileStep(step: CrossCopyMobileStep): boolean {
-  if (step <= 1) {
-    return true;
-  }
-  if (step === 2) {
-    return crossCopyMobileCanGoStep2.value;
-  }
-  return crossCopyMobileCanGoStep3.value;
-}
-
-function goToCrossCopyMobileStep(step: CrossCopyMobileStep): void {
-  if (step === crossCopyMobileStep.value) {
-    return;
-  }
-  if (!canEnterCrossCopyMobileStep(step)) {
-    toastr.info('请先完成比较，再继续下一步');
-    return;
-  }
-  crossCopyMobileStep.value = step;
-}
-
-function goToPreviousCrossCopyMobileStep(): void {
-  const prev = clampNumber(crossCopyMobileStep.value - 1, 1, 3) as CrossCopyMobileStep;
-  crossCopyMobileStep.value = prev;
-}
-
-function goToNextCrossCopyMobileStep(): void {
-  const next = clampNumber(crossCopyMobileStep.value + 1, 1, 3) as CrossCopyMobileStep;
-  goToCrossCopyMobileStep(next);
-}
-
-function startCrossCopyPaneResize(event: PointerEvent): void {
-  if (isAnyCineLocked.value) {
-    return;
-  }
-  if (crossCopyDesktopSingleColumn.value) {
-    return;
-  }
-  if (event.pointerType === 'mouse' && event.button !== 0) {
-    return;
-  }
-  const trigger = event.currentTarget as HTMLElement | null;
-  const hostDoc = trigger?.ownerDocument ?? document;
-  const hostWin = hostDoc.defaultView ?? window;
-  crossCopyPaneResizeState.value = {
-    pointerId: event.pointerId,
-    doc: hostDoc,
-    win: hostWin,
-  };
-  trigger?.setPointerCapture?.(event.pointerId);
-  hostDoc.addEventListener('pointermove', onCrossCopyPaneResizeMove);
-  hostDoc.addEventListener('pointerup', stopCrossCopyPaneResize);
-  hostDoc.addEventListener('pointercancel', stopCrossCopyPaneResize);
-  hostWin.addEventListener('blur', stopCrossCopyPaneResize);
-  event.preventDefault();
-}
-
-function onCrossCopyPaneResizeMove(event: PointerEvent): void {
-  const state = crossCopyPaneResizeState.value;
-  if (!state || state.pointerId !== event.pointerId) {
-    return;
-  }
-  const rect = crossCopyGridRef.value?.getBoundingClientRect();
-  if (!rect) {
-    return;
-  }
-  const pointerLeft = Math.floor(event.clientX - rect.left - CROSS_COPY_SPLITTER_SIZE / 2);
-  const maxByLayout = Math.max(
-    CROSS_COPY_DESKTOP_LEFT_MIN,
-    Math.floor(rect.width - CROSS_COPY_SPLITTER_SIZE - CROSS_COPY_RIGHT_MIN),
-  );
-  const maxWidth = Math.min(CROSS_COPY_DESKTOP_LEFT_MAX, maxByLayout);
-  crossCopyDesktopLeftWidth.value = clampNumber(pointerLeft, CROSS_COPY_DESKTOP_LEFT_MIN, maxWidth);
-}
-
-function stopCrossCopyPaneResize(): void {
-  const state = crossCopyPaneResizeState.value;
-  if (!state) {
-    return;
-  }
-  state.doc.removeEventListener('pointermove', onCrossCopyPaneResizeMove);
-  state.doc.removeEventListener('pointerup', stopCrossCopyPaneResize);
-  state.doc.removeEventListener('pointercancel', stopCrossCopyPaneResize);
-  state.win.removeEventListener('blur', stopCrossCopyPaneResize);
-  crossCopyPaneResizeState.value = null;
-  crossCopyDesktopLeftWidth.value = crossCopyDesktopLeftWidthClamped.value;
-  persistCrossCopyState();
-}
-
-function setCrossCopyModeActive(next: boolean): void {
-  if (!next) {
-    closeCrossCopyDiff();
-    stopCrossCopyPaneResize();
-    crossCopyMobileStep.value = 1;
-  }
-  crossCopyMode.value = next;
-  if (next) {
-    crossCopyWorkspaceToolsExpanded.value = true;
-    aiGeneratorMode.value = false;
-    tagEditorMode.value = false;
-    globalWorldbookMode.value = false;
-    crossCopyMobileStep.value = 1;
-    closeFocusWorldbookMenu();
-    closeFocusToolsBand();
-    normalizeCrossCopyWorldbookSelection();
-    persistCrossCopyState();
-    return;
-  }
-  closeFocusWorldbookMenu();
-  closeFocusToolsBand();
-}
-
-function toggleCrossCopyMode(): void {
-  if (isAnyCineLocked.value) {
-    return;
-  }
-  const nextCrossCopy = !crossCopyMode.value;
-  if (!copyCineEnabled.value) {
-    setCrossCopyModeActive(nextCrossCopy);
-    return;
-  }
-  void runCrossCopyCinematicTransition(nextCrossCopy);
-}
-
-function resetCrossCopyCompare(reason = ''): void {
-  closeCrossCopyDiff();
-  crossCopyRows.value = [];
-  crossCopySourceBaselineEntries.value = [];
-  crossCopyTargetBaselineEntries.value = [];
-  crossCopyCompareSummary.value = '';
-  crossCopyLastComparedAt.value = 0;
-  if (reason) {
-    crossCopyLastResultSummary.value = reason;
-  }
-}
-
-function buildCrossCopyRows(
-  sourceEntries: WorldbookEntry[],
-  targetEntries: WorldbookEntry[],
-  sameSourceTarget: boolean,
-): CrossCopyRow[] {
-  const byName = new Map<string, WorldbookEntry[]>();
-  const byContent = new Map<string, WorldbookEntry[]>();
-  for (const entry of targetEntries) {
-    const nameKey = normalizeCrossCopyNameKey(entry.name);
-    const contentKey = normalizeCrossCopyContentKey(entry.content);
-    const nameBucket = byName.get(nameKey) ?? [];
-    nameBucket.push(entry);
-    byName.set(nameKey, nameBucket);
-    const contentBucket = byContent.get(contentKey) ?? [];
-    contentBucket.push(entry);
-    byContent.set(contentKey, contentBucket);
-  }
-
-  const initialRows = sourceEntries.map((sourceEntry, sourceIndex) => {
-    const sourceNameKey = normalizeCrossCopyNameKey(sourceEntry.name);
-    const sourceContentKey = normalizeCrossCopyContentKey(sourceEntry.content);
-    const sameNameMatches = byName.get(sourceNameKey) ?? [];
-    const sameNameExactCount = sameNameMatches.filter(entry => normalizeCrossCopyContentKey(entry.content) === sourceContentKey).length;
-    const contentDuplicateOtherNameMatches = (byContent.get(sourceContentKey) ?? []).filter(entry => {
-      return normalizeCrossCopyNameKey(entry.name) !== sourceNameKey;
-    });
-
-    let status: CrossCopyRowStatus;
-    if (sameSourceTarget) {
-      status = 'invalid_same_source_target';
-    } else if (sameNameMatches.length) {
-      status = sameNameExactCount === sameNameMatches.length ? 'duplicate_exact' : 'same_name_changed';
-    } else if (contentDuplicateOtherNameMatches.length) {
-      status = 'content_duplicate_other_name';
-    } else {
-      status = 'new';
-    }
-
-    let note = '';
-    if (sameNameMatches.length > 1) {
-      note = `目标同名命中 ${sameNameMatches.length} 条，覆盖会全部替换`;
-    } else if (contentDuplicateOtherNameMatches.length) {
-      note = `检测到 ${contentDuplicateOtherNameMatches.length} 条异名同内容条目`;
-    }
-
-    let action: CrossCopyAction = 'create';
-    if (status === 'duplicate_exact' || status === 'content_duplicate_other_name' || status === 'invalid_same_source_target') {
-      action = 'skip';
-    } else if (status === 'same_name_changed') {
-      action = 'overwrite';
-    }
-
-    return {
-      id: createId('cross-copy-row'),
-      source_entry: normalizeEntry(klona(sourceEntry), sourceEntry.uid),
-      source_index: sourceIndex,
-      source_name_key: sourceNameKey,
-      source_content_key: sourceContentKey,
-      status,
-      selected: false,
-      action,
-      rename_name: '',
-      note,
-      details_open: false,
-      target_summary: {
-        same_name_matches: sameNameMatches.map(item => normalizeEntry(klona(item), item.uid)),
-        same_name_exact_count: sameNameExactCount,
-        content_duplicate_other_name_matches: contentDuplicateOtherNameMatches.map(item => normalizeEntry(klona(item), item.uid)),
-      },
-    } satisfies CrossCopyRow;
-  });
-
-  const occupied = new Set(targetEntries.map(entry => normalizeCrossCopyNameKey(entry.name)));
-  for (const row of initialRows) {
-    row.rename_name = generateCrossCopyUniqueName(row.source_entry.name, occupied);
-    occupied.add(normalizeCrossCopyNameKey(row.rename_name));
-  }
-  return initialRows;
-}
-
-function buildCrossCopyCompareSummary(rows: CrossCopyRow[], sourceCount: number, targetCount: number): string {
-  const counts = {
-    new: 0,
-    duplicate_exact: 0,
-    same_name_changed: 0,
-    content_duplicate_other_name: 0,
-    invalid_same_source_target: 0,
-  };
-  for (const row of rows) {
-    counts[row.status] += 1;
-  }
-  return [
-    `来源 ${sourceCount} 条`,
-    `目标 ${targetCount} 条`,
-    `新增 ${counts.new}`,
-    `同名更新 ${counts.same_name_changed}`,
-    `同名同内容 ${counts.duplicate_exact}`,
-    `异名同内容 ${counts.content_duplicate_other_name}`,
-  ].join(' | ');
-}
-
-async function readCrossCopySourceEntries(sourceName: string): Promise<WorldbookEntry[]> {
-  if (sourceName && sourceName === selectedWorldbookName.value && crossCopyUseDraftSourceWhenCurrent.value) {
-    return normalizeEntryList(draftEntries.value.map(entry => klona(entry)));
-  }
-  const raw = await getWorldbook(sourceName);
-  return normalizeEntryList(raw);
-}
-
-async function refreshCrossCopyComparison(): Promise<void> {
-  if (crossCopyCompareLoading.value) {
-    return;
-  }
-  if (!crossCopySourceWorldbook.value || !crossCopyTargetWorldbook.value) {
-    toastr.warning('请先选择来源和目标世界书');
-    return;
-  }
-  crossCopyCompareLoading.value = true;
-  try {
-    const sameSourceTarget = crossCopySourceWorldbook.value === crossCopyTargetWorldbook.value;
-    const [sourceEntries, targetEntries] = await Promise.all([
-      readCrossCopySourceEntries(crossCopySourceWorldbook.value),
-      getWorldbook(crossCopyTargetWorldbook.value),
-    ]);
-    const normalizedTarget = normalizeEntryList(targetEntries);
-    crossCopySourceBaselineEntries.value = sourceEntries.map(entry => normalizeEntry(klona(entry), entry.uid));
-    crossCopyTargetBaselineEntries.value = normalizedTarget.map(entry => normalizeEntry(klona(entry), entry.uid));
-    crossCopyRows.value = buildCrossCopyRows(crossCopySourceBaselineEntries.value, crossCopyTargetBaselineEntries.value, sameSourceTarget);
-    crossCopyCompareSummary.value = buildCrossCopyCompareSummary(
-      crossCopyRows.value,
-      crossCopySourceBaselineEntries.value.length,
-      crossCopyTargetBaselineEntries.value.length,
-    );
-    crossCopyLastComparedAt.value = Date.now();
-    if (sameSourceTarget) {
-      toastr.warning('来源和目标不能是同一个世界书');
-      crossCopyLastResultSummary.value = '来源与目标相同，已禁止执行复制';
-    } else {
-      setStatus(`跨书比较完成：${crossCopyCompareSummary.value}`);
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    toastr.error(`对比失败: ${message}`);
-    crossCopyLastResultSummary.value = `对比失败：${message}`;
-  } finally {
-    crossCopyCompareLoading.value = false;
-  }
-}
-
-function setCrossCopySelectionForFiltered(selected: boolean): void {
-  for (const row of crossCopySourceRowsFiltered.value) {
-    if (row.status === 'invalid_same_source_target') {
-      row.selected = false;
-      continue;
-    }
-    row.selected = selected;
-  }
-}
-
-function setCrossCopySelectionForAll(selected: boolean): void {
-  for (const row of crossCopyRows.value) {
-    if (row.status === 'invalid_same_source_target') {
-      row.selected = false;
-      continue;
-    }
-    row.selected = selected;
-  }
-}
-
-function applyCrossCopyBulkAction(action = crossCopyBulkAction.value): void {
-  for (const row of crossCopyRows.value) {
-    if (!row.selected) {
-      continue;
-    }
-    row.action = action;
-    if (row.action === 'rename_create') {
-      ensureCrossCopyRenameForRow(row);
-    }
-  }
-}
-
-function applyCrossCopyActionByStatus(status: CrossCopyRowStatus, action: CrossCopyAction): void {
-  for (const row of crossCopyRows.value) {
-    if (!row.selected || row.status !== status) {
-      continue;
-    }
-    row.action = action;
-    if (row.action === 'rename_create') {
-      ensureCrossCopyRenameForRow(row);
-    }
-  }
-}
-
-function onCrossCopyRowActionChange(row: CrossCopyRow): void {
-  if (row.action === 'rename_create') {
-    ensureCrossCopyRenameForRow(row);
-  }
-}
-
-function onCrossCopyRowRenameBlur(row: CrossCopyRow): void {
-  ensureCrossCopyRenameForRow(row);
-}
-
-function pushSnapshotForWorldbook(worldbookName: string, entries: WorldbookEntry[], label: string): void {
-  if (!worldbookName) {
-    return;
-  }
-  const snapshot: WorldbookSnapshot = {
-    id: createId('snapshot'),
-    label,
-    ts: Date.now(),
-    entries: normalizeEntryList(entries.map(entry => klona(entry))),
-  };
-  updatePersistedState(state => {
-    const list = state.history[worldbookName] ?? [];
-    list.unshift(snapshot);
-    if (list.length > HISTORY_LIMIT) {
-      list.length = HISTORY_LIMIT;
-    }
-    state.history[worldbookName] = list;
-  });
-}
-
-async function applyCrossCopySelection(): Promise<void> {
-  if (!crossCopySourceWorldbook.value || !crossCopyTargetWorldbook.value) {
-    toastr.warning('请先选择来源与目标世界书');
-    return;
-  }
-  if (crossCopySourceWorldbook.value === crossCopyTargetWorldbook.value) {
-    toastr.warning('来源和目标不能相同');
-    return;
-  }
-  const selectedRows = crossCopyRows.value.filter(row => row.selected);
-  if (!selectedRows.length) {
-    toastr.warning('请至少勾选一条来源条目');
-    return;
-  }
-  if (crossCopyApplyLoading.value) {
-    return;
-  }
-
-  if (crossCopyTargetWorldbook.value === selectedWorldbookName.value && hasUnsavedChanges.value) {
-    setStatus('目标为当前世界书，正在自动保存未保存修改...');
-    await saveCurrentWorldbook();
-    if (hasUnsavedChanges.value) {
-      toastr.error('自动保存失败，请先处理保存问题后再执行复制');
-      return;
-    }
-  }
-
-  crossCopyApplyLoading.value = true;
-  try {
-    const targetName = crossCopyTargetWorldbook.value;
-    const targetBefore = normalizeEntryList(await getWorldbook(targetName));
-    if (crossCopySnapshotBeforeApply.value) {
-      pushSnapshotForWorldbook(targetName, targetBefore, '跨书复制前快照');
-    }
-
-    const duplicateDetectedCount = selectedRows.filter(row => {
-      return row.status === 'duplicate_exact' || row.status === 'content_duplicate_other_name';
-    }).length;
-
-    const stats = {
-      created: 0,
-      renamedCreated: 0,
-      overwritten: 0,
-      skipped: 0,
-      duplicateDetected: duplicateDetectedCount,
-    };
-
-    const orderedRows = crossCopyRows.value.filter(row => row.selected);
-    const updatedEntries = await updateWorldbookWith(targetName, worldbook => {
-      const next = normalizeEntryList(worldbook.map(entry => klona(entry)));
-      const occupied = new Set(next.map(entry => normalizeCrossCopyNameKey(entry.name)));
-      let nextUid = getNextUid(next);
-
-      for (const row of orderedRows) {
-        if (row.action === 'skip' || row.status === 'invalid_same_source_target') {
-          stats.skipped += 1;
-          continue;
-        }
-        const sourceEntry = normalizeEntry(klona(row.source_entry), row.source_entry.uid);
-
-        if (row.action === 'overwrite') {
-          let replaced = 0;
-          for (let index = 0; index < next.length; index += 1) {
-            if (normalizeCrossCopyNameKey(next[index].name) !== row.source_name_key) {
-              continue;
-            }
-            const uid = next[index].uid;
-            const replacement = normalizeEntry({ ...klona(sourceEntry), uid }, uid);
-            replacement.uid = uid;
-            next[index] = replacement;
-            replaced += 1;
-          }
-          if (replaced === 0) {
-            const uid = nextUid;
-            nextUid += 1;
-            const created = normalizeEntry({ ...klona(sourceEntry), uid }, uid);
-            created.uid = uid;
-            next.push(created);
-            stats.created += 1;
-            occupied.add(normalizeCrossCopyNameKey(created.name));
-          } else {
-            stats.overwritten += replaced;
-            occupied.add(row.source_name_key);
-          }
-          continue;
-        }
-
-        let createdName = sourceEntry.name;
-        if (row.action === 'rename_create') {
-          const typed = toStringSafe(row.rename_name).trim();
-          const typedKey = normalizeCrossCopyNameKey(typed);
-          if (!typed) {
-            createdName = generateCrossCopyUniqueName(sourceEntry.name, occupied);
-          } else if (!occupied.has(typedKey)) {
-            createdName = typed;
-          } else {
-            createdName = generateCrossCopyUniqueName(typed, occupied);
-          }
-          row.rename_name = createdName;
-          stats.renamedCreated += 1;
-        } else {
-          stats.created += 1;
-        }
-        const uid = nextUid;
-        nextUid += 1;
-        const created = normalizeEntry({ ...klona(sourceEntry), uid, name: createdName }, uid);
-        created.uid = uid;
-        next.push(created);
-        occupied.add(normalizeCrossCopyNameKey(createdName));
-      }
-
-      return next;
-    }, { render: 'immediate' });
-
-    if (targetName === selectedWorldbookName.value) {
-      const normalized = normalizeEntryList(updatedEntries.map(entry => klona(entry)));
-      draftEntries.value = klona(normalized);
-      originalEntries.value = klona(normalized);
-      syncEntriesDigestNow();
-      ensureSelectedEntryExists();
-    }
-
-    crossCopyLastResultSummary.value = [
-      `执行完成`,
-      `新增 ${stats.created}`,
-      `另存新增 ${stats.renamedCreated}`,
-      `覆盖 ${stats.overwritten}`,
-      `跳过 ${stats.skipped}`,
-      `检测重复 ${stats.duplicateDetected}`,
-    ].join(' | ');
-    setStatus(`跨书复制完成：${crossCopyLastResultSummary.value}`);
-    toastr.success('跨书复制已完成');
-    await refreshCrossCopyComparison();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    toastr.error(`复制失败: ${message}`);
-    crossCopyLastResultSummary.value = `执行失败：${message}`;
-  } finally {
-    crossCopyApplyLoading.value = false;
-  }
 }
 
 function syncExtraTextWithSelection(): void {
@@ -6487,15 +5273,6 @@ function getWorldbookVersionDiffSummary(
   return `新增 ${added} / 修改 ${changed} / 删除 ${removed}`;
 }
 
-function getEntryVersionDiffSummary(left: EntryVersionView | null, right: EntryVersionView | null): string {
-  if (!left || !right) {
-    return '请在左侧选择两个版本进行比对';
-  }
-  const fieldRows = buildEntryFieldDiffRows(left.entry, right.entry, { left_fallback: '（不存在）', right_fallback: '（不存在）' });
-  const fieldChanged = fieldRows.filter(row => row.changed).length;
-  const content = buildCrossCopyTextDiff(toStringSafe(left.entry.content), toStringSafe(right.entry.content));
-  return `字段 ${fieldChanged}/${fieldRows.length} 不同 · 新增行 ${content.added} / 修改行 ${content.changed} / 删除行 ${content.removed}`;
-}
 
 function getOrderedSelectedEntryUids(): number[] {
   if (!selectedEntryUids.value.length) {
@@ -6901,290 +5678,6 @@ function goBackToList(): void {
   }
 }
 
-function createEntrySnapshotRecord(
-  label: string,
-  uid: number,
-  name: string,
-  entry: WorldbookEntry,
-): EntrySnapshot {
-  return {
-    id: createId('entry-snapshot'),
-    label,
-    ts: Date.now(),
-    uid,
-    name: name || `条目 ${uid}`,
-    entry: normalizeEntry(klona(entry), uid),
-  };
-}
-
-function pushEntrySnapshotsBulk(
-  items: Array<{
-    label: string;
-    uid: number;
-    name: string;
-    entry: WorldbookEntry;
-  }>,
-): number {
-  if (!selectedWorldbookName.value || !items.length) {
-    return 0;
-  }
-
-  let added = 0;
-  const worldbookName = selectedWorldbookName.value;
-
-  updatePersistedState(state => {
-    const byWorldbook = state.entry_history[worldbookName] ?? {};
-
-    for (const item of items) {
-      const uidKey = String(item.uid);
-      const incoming = createEntrySnapshotRecord(item.label, item.uid, item.name, item.entry);
-      const list = byWorldbook[uidKey] ?? [];
-
-      if (list[0] && JSON.stringify(list[0].entry) === JSON.stringify(incoming.entry)) {
-        continue;
-      }
-
-      list.unshift(incoming);
-      if (list.length > ENTRY_HISTORY_LIMIT) {
-        list.length = ENTRY_HISTORY_LIMIT;
-      }
-      byWorldbook[uidKey] = list;
-      added += 1;
-    }
-
-    state.entry_history[worldbookName] = byWorldbook;
-  });
-
-  return added;
-}
-
-function pushEntrySnapshot(label: string, entry: WorldbookEntry): boolean {
-  const added = pushEntrySnapshotsBulk([
-    {
-      label,
-      uid: entry.uid,
-      name: entry.name,
-      entry,
-    },
-  ]);
-  return added > 0;
-}
-
-function collectEntrySnapshotsBeforeSave(): Array<{
-  label: string;
-  uid: number;
-  name: string;
-  entry: WorldbookEntry;
-}> {
-  const result: Array<{
-    label: string;
-    uid: number;
-    name: string;
-    entry: WorldbookEntry;
-  }> = [];
-  const draftByUid = new Map<number, WorldbookEntry>();
-  draftEntries.value.forEach(entry => {
-    draftByUid.set(entry.uid, entry);
-  });
-
-  for (const previous of originalEntries.value) {
-    const current = draftByUid.get(previous.uid);
-    if (!current) {
-      result.push({
-        label: '保存前（删除前）',
-        uid: previous.uid,
-        name: previous.name,
-        entry: previous,
-      });
-      continue;
-    }
-    if (JSON.stringify(previous) !== JSON.stringify(current)) {
-      result.push({
-        label: '保存前',
-        uid: previous.uid,
-        name: previous.name,
-        entry: previous,
-      });
-    }
-  }
-
-  return result;
-}
-
-function pushSnapshot(label: string): void {
-  if (!selectedWorldbookName.value) {
-    return;
-  }
-  pushSnapshotForWorldbook(selectedWorldbookName.value, draftEntries.value, label);
-}
-
-function createManualSnapshot(): void {
-  if (!selectedWorldbookName.value) {
-    toastr.warning('请先选择世界书');
-    return;
-  }
-  pushSnapshot('手动快照');
-  toastr.success('已创建快照');
-}
-
-function openEntryHistoryModal(): void {
-  if (!selectedEntry.value) {
-    toastr.warning('请先选择条目');
-    return;
-  }
-  const nonCurrent = entryVersionViews.value.find(item => !item.isCurrent) ?? null;
-  entryHistoryRightId.value = '__current__';
-  entryHistoryLeftId.value = nonCurrent?.id ?? '__current__';
-  showEntryHistoryModal.value = true;
-}
-
-function openWorldbookHistoryModal(): void {
-  if (!selectedWorldbookName.value) {
-    toastr.warning('请先选择世界书');
-    return;
-  }
-  const nonCurrent = worldbookVersionViews.value.find(item => !item.isCurrent) ?? null;
-  worldbookHistoryRightId.value = '__current__';
-  worldbookHistoryLeftId.value = nonCurrent?.id ?? '__current__';
-  worldbookHistoryActiveRowKey.value = worldbookHistoryCompareRows.value[0]?.key ?? '';
-  showWorldbookHistoryModal.value = true;
-}
-
-function createManualEntrySnapshot(): void {
-  if (!selectedEntry.value) {
-    toastr.warning('请先选择条目');
-    return;
-  }
-  const added = pushEntrySnapshot('手动条目快照', selectedEntry.value);
-  if (added) {
-    toastr.success('已记录当前条目快照');
-  } else {
-    toastr.info('当前条目与最近快照一致，未重复记录');
-  }
-}
-
-function restoreSnapshot(snapshotId: string): void {
-  const snapshot = snapshotsForCurrent.value.find(item => item.id === snapshotId);
-  if (!snapshot) {
-    return;
-  }
-  if (!confirm(`回滚到快照 "${snapshot.label}" ? 当前未保存修改会被覆盖。`)) {
-    return;
-  }
-  draftEntries.value = normalizeEntryList(snapshot.entries);
-  ensureSelectedEntryExists();
-  setStatus(`已回滚到快照：${snapshot.label}`);
-}
-
-function restoreWorldbookFromLeftHistory(): void {
-  const target = selectedWorldbookHistoryLeft.value;
-  if (!target || target.isCurrent) {
-    return;
-  }
-  if (!confirm(`恢复到 Left 版本 "${target.label}" ? 当前未保存修改会被覆盖。`)) {
-    return;
-  }
-  draftEntries.value = normalizeEntryList(klona(target.entries));
-  ensureSelectedEntryExists();
-  setStatus(`已从时光机恢复：${target.label}`);
-  toastr.success('已恢复整本世界书到 Left 版本');
-}
-
-function deleteSnapshot(snapshotId: string): void {
-  if (!selectedWorldbookName.value) {
-    return;
-  }
-  updatePersistedState(state => {
-    const list = state.history[selectedWorldbookName.value] ?? [];
-    state.history[selectedWorldbookName.value] = list.filter(item => item.id !== snapshotId);
-  });
-}
-
-function clearCurrentSnapshots(): void {
-  if (!selectedWorldbookName.value || !snapshotsForCurrent.value.length) {
-    return;
-  }
-  if (!confirm(`清空 "${selectedWorldbookName.value}" 的全部快照？`)) {
-    return;
-  }
-  updatePersistedState(state => {
-    delete state.history[selectedWorldbookName.value];
-  });
-}
-
-function restoreEntrySnapshot(snapshotId: string): void {
-  if (!selectedEntry.value || selectedEntryIndex.value < 0) {
-    return;
-  }
-  const snapshot = entrySnapshotsForSelected.value.find(item => item.id === snapshotId);
-  if (!snapshot) {
-    return;
-  }
-  if (!confirm(`回滚当前条目到快照 "${snapshot.label}" ?`)) {
-    return;
-  }
-
-  // 回滚前自动留一份，便于撤回
-  pushEntrySnapshot('回滚前自动快照', selectedEntry.value);
-
-  const restored = normalizeEntry(klona(snapshot.entry), selectedEntry.value.uid);
-  restored.uid = selectedEntry.value.uid;
-  draftEntries.value.splice(selectedEntryIndex.value, 1, restored);
-  selectedEntryUid.value = restored.uid;
-  setStatus(`已回滚条目到快照：${snapshot.label}`);
-  toastr.success('已恢复条目快照');
-}
-
-function restoreEntryFromLeftHistory(): void {
-  const target = selectedEntryHistoryLeft.value;
-  if (!target || target.isCurrent) {
-    return;
-  }
-  if (!selectedEntry.value || selectedEntryIndex.value < 0) {
-    return;
-  }
-  if (!confirm(`回滚当前条目到 "${target.label}" ?`)) {
-    return;
-  }
-  pushEntrySnapshot('回滚前自动快照', selectedEntry.value);
-  const restored = normalizeEntry(klona(target.entry), selectedEntry.value.uid);
-  restored.uid = selectedEntry.value.uid;
-  draftEntries.value.splice(selectedEntryIndex.value, 1, restored);
-  selectedEntryUid.value = restored.uid;
-  setStatus(`已从条目时光机恢复：${target.label}`);
-  toastr.success('已恢复条目到 Left 版本');
-}
-
-function deleteEntrySnapshot(snapshotId: string): void {
-  if (!selectedWorldbookName.value || !selectedEntry.value) {
-    return;
-  }
-  const worldbookName = selectedWorldbookName.value;
-  const uidKey = String(selectedEntry.value.uid);
-  updatePersistedState(state => {
-    const byWorldbook = state.entry_history[worldbookName] ?? {};
-    const list = byWorldbook[uidKey] ?? [];
-    byWorldbook[uidKey] = list.filter(item => item.id !== snapshotId);
-    state.entry_history[worldbookName] = byWorldbook;
-  });
-}
-
-function clearCurrentEntrySnapshots(): void {
-  if (!selectedWorldbookName.value || !selectedEntry.value || !entrySnapshotsForSelected.value.length) {
-    return;
-  }
-  if (!confirm(`清空条目 #${selectedEntry.value.uid} 的历史快照？`)) {
-    return;
-  }
-  const worldbookName = selectedWorldbookName.value;
-  const uidKey = String(selectedEntry.value.uid);
-  updatePersistedState(state => {
-    const byWorldbook = state.entry_history[worldbookName] ?? {};
-    delete byWorldbook[uidKey];
-    state.entry_history[worldbookName] = byWorldbook;
-  });
-}
-
 function applyExtraJson(): void {
   if (!selectedEntry.value) {
     return;
@@ -7571,7 +6064,7 @@ function toggleGlobalMode(): void {
   if (globalWorldbookMode.value) {
     aiGeneratorMode.value = false;
     tagEditorMode.value = false;
-    crossCopyMode.value = false;
+    setCrossCopyModeActive(false);
     const synced = ensureSelectionForGlobalMode({
       source: 'manual',
       reason: '切换到全局模式',
@@ -7609,64 +6102,6 @@ function isSameWorldbookSet(left: string[], right: string[]): boolean {
   return true;
 }
 
-function resetFocusPanels(): void {
-  focusMetaPanel.comment = false;
-  focusMetaPanel.keywords = false;
-  focusSidePanelState.strategy = true;
-  focusSidePanelState.insertion = true;
-  focusSidePanelState.recursion = true;
-  focusToolsExpanded.value = false;
-  focusToolsTriggerVisible.value = true;
-  focusWorldbookMenuOpen.value = false;
-}
-
-function toggleFocusMetaPanel(panel: FocusMetaPanelKey): void {
-  focusMetaPanel[panel] = !focusMetaPanel[panel];
-}
-
-function toggleFocusSidePanel(panel: FocusSidePanelKey): void {
-  focusSidePanelState[panel] = !focusSidePanelState[panel];
-}
-
-function closeFocusWorldbookMenu(): void {
-  focusWorldbookMenuOpen.value = false;
-}
-
-function toggleFocusWorldbookMenu(): void {
-  if (isAnyCineLocked.value) {
-    return;
-  }
-  if (!focusWorldbookMenuOpen.value) {
-    closeFocusToolsBand();
-  }
-  focusWorldbookMenuOpen.value = !focusWorldbookMenuOpen.value;
-}
-
-function openFocusToolsBand(): void {
-  if (isAnyCineLocked.value) {
-    return;
-  }
-  if (focusToolsExpanded.value || !focusToolsTriggerVisible.value) {
-    return;
-  }
-  closeFocusWorldbookMenu();
-  focusToolsTriggerVisible.value = false;
-  focusToolsExpanded.value = true;
-}
-
-function closeFocusToolsBand(): void {
-  if (!focusToolsExpanded.value) {
-    focusToolsTriggerVisible.value = true;
-    return;
-  }
-  focusToolsExpanded.value = false;
-}
-
-function onFocusToolsBandAfterLeave(): void {
-  if (!focusToolsExpanded.value) {
-    focusToolsTriggerVisible.value = true;
-  }
-}
 
 function runFocusWorldbookAction(action: 'create' | 'duplicate' | 'delete' | 'export' | 'import'): void {
   closeFocusWorldbookMenu();
@@ -7689,604 +6124,6 @@ function runFocusWorldbookAction(action: 'create' | 'duplicate' | 'delete' | 'ex
   triggerImport();
 }
 
-function waitForFrame(): Promise<void> {
-  return new Promise(resolve => {
-    requestAnimationFrame(() => resolve());
-  });
-}
-
-function waitForDuration(ms: number): Promise<void> {
-  return new Promise(resolve => {
-    window.setTimeout(resolve, ms);
-  });
-}
-
-function applyFocusEditingState(nextFocus: boolean): void {
-  isFocusEditing.value = nextFocus;
-  if (nextFocus) {
-    resetFocusPanels();
-  } else {
-    closeFocusWorldbookMenu();
-    closeFocusToolsBand();
-  }
-}
-
-function collectFocusAnimatedKeys(
-  root: HTMLElement,
-  attribute: 'data-focus-hero' | 'data-focus-sink' | 'data-copy-hero' | 'data-copy-sink',
-): Set<FocusHeroKey> {
-  const keys = new Set<FocusHeroKey>();
-  const nodes = Array.from(root.querySelectorAll<HTMLElement>(`[${attribute}]`));
-  for (const node of nodes) {
-    const rawKey = node.getAttribute(attribute);
-    const key = rawKey ? rawKey.trim() : '';
-    if (key) {
-      keys.add(key);
-    }
-  }
-  return keys;
-}
-
-function collectFocusHeroSnapshots(): Map<FocusHeroKey, FocusHeroSnapshot> {
-  const snapshots = new Map<FocusHeroKey, FocusHeroSnapshot>();
-  const root = rootRef.value;
-  if (!root) {
-    return snapshots;
-  }
-
-  const keys = collectFocusAnimatedKeys(root, 'data-focus-hero');
-  for (const key of keys) {
-    const nodes = Array.from(root.querySelectorAll<HTMLElement>(`[data-focus-hero="${key}"]`));
-    const element = nodes.find(node => {
-      if (!node.isConnected) {
-        return false;
-      }
-      const style = window.getComputedStyle(node);
-      if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) <= 0) {
-        return false;
-      }
-      const rect = node.getBoundingClientRect();
-      return rect.width > 1 && rect.height > 1;
-    }) ?? nodes[0];
-    if (!element) {
-      continue;
-    }
-    const rect = element.getBoundingClientRect();
-    if (rect.width <= 1 || rect.height <= 1) {
-      continue;
-    }
-    snapshots.set(key, { key, element, rect });
-  }
-
-  return snapshots;
-}
-
-function collectFocusSinkSnapshots(): Map<FocusHeroKey, FocusSinkSnapshot> {
-  const snapshots = new Map<FocusHeroKey, FocusSinkSnapshot>();
-  const root = rootRef.value;
-  if (!root) {
-    return snapshots;
-  }
-  const keys = collectFocusAnimatedKeys(root, 'data-focus-sink');
-  for (const key of keys) {
-    const nodes = Array.from(root.querySelectorAll<HTMLElement>(`[data-focus-sink="${key}"]`));
-    const element = nodes.find(node => node.isConnected && node.getBoundingClientRect().width > 1 && node.getBoundingClientRect().height > 1) ?? null;
-    if (!element) {
-      continue;
-    }
-    const rect = element.getBoundingClientRect();
-    if (rect.width <= 1 || rect.height <= 1) {
-      continue;
-    }
-    snapshots.set(key, { key, element, rect });
-  }
-  return snapshots;
-}
-
-function collectCopyHeroSnapshots(): Map<FocusHeroKey, FocusHeroSnapshot> {
-  const snapshots = new Map<FocusHeroKey, FocusHeroSnapshot>();
-  const root = rootRef.value;
-  if (!root) {
-    return snapshots;
-  }
-
-  const keys = collectFocusAnimatedKeys(root, 'data-copy-hero');
-  for (const key of keys) {
-    const nodes = Array.from(root.querySelectorAll<HTMLElement>(`[data-copy-hero="${key}"]`));
-    const visibleNodes = nodes.filter(node => {
-      if (!node.isConnected) {
-        return false;
-      }
-      const style = window.getComputedStyle(node);
-      if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) <= 0) {
-        return false;
-      }
-      const rect = node.getBoundingClientRect();
-      return rect.width > 1 && rect.height > 1;
-    });
-    const element = visibleNodes[visibleNodes.length - 1] ?? nodes[nodes.length - 1] ?? null;
-    if (!element) {
-      continue;
-    }
-    const rect = element.getBoundingClientRect();
-    if (rect.width <= 1 || rect.height <= 1) {
-      continue;
-    }
-    snapshots.set(key, { key, element, rect });
-  }
-
-  return snapshots;
-}
-
-function collectCopySinkSnapshots(): Map<FocusHeroKey, FocusSinkSnapshot> {
-  const snapshots = new Map<FocusHeroKey, FocusSinkSnapshot>();
-  const root = rootRef.value;
-  if (!root) {
-    return snapshots;
-  }
-  const keys = collectFocusAnimatedKeys(root, 'data-copy-sink');
-  for (const key of keys) {
-    const nodes = Array.from(root.querySelectorAll<HTMLElement>(`[data-copy-sink="${key}"]`));
-    const element = nodes.find(node => node.isConnected && node.getBoundingClientRect().width > 1 && node.getBoundingClientRect().height > 1) ?? null;
-    if (!element) {
-      continue;
-    }
-    const rect = element.getBoundingClientRect();
-    if (rect.width <= 1 || rect.height <= 1) {
-      continue;
-    }
-    snapshots.set(key, { key, element, rect });
-  }
-  return snapshots;
-}
-
-function resolveFocusFallbackRect(
-  heroMap: Map<FocusHeroKey, FocusHeroSnapshot>,
-  sinkMap: Map<FocusHeroKey, FocusSinkSnapshot>,
-): DOMRect | null {
-  for (const key of FOCUS_FALLBACK_PRIORITY) {
-    const hero = heroMap.get(key);
-    if (hero) {
-      return hero.rect;
-    }
-  }
-  for (const key of FOCUS_FALLBACK_PRIORITY) {
-    const sink = sinkMap.get(key);
-    if (sink) {
-      return sink.rect;
-    }
-  }
-  for (const hero of heroMap.values()) {
-    return hero.rect;
-  }
-  for (const sink of sinkMap.values()) {
-    return sink.rect;
-  }
-  return null;
-}
-
-function buildFocusGhostKeyOrder(
-  sourceMap: Map<FocusHeroKey, FocusHeroSnapshot>,
-  targetMap: Map<FocusHeroKey, FocusHeroSnapshot>,
-  sourceSinkMap: Map<FocusHeroKey, FocusSinkSnapshot>,
-  targetSinkMap: Map<FocusHeroKey, FocusSinkSnapshot>,
-): FocusHeroKey[] {
-  const keySet = new Set<FocusHeroKey>();
-  for (const key of sourceMap.keys()) {
-    keySet.add(key);
-  }
-  for (const key of targetMap.keys()) {
-    keySet.add(key);
-  }
-  for (const key of sourceSinkMap.keys()) {
-    keySet.add(key);
-  }
-  for (const key of targetSinkMap.keys()) {
-    keySet.add(key);
-  }
-
-  const ordered: FocusHeroKey[] = [];
-  for (const key of FOCUS_FALLBACK_PRIORITY) {
-    if (keySet.delete(key)) {
-      ordered.push(key);
-    }
-  }
-  const remaining = Array.from(keySet).sort((a, b) => a.localeCompare(b));
-  ordered.push(...remaining);
-  return ordered;
-}
-
-function resolveCopyFallbackRect(
-  heroMap: Map<FocusHeroKey, FocusHeroSnapshot>,
-  sinkMap: Map<FocusHeroKey, FocusSinkSnapshot>,
-): DOMRect | null {
-  for (const key of COPY_FALLBACK_PRIORITY) {
-    const hero = heroMap.get(key);
-    if (hero) {
-      return hero.rect;
-    }
-  }
-  for (const key of COPY_FALLBACK_PRIORITY) {
-    const sink = sinkMap.get(key);
-    if (sink) {
-      return sink.rect;
-    }
-  }
-  for (const hero of heroMap.values()) {
-    return hero.rect;
-  }
-  for (const sink of sinkMap.values()) {
-    return sink.rect;
-  }
-  return null;
-}
-
-function buildCopyGhostKeyOrder(
-  sourceMap: Map<FocusHeroKey, FocusHeroSnapshot>,
-  targetMap: Map<FocusHeroKey, FocusHeroSnapshot>,
-  sourceSinkMap: Map<FocusHeroKey, FocusSinkSnapshot>,
-  targetSinkMap: Map<FocusHeroKey, FocusSinkSnapshot>,
-): FocusHeroKey[] {
-  const keySet = new Set<FocusHeroKey>();
-  for (const key of sourceMap.keys()) {
-    keySet.add(key);
-  }
-  for (const key of targetMap.keys()) {
-    keySet.add(key);
-  }
-  for (const key of sourceSinkMap.keys()) {
-    keySet.add(key);
-  }
-  for (const key of targetSinkMap.keys()) {
-    keySet.add(key);
-  }
-
-  const ordered: FocusHeroKey[] = [];
-  for (const key of COPY_FALLBACK_PRIORITY) {
-    if (keySet.delete(key)) {
-      ordered.push(key);
-    }
-  }
-  const remaining = Array.from(keySet).sort((a, b) => a.localeCompare(b));
-  ordered.push(...remaining);
-  return ordered;
-}
-
-function clearFocusCineArtifacts(): void {
-  for (const node of focusCineGhostNodes) {
-    node.remove();
-  }
-  focusCineGhostNodes = [];
-
-  for (const node of focusCineHiddenNodes) {
-    node.classList.remove('focus-cine-real-hidden');
-  }
-  focusCineHiddenNodes = [];
-}
-
-function clearCopyCineArtifacts(): void {
-  for (const node of copyCineGhostNodes) {
-    node.remove();
-  }
-  copyCineGhostNodes = [];
-
-  for (const node of copyCineHiddenNodes) {
-    node.classList.remove('copy-cine-real-hidden');
-  }
-  copyCineHiddenNodes = [];
-}
-
-function mountFocusCineGhosts(
-  sourceMap: Map<FocusHeroKey, FocusHeroSnapshot>,
-  targetMap: Map<FocusHeroKey, FocusHeroSnapshot>,
-  sourceSinkMap: Map<FocusHeroKey, FocusSinkSnapshot>,
-  targetSinkMap: Map<FocusHeroKey, FocusSinkSnapshot>,
-): number {
-  clearFocusCineArtifacts();
-  const overlay = focusCineOverlayRef.value;
-  if (!overlay) {
-    return 0;
-  }
-  const sourceFallbackRect = resolveFocusFallbackRect(sourceMap, sourceSinkMap);
-  const targetFallbackRect = resolveFocusFallbackRect(targetMap, targetSinkMap);
-  const sourceElementFallback = sourceMap.get('focus_toggle')?.element ?? targetMap.get('focus_toggle')?.element ?? null;
-  const hiddenTargets = new Set<HTMLElement>();
-  const orderedKeys = buildFocusGhostKeyOrder(sourceMap, targetMap, sourceSinkMap, targetSinkMap);
-  let index = 0;
-
-  for (const key of orderedKeys) {
-    const sourceSelf = sourceMap.get(key) ?? null;
-    const targetSelf = targetMap.get(key) ?? null;
-    const sourceSink = sourceSinkMap.get(key) ?? null;
-    const targetSink = targetSinkMap.get(key) ?? null;
-
-    if (!sourceSelf && !targetSelf && !sourceSink && !targetSink) {
-      continue;
-    }
-
-    const startRect = sourceSelf?.rect ?? sourceSink?.rect ?? sourceFallbackRect;
-    const endRect = targetSelf?.rect ?? targetSink?.rect ?? targetFallbackRect;
-    if (!startRect || !endRect) {
-      continue;
-    }
-    const sourceElement = sourceSelf?.element ?? targetSelf?.element ?? sourceElementFallback;
-    if (!sourceElement) {
-      continue;
-    }
-    const ghost = sourceElement.cloneNode(true) as HTMLElement;
-    ghost.classList.add('focus-cine-ghost');
-    ghost.removeAttribute('id');
-    ghost.removeAttribute('data-focus-hero');
-    ghost.setAttribute('aria-hidden', 'true');
-
-    const startWidth = Math.max(1, startRect.width);
-    const startHeight = Math.max(1, startRect.height);
-    const endWidth = Math.max(1, endRect.width);
-    const endHeight = Math.max(1, endRect.height);
-    const dx = endRect.left - startRect.left;
-    const dy = endRect.top - startRect.top;
-    const scaleX = clampNumber(endWidth / startWidth, 0.72, 1.42);
-    const scaleY = clampNumber(endHeight / startHeight, 0.72, 1.42);
-    const arcYOffset = -14;
-
-    ghost.style.left = `${startRect.left}px`;
-    ghost.style.top = `${startRect.top}px`;
-    ghost.style.width = `${startWidth}px`;
-    ghost.style.height = `${startHeight}px`;
-    ghost.style.setProperty('--cine-dx', `${dx}px`);
-    ghost.style.setProperty('--cine-dy', `${dy}px`);
-    ghost.style.setProperty('--cine-scale-x', `${scaleX}`);
-    ghost.style.setProperty('--cine-scale-y', `${scaleY}`);
-    ghost.style.setProperty('--cine-arc-y', `${arcYOffset}px`);
-    ghost.style.setProperty('--cine-from-opacity', sourceSelf ? '1' : '0');
-    ghost.style.setProperty('--cine-to-opacity', targetSelf ? '1' : '0');
-    ghost.style.animationDuration = `${FOCUS_CINE_DURATION}ms`;
-    ghost.style.animationTimingFunction = FOCUS_CINE_EASE;
-    const delaySteps = Math.min(index, FOCUS_CINE_MAX_STAGGER_STEPS);
-    ghost.style.animationDelay = `${delaySteps * FOCUS_CINE_STAGGER}ms`;
-
-    overlay.appendChild(ghost);
-    focusCineGhostNodes.push(ghost);
-
-    if (targetSelf && !hiddenTargets.has(targetSelf.element)) {
-      hiddenTargets.add(targetSelf.element);
-      targetSelf.element.classList.add('focus-cine-real-hidden');
-      focusCineHiddenNodes.push(targetSelf.element);
-    }
-    index += 1;
-  }
-
-  return index;
-}
-
-function mountCopyCineGhosts(
-  sourceMap: Map<FocusHeroKey, FocusHeroSnapshot>,
-  targetMap: Map<FocusHeroKey, FocusHeroSnapshot>,
-  sourceSinkMap: Map<FocusHeroKey, FocusSinkSnapshot>,
-  targetSinkMap: Map<FocusHeroKey, FocusSinkSnapshot>,
-): number {
-  clearCopyCineArtifacts();
-  const overlay = copyCineOverlayRef.value;
-  if (!overlay) {
-    return 0;
-  }
-  const sourceFallbackRect = resolveCopyFallbackRect(sourceMap, sourceSinkMap);
-  const targetFallbackRect = resolveCopyFallbackRect(targetMap, targetSinkMap);
-  const sourceElementFallback =
-    sourceMap.get('tool_copy')?.element
-    ?? targetMap.get('tool_copy')?.element
-    ?? sourceMap.get('find_btn')?.element
-    ?? targetMap.get('find_btn')?.element
-    ?? null;
-  const hiddenTargets = new Set<HTMLElement>();
-  const orderedKeys = buildCopyGhostKeyOrder(sourceMap, targetMap, sourceSinkMap, targetSinkMap);
-  let index = 0;
-
-  for (const key of orderedKeys) {
-    const sourceSelf = sourceMap.get(key) ?? null;
-    const targetSelf = targetMap.get(key) ?? null;
-    const sourceSink = sourceSinkMap.get(key) ?? null;
-    const targetSink = targetSinkMap.get(key) ?? null;
-
-    if (!sourceSelf && !targetSelf && !sourceSink && !targetSink) {
-      continue;
-    }
-
-    const startRect = sourceSelf?.rect ?? sourceSink?.rect ?? sourceFallbackRect;
-    const endRect = targetSelf?.rect ?? targetSink?.rect ?? targetFallbackRect;
-    if (!startRect || !endRect) {
-      continue;
-    }
-    const sourceElement = sourceSelf?.element ?? targetSelf?.element ?? sourceElementFallback;
-    if (!sourceElement) {
-      continue;
-    }
-    const ghost = sourceElement.cloneNode(true) as HTMLElement;
-    ghost.classList.add('copy-cine-ghost');
-    ghost.removeAttribute('id');
-    ghost.removeAttribute('data-copy-hero');
-    ghost.setAttribute('aria-hidden', 'true');
-
-    const startWidth = Math.max(1, startRect.width);
-    const startHeight = Math.max(1, startRect.height);
-    const endWidth = Math.max(1, endRect.width);
-    const endHeight = Math.max(1, endRect.height);
-    const dx = endRect.left - startRect.left;
-    const dy = endRect.top - startRect.top;
-    const scaleX = clampNumber(endWidth / startWidth, 0.72, 1.42);
-    const scaleY = clampNumber(endHeight / startHeight, 0.72, 1.42);
-    const arcYOffset = -10;
-
-    ghost.style.left = `${startRect.left}px`;
-    ghost.style.top = `${startRect.top}px`;
-    ghost.style.width = `${startWidth}px`;
-    ghost.style.height = `${startHeight}px`;
-    ghost.style.setProperty('--copy-cine-dx', `${dx}px`);
-    ghost.style.setProperty('--copy-cine-dy', `${dy}px`);
-    ghost.style.setProperty('--copy-cine-scale-x', `${scaleX}`);
-    ghost.style.setProperty('--copy-cine-scale-y', `${scaleY}`);
-    ghost.style.setProperty('--copy-cine-arc-y', `${arcYOffset}px`);
-    ghost.style.setProperty('--copy-cine-from-opacity', sourceSelf ? '1' : '0');
-    ghost.style.setProperty('--copy-cine-to-opacity', targetSelf ? '1' : '0');
-    ghost.style.animationDuration = `${COPY_CINE_DURATION}ms`;
-    ghost.style.animationTimingFunction = COPY_CINE_EASE;
-    const delaySteps = Math.min(index, COPY_CINE_MAX_STAGGER_STEPS);
-    ghost.style.animationDelay = `${delaySteps * COPY_CINE_STAGGER}ms`;
-
-    overlay.appendChild(ghost);
-    copyCineGhostNodes.push(ghost);
-
-    if (targetSelf && !hiddenTargets.has(targetSelf.element)) {
-      hiddenTargets.add(targetSelf.element);
-      targetSelf.element.classList.add('copy-cine-real-hidden');
-      copyCineHiddenNodes.push(targetSelf.element);
-    }
-    index += 1;
-  }
-
-  return index;
-}
-
-async function runFocusCinematicTransition(nextFocus: boolean): Promise<void> {
-  if (isAnyCineLocked.value) {
-    return;
-  }
-  const token = ++focusCineToken;
-  focusCineLocked.value = true;
-  focusCineDirection.value = nextFocus ? 'enter' : 'exit';
-  focusCinePhase.value = 'prepare';
-
-  try {
-    await nextTick();
-    const sourceMap = collectFocusHeroSnapshots();
-    const sourceSinkMap = collectFocusSinkSnapshots();
-
-    applyFocusEditingState(nextFocus);
-    await nextTick();
-    await waitForFrame();
-    await waitForFrame();
-
-    const targetMap = collectFocusHeroSnapshots();
-    const targetSinkMap = collectFocusSinkSnapshots();
-    const ghostCount = mountFocusCineGhosts(sourceMap, targetMap, sourceSinkMap, targetSinkMap);
-    if (token !== focusCineToken) {
-      return;
-    }
-    if (ghostCount <= 0) {
-      focusCinePhase.value = 'settling';
-      await nextTick();
-      clampPaneWidths();
-      persistLayoutState();
-      return;
-    }
-
-    focusCinePhase.value = 'running';
-    const staggerTail = Math.min(Math.max(ghostCount - 1, 0), FOCUS_CINE_MAX_STAGGER_STEPS) * FOCUS_CINE_STAGGER;
-    const totalDuration = FOCUS_CINE_DURATION + staggerTail + 40;
-    await waitForDuration(totalDuration);
-    if (token !== focusCineToken) {
-      return;
-    }
-
-    focusCinePhase.value = 'settling';
-    clearFocusCineArtifacts();
-    await nextTick();
-    clampPaneWidths();
-    persistLayoutState();
-  } catch (error) {
-    console.error('[focus-cine] transition failed', error);
-    await nextTick();
-    clampPaneWidths();
-    persistLayoutState();
-  } finally {
-    if (token === focusCineToken) {
-      clearFocusCineArtifacts();
-      focusCinePhase.value = 'idle';
-      focusCineLocked.value = false;
-    }
-  }
-}
-
-async function runCrossCopyCinematicTransition(nextCrossCopy: boolean): Promise<void> {
-  if (isAnyCineLocked.value) {
-    return;
-  }
-  const token = ++copyCineToken;
-  copyCineLocked.value = true;
-  copyCineDirection.value = nextCrossCopy ? 'enter' : 'exit';
-  copyCinePhase.value = 'prepare';
-  let switched = false;
-
-  try {
-    await nextTick();
-    const sourceMap = collectCopyHeroSnapshots();
-    const sourceSinkMap = collectCopySinkSnapshots();
-
-    setCrossCopyModeActive(nextCrossCopy);
-    switched = true;
-    await nextTick();
-    await waitForFrame();
-    await waitForFrame();
-
-    const targetMap = collectCopyHeroSnapshots();
-    const targetSinkMap = collectCopySinkSnapshots();
-    const ghostCount = mountCopyCineGhosts(sourceMap, targetMap, sourceSinkMap, targetSinkMap);
-    if (token !== copyCineToken) {
-      return;
-    }
-    if (ghostCount <= 0) {
-      copyCinePhase.value = 'settling';
-      await nextTick();
-      clampPaneWidths();
-      persistLayoutState();
-      return;
-    }
-
-    copyCinePhase.value = 'running';
-    const staggerTail = Math.min(Math.max(ghostCount - 1, 0), COPY_CINE_MAX_STAGGER_STEPS) * COPY_CINE_STAGGER;
-    const totalDuration = COPY_CINE_DURATION + staggerTail + 40;
-    await waitForDuration(totalDuration);
-    if (token !== copyCineToken) {
-      return;
-    }
-
-    copyCinePhase.value = 'settling';
-    clearCopyCineArtifacts();
-    await nextTick();
-    clampPaneWidths();
-    persistLayoutState();
-  } catch (error) {
-    console.error('[copy-cine] transition failed', error);
-    if (!switched) {
-      setCrossCopyModeActive(nextCrossCopy);
-    }
-    await nextTick();
-    clampPaneWidths();
-    persistLayoutState();
-  } finally {
-    if (token === copyCineToken) {
-      clearCopyCineArtifacts();
-      copyCinePhase.value = 'idle';
-      copyCineLocked.value = false;
-    }
-  }
-}
-
-function toggleFocusEditing(): void {
-  if (isAnyCineLocked.value) {
-    return;
-  }
-  const nextFocus = !isFocusEditing.value;
-  if (!focusCineEnabled.value) {
-    applyFocusEditingState(nextFocus);
-    void nextTick(() => {
-      clampPaneWidths();
-      persistLayoutState();
-    });
-    return;
-  }
-  void runFocusCinematicTransition(nextFocus);
-}
 
 function toggleWorldbookPicker(): void {
   if (worldbookPickerOpen.value) {
@@ -8650,325 +6487,6 @@ function clearActivationLogs(): void {
   activationLogs.value = [];
 }
 
-function resolveHostWindow(): Window {
-  return mainLayoutRef.value?.ownerDocument?.defaultView ?? editorShellRef.value?.ownerDocument?.defaultView ?? window;
-}
-
-function clampFloatingPanelToViewport(panel: FloatingPanelState): void {
-  const hostWin = resolveHostWindow();
-  const viewportWidth = hostWin.innerWidth;
-  const viewportHeight = hostWin.innerHeight;
-  const maxX = Math.max(8, viewportWidth - panel.width - 8);
-  const maxY = Math.max(8, viewportHeight - 68);
-  panel.x = clampNumber(panel.x, 8, maxX);
-  panel.y = clampNumber(panel.y, 8, maxY);
-}
-
-function handleFloatingWindowResize(): void {
-  const hostWin = resolveHostWindow();
-  viewportWidth.value = hostWin.innerWidth;
-  clampPaneWidths();
-  for (const key of floatingPanelKeys) {
-    if (!floatingPanels[key].visible) {
-      continue;
-    }
-    clampFloatingPanelToViewport(floatingPanels[key]);
-  }
-}
-
-function bringFloatingToFront(key: FloatingPanelKey): void {
-  floatingZCounter.value += 1;
-  floatingPanels[key].z = floatingZCounter.value;
-}
-
-function openFloatingPanel(key: FloatingPanelKey): void {
-  const panel = floatingPanels[key];
-  panel.visible = true;
-  clampFloatingPanelToViewport(panel);
-  bringFloatingToFront(key);
-}
-
-function closeFloatingPanel(key: FloatingPanelKey): void {
-  floatingPanels[key].visible = false;
-  if (activeFloatingDrag.value?.key === key) {
-    stopFloatingDrag();
-  }
-}
-
-function toggleFloatingPanel(key: FloatingPanelKey): void {
-  if (focusCineLocked.value) {
-    return;
-  }
-  if (floatingPanels[key].visible) {
-    closeFloatingPanel(key);
-    return;
-  }
-  openFloatingPanel(key);
-}
-
-function getFloatingPanelStyle(key: FloatingPanelKey): Record<string, string> {
-  const panel = floatingPanels[key];
-  return {
-    left: `${panel.x}px`,
-    top: `${panel.y}px`,
-    zIndex: String(panel.z),
-    width: `${panel.width}px`,
-  };
-}
-
-function startFloatingDrag(key: FloatingPanelKey, event: PointerEvent): void {
-  if (focusCineLocked.value) {
-    return;
-  }
-  if (event.pointerType === 'mouse' && event.button !== 0) {
-    return;
-  }
-  const panel = floatingPanels[key];
-  const target = event.currentTarget as HTMLElement | null;
-  if (!target) {
-    return;
-  }
-  const hostDoc = target.ownerDocument ?? document;
-  const hostWin = hostDoc.defaultView ?? window;
-  const rect = target.getBoundingClientRect();
-  bringFloatingToFront(key);
-  const dragState = {
-    key,
-    pointerId: event.pointerId,
-    offsetX: event.clientX - panel.x,
-    offsetY: event.clientY - panel.y,
-    doc: hostDoc,
-    win: hostWin,
-  };
-  activeFloatingDrag.value = dragState;
-  target.setPointerCapture?.(event.pointerId);
-  hostDoc.addEventListener('pointermove', onFloatingDragMove);
-  hostDoc.addEventListener('pointerup', stopFloatingDrag);
-  hostDoc.addEventListener('pointercancel', stopFloatingDrag);
-  hostWin.addEventListener('blur', stopFloatingDrag);
-  panel.x = clampNumber(event.clientX - dragState.offsetX, 8, Math.max(8, hostWin.innerWidth - panel.width - 8));
-  panel.y = clampNumber(event.clientY - dragState.offsetY, 8, Math.max(8, hostWin.innerHeight - rect.height - 8));
-  event.preventDefault();
-}
-
-function onFloatingDragMove(event: PointerEvent): void {
-  const drag = activeFloatingDrag.value;
-  if (!drag) {
-    return;
-  }
-  if (event.pointerId !== drag.pointerId) {
-    return;
-  }
-  const panel = floatingPanels[drag.key];
-  panel.x = clampNumber(event.clientX - drag.offsetX, 8, Math.max(8, drag.win.innerWidth - panel.width - 8));
-  panel.y = clampNumber(event.clientY - drag.offsetY, 8, Math.max(8, drag.win.innerHeight - 68));
-}
-
-function stopFloatingDrag(): void {
-  const drag = activeFloatingDrag.value;
-  if (drag) {
-    drag.doc.removeEventListener('pointermove', onFloatingDragMove);
-    drag.doc.removeEventListener('pointerup', stopFloatingDrag);
-    drag.doc.removeEventListener('pointercancel', stopFloatingDrag);
-    drag.win.removeEventListener('blur', stopFloatingDrag);
-  }
-  activeFloatingDrag.value = null;
-}
-
-function clampPaneWidths(): void {
-  if (isCompactLayout.value) {
-    return;
-  }
-
-  const mainMin = isDesktopFocusMode.value ? FOCUS_MAIN_PANE_MIN : MAIN_PANE_MIN;
-  const sideMin = isDesktopFocusMode.value ? FOCUS_EDITOR_SIDE_MIN : EDITOR_SIDE_MIN;
-
-  const mainRect = mainLayoutRef.value?.getBoundingClientRect();
-  if (mainRect) {
-    const maxLeft = Math.max(mainMin, Math.floor(mainRect.width - MAIN_EDITOR_MIN - RESIZE_HANDLE_SIZE));
-    if (isDesktopFocusMode.value) {
-      focusMainPaneWidth.value = clampNumber(focusMainPaneWidth.value, mainMin, maxLeft);
-    } else {
-      mainPaneWidth.value = clampNumber(mainPaneWidth.value, mainMin, maxLeft);
-    }
-  }
-
-  const editorRect = editorShellRef.value?.getBoundingClientRect();
-  if (editorRect) {
-    const maxSide = Math.max(sideMin, Math.floor(editorRect.width - EDITOR_CENTER_MIN - RESIZE_HANDLE_SIZE));
-    if (isDesktopFocusMode.value) {
-      focusEditorSideWidth.value = clampNumber(focusEditorSideWidth.value, sideMin, maxSide);
-    } else {
-      editorSideWidth.value = clampNumber(editorSideWidth.value, sideMin, maxSide);
-    }
-  }
-}
-
-function startContentResize(e: PointerEvent): void {
-  if (focusCineLocked.value) {
-    return;
-  }
-  e.preventDefault();
-  const textarea = contentTextareaRef.value;
-  if (!textarea) return;
-
-  const startY = e.clientY;
-  const startHeight = textarea.offsetHeight;
-  const target = e.currentTarget as HTMLElement;
-  target.setPointerCapture(e.pointerId);
-
-  // Disable textarea interaction during drag to reduce reflow
-  textarea.style.pointerEvents = 'none';
-  textarea.style.willChange = 'height';
-
-  let rafId = 0;
-  let pendingHeight = startHeight;
-
-  const applyHeight = () => {
-    textarea.style.height = `${pendingHeight}px`;
-    textarea.style.minHeight = `${pendingHeight}px`;
-    rafId = 0;
-  };
-
-  const onMove = (ev: PointerEvent) => {
-    pendingHeight = Math.max(120, startHeight + (ev.clientY - startY));
-    if (!rafId) {
-      rafId = requestAnimationFrame(applyHeight);
-    }
-  };
-
-  const onUp = () => {
-    if (rafId) cancelAnimationFrame(rafId);
-    applyHeight();
-    textarea.style.pointerEvents = '';
-    textarea.style.willChange = '';
-    target.removeEventListener('pointermove', onMove);
-    target.removeEventListener('pointerup', onUp);
-  };
-
-  target.addEventListener('pointermove', onMove);
-  target.addEventListener('pointerup', onUp);
-}
-
-const editorContentBlockRef = ref<HTMLElement | null>(null);
-let contentTopDragOffset = 0;
-
-function startContentTopDrag(e: PointerEvent): void {
-  if (focusCineLocked.value) {
-    return;
-  }
-  e.preventDefault();
-  const block = editorContentBlockRef.value;
-  if (!block) return;
-
-  const startY = e.clientY;
-  const startOffset = contentTopDragOffset;
-  const target = e.currentTarget as HTMLElement;
-  target.setPointerCapture(e.pointerId);
-
-  let rafId = 0;
-  let pendingOffset = startOffset;
-
-  const apply = () => {
-    block.style.marginTop = `${-pendingOffset}px`;
-    rafId = 0;
-  };
-
-  const onMove = (ev: PointerEvent) => {
-    const delta = startY - ev.clientY; // positive = drag up
-    pendingOffset = Math.max(0, Math.min(400, startOffset + delta));
-    if (!rafId) {
-      rafId = requestAnimationFrame(apply);
-    }
-  };
-
-  const onUp = () => {
-    if (rafId) cancelAnimationFrame(rafId);
-    contentTopDragOffset = pendingOffset;
-    apply();
-    target.removeEventListener('pointermove', onMove);
-    target.removeEventListener('pointerup', onUp);
-  };
-
-  target.addEventListener('pointermove', onMove);
-  target.addEventListener('pointerup', onUp);
-}
-
-function startPaneResize(key: PaneResizeKey, event: PointerEvent): void {
-  if (focusCineLocked.value) {
-    return;
-  }
-  if (isCompactLayout.value) {
-    return;
-  }
-  if (event.pointerType === 'mouse' && event.button !== 0) {
-    return;
-  }
-  const target = event.currentTarget as HTMLElement | null;
-  const hostDoc = target?.ownerDocument ?? document;
-  const hostWin = hostDoc.defaultView ?? window;
-  paneResizeState.value = {
-    key,
-    pointerId: event.pointerId,
-    doc: hostDoc,
-    win: hostWin,
-  };
-  target?.setPointerCapture?.(event.pointerId);
-  hostDoc.addEventListener('pointermove', onPaneResizeMove);
-  hostDoc.addEventListener('pointerup', stopPaneResize);
-  hostDoc.addEventListener('pointercancel', stopPaneResize);
-  hostWin.addEventListener('blur', stopPaneResize);
-  event.preventDefault();
-}
-
-function onPaneResizeMove(event: PointerEvent): void {
-  const state = paneResizeState.value;
-  if (!state || event.pointerId !== state.pointerId) {
-    return;
-  }
-  if (state.key === 'main') {
-    const rect = mainLayoutRef.value?.getBoundingClientRect();
-    if (!rect) {
-      return;
-    }
-    const left = Math.floor(event.clientX - rect.left);
-    const minLeft = isDesktopFocusMode.value ? FOCUS_MAIN_PANE_MIN : MAIN_PANE_MIN;
-    const maxLeft = Math.max(minLeft, Math.floor(rect.width - MAIN_EDITOR_MIN - RESIZE_HANDLE_SIZE));
-    if (isDesktopFocusMode.value) {
-      focusMainPaneWidth.value = clampNumber(left, minLeft, maxLeft);
-    } else {
-      mainPaneWidth.value = clampNumber(left, minLeft, maxLeft);
-    }
-    return;
-  }
-
-  const rect = editorShellRef.value?.getBoundingClientRect();
-  if (!rect) {
-    return;
-  }
-  const side = Math.floor(rect.right - event.clientX);
-  const minSide = isDesktopFocusMode.value ? FOCUS_EDITOR_SIDE_MIN : EDITOR_SIDE_MIN;
-  const maxSide = Math.max(minSide, Math.floor(rect.width - EDITOR_CENTER_MIN - RESIZE_HANDLE_SIZE));
-  if (isDesktopFocusMode.value) {
-    focusEditorSideWidth.value = clampNumber(side, minSide, maxSide);
-  } else {
-    editorSideWidth.value = clampNumber(side, minSide, maxSide);
-  }
-}
-
-function stopPaneResize(): void {
-  const state = paneResizeState.value;
-  if (state) {
-    state.doc.removeEventListener('pointermove', onPaneResizeMove);
-    state.doc.removeEventListener('pointerup', stopPaneResize);
-    state.doc.removeEventListener('pointercancel', stopPaneResize);
-    state.win.removeEventListener('blur', stopPaneResize);
-  }
-  paneResizeState.value = null;
-  if (!isCompactLayout.value) {
-    persistLayoutState();
-  }
-}
 
 function onPanelRefresh(): void {
   void hardRefresh({ source: 'manual', reason: '手动刷新' });
@@ -9095,14 +6613,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  focusCineToken += 1;
-  focusCineLocked.value = false;
-  focusCinePhase.value = 'idle';
-  clearFocusCineArtifacts();
-  copyCineToken += 1;
-  copyCineLocked.value = false;
-  copyCinePhase.value = 'idle';
-  clearCopyCineArtifacts();
+  cleanupAllCineArtifacts();
   if (entriesDigestTimer) {
     clearTimeout(entriesDigestTimer);
     entriesDigestTimer = null;
