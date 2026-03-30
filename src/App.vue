@@ -1220,326 +1220,57 @@
               @pointerdown="startPaneResize('main', $event)"
             ></div>
 
-            <main v-show="!isMobile || showMobileEditor" class="wb-editor">
-              <template v-if="selectedEntry">
-                <div ref="editorShellRef" class="wb-editor-shell" :style="editorShellStyle">
-                  <section class="editor-center" :class="{ focus: isDesktopFocusMode }">
-                    <header class="editor-head" :class="{ focus: isDesktopFocusMode }">
-                      <div v-if="isMobile" class="editor-back-btn" @click="goBackToList">
-                        ← 返回
-                      </div>
-                      <template v-if="!isDesktopFocusMode">
-                        <label class="field editor-comment">
-                          <span>备注 (COMMENT)</span>
-                          <input v-model="selectedEntry.name" type="text" class="text-input" />
-                        </label>
-                      </template>
-                      <template v-else>
-                        <div class="focus-meta-summary-row">
-                          <button class="focus-meta-chip" type="button" :class="{ active: focusMetaPanel.comment }" @click="toggleFocusMetaPanel('comment')">
-                            <span>备注</span>
-                            <strong>{{ focusCommentSummary }}</strong>
-                          </button>
-                          <button class="focus-meta-chip" type="button" :class="{ active: focusMetaPanel.keywords }" @click="toggleFocusMetaPanel('keywords')">
-                            <span>关键词</span>
-                            <strong>{{ focusKeywordSummary }}</strong>
-                          </button>
-                        </div>
-                      </template>
-                      <div class="editor-badges">
-                        <span class="editor-badge" :class="selectedEntry.enabled ? 'on' : 'off'">
-                          {{ selectedEntry.enabled ? 'EN' : 'OFF' }}
-                        </span>
-                        <span class="editor-badge strategy" :data-status="getEntryVisualStatus(selectedEntry)">
-                          {{ getEntryStatusLabel(selectedEntry) }}
-                        </span>
-                        <span class="editor-badge mono">#{{ selectedEntry.uid }}</span>
-                        <span class="editor-badge mono">Chars {{ selectedContentChars }}</span>
-                        <span class="editor-badge mono">~{{ selectedTokenEstimate }}T</span>
-                      </div>
-                    </header>
-
-                    <Transition name="focus-meta-panel">
-                      <section v-if="isDesktopFocusMode && focusMetaPanel.comment" class="focus-meta-panel">
-                        <label class="field editor-comment">
-                          <span>备注 (COMMENT)</span>
-                          <input v-model="selectedEntry.name" type="text" class="text-input" />
-                        </label>
-                      </section>
-                    </Transition>
-
-                    <section v-if="!isDesktopFocusMode || focusMetaPanel.keywords" class="editor-grid two-cols editor-keyword-grid">
-                      <label class="field">
-                        <span>主要关键词 (KEYS)</span>
-                        <textarea :value="selectedKeysRaw" @input="selectedKeysRaw = ($event.target as HTMLTextAreaElement).value" @blur="commitKeysFromRaw" class="text-area compact"></textarea>
-                      </label>
-                      <label class="field">
-                        <span>次要关键词 (SECONDARY)</span>
-                        <textarea :value="selectedSecondaryKeysRaw" @input="selectedSecondaryKeysRaw = ($event.target as HTMLTextAreaElement).value" @blur="commitSecondaryKeysFromRaw" class="text-area compact"></textarea>
-                      </label>
-                    </section>
-
-                    <section class="editor-content-block">
-                      <div class="editor-content-title">世界观设定 / 内容 (CONTENT)</div>
-                      <textarea
-                        ref="contentTextareaRef"
-                        v-model="selectedEntry.content"
-                        class="text-area large editor-content-area"
-                      ></textarea>
-                      <div
-                        class="content-resize-handle"
-                        @pointerdown="startContentResize"
-                      >
-                        <span class="content-resize-grip">⋯</span>
-                      </div>
-                    </section>
-
-                    <details class="editor-advanced">
-                      <summary>高级字段 / extra JSON</summary>
-                      <label class="field">
-                        <span>extra JSON（未知字段）</span>
-                        <textarea v-model="selectedExtraText" class="text-area compact" placeholder="{ ... }"></textarea>
-                      </label>
-                      <div class="field-actions">
-                        <button class="btn" type="button" @click="applyExtraJson">应用 extra</button>
-                        <button class="btn" type="button" @click="clearExtra">清空 extra</button>
-                      </div>
-                    </details>
-                  </section>
-                  <div
-                    v-show="!isMobile"
-                    class="wb-resize-handle editor"
-                    :class="{ dragging: paneResizeState?.key === 'editor' }"
-                    @pointerdown="startPaneResize('editor', $event)"
-                  ></div>
-
-                  <aside class="editor-side" :class="{ focus: isDesktopFocusMode }">
-                    <article class="editor-card focus-side-card" :class="{ open: focusSidePanelState.strategy }">
-                      <template v-if="isDesktopFocusMode">
-                        <button type="button" class="focus-side-summary" @click="toggleFocusSidePanel('strategy')">
-                          <span class="focus-side-summary-title">触发策略</span>
-                          <span class="focus-side-summary-value">{{ focusStrategySummary }}</span>
-                          <span class="focus-side-summary-arrow">{{ focusSidePanelState.strategy ? '▾' : '▸' }}</span>
-                        </button>
-                      </template>
-                      <h4 v-else>触发策略 (STRATEGY)</h4>
-                      <div class="focus-side-content" :class="{ hidden: isDesktopFocusMode && !focusSidePanelState.strategy }">
-                        <label class="field checkbox-inline">
-                          <input v-model="selectedEntry.enabled" type="checkbox" />
-                          <span>启用条目</span>
-                        </label>
-                        <div class="strategy-switch">
-                          <button
-                            type="button"
-                            class="strategy-pill constant"
-                            :class="{ active: selectedEntry.strategy.type === 'constant' }"
-                            @click="selectedEntry.strategy.type = 'constant'"
-                          >
-                            🔵 常驻 (Constant)
-                          </button>
-                          <button
-                            type="button"
-                            class="strategy-pill vector"
-                            :class="{ active: selectedEntry.strategy.type === 'vectorized' }"
-                            @click="selectedEntry.strategy.type = 'vectorized'"
-                          >
-                            📎 向量化 (Vector)
-                          </button>
-                          <button
-                            type="button"
-                            class="strategy-pill selective"
-                            :class="{ active: selectedEntry.strategy.type === 'selective' }"
-                            @click="selectedEntry.strategy.type = 'selective'"
-                          >
-                            🟢 关键词 (Selective)
-                          </button>
-                        </div>
-                        <details class="editor-advanced">
-                          <summary>高级设置</summary>
-                          <label class="field">
-                            <span>次要逻辑 (LOGIC)</span>
-                            <select v-model="selectedEntry.strategy.keys_secondary.logic" class="text-input">
-                              <option v-for="item in secondaryLogicOptions" :key="item" :value="item">
-                                {{ getSecondaryLogicLabel(item) }}
-                              </option>
-                            </select>
-                          </label>
-                          <label class="field">
-                            <span>扫描深度</span>
-                            <input
-                              v-model="selectedScanDepthText"
-                              type="text"
-                              class="text-input"
-                              placeholder="留空或 same_as_global"
-                            />
-                          </label>
-                          <label class="field">
-                            <span>概率(0-100)</span>
-                            <input
-                              v-model.number="selectedEntry.probability"
-                              type="number"
-                              class="text-input"
-                              min="0"
-                              max="100"
-                              step="1"
-                            />
-                          </label>
-                        </details>
-                      </div>
-                    </article>
-
-                    <article class="editor-card focus-side-card" :class="{ open: focusSidePanelState.insertion }">
-                      <template v-if="isDesktopFocusMode">
-                        <button type="button" class="focus-side-summary" @click="toggleFocusSidePanel('insertion')">
-                          <span class="focus-side-summary-title">插入设置</span>
-                          <span class="focus-side-summary-value">{{ focusInsertionSummary }}</span>
-                          <span class="focus-side-summary-arrow">{{ focusSidePanelState.insertion ? '▾' : '▸' }}</span>
-                        </button>
-                      </template>
-                      <h4 v-else>插入设置 (INSERTION)</h4>
-                      <div class="focus-side-content" :class="{ hidden: isDesktopFocusMode && !focusSidePanelState.insertion }">
-                        <label class="field">
-                          <span>位置 (Position)</span>
-                          <select
-                            v-model="selectedPositionSelectValue"
-                            class="text-input"
-                          >
-                            <option v-for="item in positionSelectOptions" :key="item.value" :value="item.value">
-                              {{ item.label }}
-                            </option>
-                          </select>
-                        </label>
-                        <label class="field">
-                          <span>权重 (Order)</span>
-                          <input v-model.number="selectedEntry.position.order" type="number" class="text-input" step="1" />
-                        </label>
-                        <div class="editor-collapsible-group">
-                          <details class="editor-mini-collapse" :class="{ disabled: selectedEntry.position.type !== 'at_depth' }">
-                            <summary>
-                              <span>深度角色</span>
-                              <span class="editor-mini-collapse-value">
-                                {{ selectedEntry.position.type === 'at_depth' ? selectedEntry.position.role : '仅深度插入可用' }}
-                              </span>
-                            </summary>
-                            <div class="editor-mini-collapse-body">
-                              <select
-                                v-model="selectedEntry.position.role"
-                                class="text-input"
-                                :disabled="selectedEntry.position.type !== 'at_depth'"
-                              >
-                                <option value="system">system</option>
-                                <option value="assistant">assistant</option>
-                                <option value="user">user</option>
-                              </select>
-                            </div>
-                          </details>
-                          <details class="editor-mini-collapse" :class="{ disabled: selectedEntry.position.type !== 'at_depth' }">
-                            <summary>
-                              <span>深度层级</span>
-                              <span class="editor-mini-collapse-value">
-                                {{ selectedEntry.position.type === 'at_depth' ? selectedEntry.position.depth : '仅深度插入可用' }}
-                              </span>
-                            </summary>
-                            <div class="editor-mini-collapse-body">
-                              <input
-                                v-model.number="selectedEntry.position.depth"
-                                type="number"
-                                class="text-input"
-                                min="0"
-                                step="1"
-                                :disabled="selectedEntry.position.type !== 'at_depth'"
-                              />
-                            </div>
-                          </details>
-                        </div>
-                      </div>
-                    </article>
-
-                    <article class="editor-card focus-side-card" :class="{ open: focusSidePanelState.recursion }">
-                      <template v-if="isDesktopFocusMode">
-                        <button type="button" class="focus-side-summary" @click="toggleFocusSidePanel('recursion')">
-                          <span class="focus-side-summary-title">递归与效果</span>
-                          <span class="focus-side-summary-value">{{ focusRecursionSummary }}</span>
-                          <span class="focus-side-summary-arrow">{{ focusSidePanelState.recursion ? '▾' : '▸' }}</span>
-                        </button>
-                      </template>
-                      <h4 v-else>递归与效果 (RECURSION)</h4>
-                      <div class="focus-side-content" :class="{ hidden: isDesktopFocusMode && !focusSidePanelState.recursion }">
-                        <label class="field checkbox-inline">
-                          <input v-model="selectedEntry.recursion.prevent_incoming" type="checkbox" />
-                          <span>不可递归命中 (Exclude Incoming)</span>
-                        </label>
-                        <label class="field checkbox-inline">
-                          <input v-model="selectedEntry.recursion.prevent_outgoing" type="checkbox" />
-                          <span>阻止后续递归 (Prevent Outgoing)</span>
-                        </label>
-                        <div class="editor-collapsible-group">
-                          <details class="editor-mini-collapse">
-                            <summary>
-                              <span>递归延迟层级</span>
-                              <span class="editor-mini-collapse-value">{{ selectedRecursionDelayText || 'null' }}</span>
-                            </summary>
-                            <div class="editor-mini-collapse-body">
-                              <input
-                                v-model="selectedRecursionDelayText"
-                                type="text"
-                                class="text-input"
-                                placeholder="留空表示 null"
-                              />
-                            </div>
-                          </details>
-                          <details class="editor-mini-collapse">
-                            <summary>
-                              <span>sticky</span>
-                              <span class="editor-mini-collapse-value">{{ selectedStickyText || 'null' }}</span>
-                            </summary>
-                            <div class="editor-mini-collapse-body">
-                              <input
-                                v-model="selectedStickyText"
-                                type="text"
-                                class="text-input"
-                                placeholder="留空表示 null"
-                              />
-                            </div>
-                          </details>
-                          <details class="editor-mini-collapse">
-                            <summary>
-                              <span>cooldown</span>
-                              <span class="editor-mini-collapse-value">{{ selectedCooldownText || 'null' }}</span>
-                            </summary>
-                            <div class="editor-mini-collapse-body">
-                              <input
-                                v-model="selectedCooldownText"
-                                type="text"
-                                class="text-input"
-                                placeholder="留空表示 null"
-                              />
-                            </div>
-                          </details>
-                          <details class="editor-mini-collapse">
-                            <summary>
-                              <span>delay</span>
-                              <span class="editor-mini-collapse-value">{{ selectedEffectDelayText || 'null' }}</span>
-                            </summary>
-                            <div class="editor-mini-collapse-body">
-                              <input
-                                v-model="selectedEffectDelayText"
-                                type="text"
-                                class="text-input"
-                                placeholder="留空表示 null"
-                              />
-                            </div>
-                          </details>
-                        </div>
-                      </div>
-                    </article>
-                  </aside>
-                </div>
-              </template>
-              <template v-else>
-                <div class="empty-block">请选择或新增一个条目后开始编辑。</div>
-              </template>
-            </main>
+            <EditorMainPanel
+              :is-mobile="isMobile"
+              :show-mobile-editor="showMobileEditor"
+              :selected-entry="selectedEntry"
+              :editor-shell-style="editorShellStyle"
+              :is-desktop-focus-mode="isDesktopFocusMode"
+              :focus-meta-panel="focusMetaPanel"
+              :focus-comment-summary="focusCommentSummary"
+              :focus-keyword-summary="focusKeywordSummary"
+              :selected-content-chars="selectedContentChars"
+              :selected-token-estimate="selectedTokenEstimate"
+              :get-entry-visual-status="getEntryVisualStatus"
+              :get-entry-status-label="getEntryStatusLabel"
+              :selected-keys-raw="selectedKeysRaw"
+              :selected-secondary-keys-raw="selectedSecondaryKeysRaw"
+              :selected-extra-text="selectedExtraText"
+              :pane-resize-state="paneResizeState"
+              :focus-side-panel-state="focusSidePanelState"
+              :focus-strategy-summary="focusStrategySummary"
+              :focus-insertion-summary="focusInsertionSummary"
+              :focus-recursion-summary="focusRecursionSummary"
+              :secondary-logic-options="secondaryLogicOptions"
+              :get-secondary-logic-label="getSecondaryLogicLabel"
+              :selected-scan-depth-text="selectedScanDepthText"
+              :position-select-options="positionSelectOptions"
+              :selected-position-select-value="selectedPositionSelectValue"
+              :selected-recursion-delay-text="selectedRecursionDelayText"
+              :selected-sticky-text="selectedStickyText"
+              :selected-cooldown-text="selectedCooldownText"
+              :selected-effect-delay-text="selectedEffectDelayText"
+              :set-editor-shell-element="setEditorShellElement"
+              :set-content-textarea-element="setContentTextareaElement"
+              @go-back-to-list="goBackToList"
+              @toggle-focus-meta-panel="toggleFocusMetaPanel"
+              @update:selected-keys-raw="selectedKeysRaw = $event"
+              @commit-keys-from-raw="commitKeysFromRaw"
+              @update:selected-secondary-keys-raw="selectedSecondaryKeysRaw = $event"
+              @commit-secondary-keys-from-raw="commitSecondaryKeysFromRaw"
+              @start-content-resize="startContentResize"
+              @apply-extra-json="applyExtraJson"
+              @clear-extra="clearExtra"
+              @update:selected-extra-text="selectedExtraText = $event"
+              @start-editor-pane-resize="startPaneResize('editor', $event)"
+              @toggle-focus-side-panel="toggleFocusSidePanel"
+              @update:selected-scan-depth-text="selectedScanDepthText = $event"
+              @update:selected-position-select-value="selectedPositionSelectValue = ($event as PositionSelectValue)"
+              @update:selected-recursion-delay-text="selectedRecursionDelayText = $event"
+              @update:selected-sticky-text="selectedStickyText = $event"
+              @update:selected-cooldown-text="selectedCooldownText = $event"
+              @update:selected-effect-delay-text="selectedEffectDelayText = $event"
+            />
           </section>
           </div>
 
@@ -1755,12 +1486,14 @@ import GlobalModeDesktopPanel from './components/GlobalModeDesktopPanel.vue';
 import TagEditorMobilePanel from './components/TagEditorMobilePanel.vue';
 import TagEditorDesktopPanel from './components/TagEditorDesktopPanel.vue';
 import EntryListSidebar from './components/EntryListSidebar.vue';
+import EditorMainPanel from './components/EditorMainPanel.vue';
 import './components/crossCopyShared.css';
 import './components/globalModeDesktopShared.css';
 import './components/tagEditorShared.css';
 import './components/aiChatShared.css';
 import './components/settingsModalShared.css';
 import './components/entryListSidebarShared.css';
+import './components/editorMainPanelShared.css';
 import './components/worldbookPickerShared.css';
 import {
   createId,
@@ -2460,6 +2193,14 @@ function setRolePickerElement(element: HTMLElement | null): void {
 
 function setAiChatMessagesElement(element: HTMLElement | null): void {
   aiChatMessagesRef.value = element as HTMLDivElement | null;
+}
+
+function setEditorShellElement(element: HTMLElement | null): void {
+  editorShellRef.value = element;
+}
+
+function setContentTextareaElement(element: HTMLTextAreaElement | null): void {
+  contentTextareaRef.value = element;
 }
 
 function onSettingsUpdateField(path: string, value: unknown): void {
@@ -5781,424 +5522,6 @@ watch(hasUnsavedChanges, (val) => {
   }
 }
 
-.wb-resize-handle {
-  position: relative;
-  width: 10px;
-  cursor: col-resize;
-  user-select: none;
-  touch-action: none;
-}
-
-.wb-resize-handle::before {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 12px;
-  bottom: 12px;
-  width: 2px;
-  border-radius: 999px;
-  background: var(--wb-primary-hover);
-  transition: background-color 0.15s ease;
-}
-
-.wb-resize-handle:hover::before,
-.wb-resize-handle.dragging::before {
-  background: var(--wb-primary-light);
-}
-
-.editor-center {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 16px;
-  background: var(--wb-bg-panel);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-height: 0;
-  height: 100%;
-  overflow: auto;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  transition: padding 320ms cubic-bezier(0.22, 1, 0.36, 1), gap 320ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.editor-center.focus {
-  padding: 18px;
-}
-
-.editor-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-end;
-  border-bottom: 1px solid var(--wb-border-subtle);
-  padding-bottom: 16px;
-  transition: gap 320ms cubic-bezier(0.22, 1, 0.36, 1), padding-bottom 320ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.editor-head.focus {
-  align-items: center;
-  gap: 10px;
-}
-
-.focus-meta-summary-row {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.focus-meta-chip {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 999px;
-  background: var(--wb-input-bg);
-  color: var(--wb-text-main);
-  padding: 4px 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  max-width: 48%;
-}
-
-.focus-meta-chip strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.focus-meta-chip.active {
-  border-color: var(--wb-primary-light);
-  background: var(--wb-primary-soft);
-}
-
-.focus-meta-panel {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 10px;
-  padding: 10px;
-  background: var(--wb-input-bg);
-}
-
-.focus-meta-panel-enter-active,
-.focus-meta-panel-leave-active {
-  transition: opacity 180ms ease, transform 180ms ease;
-}
-
-.focus-meta-panel-enter-from,
-.focus-meta-panel-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-}
-
-.editor-comment {
-  flex: 1;
-}
-
-.editor-badges {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.editor-badge {
-  font-size: 11px;
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 999px;
-  padding: 3px 10px;
-  color: var(--wb-text-main);
-  background: var(--wb-bg-panel);
-  white-space: nowrap;
-  font-weight: 500;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-}
-
-.editor-badge.mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-}
-
-.editor-badge.on {
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.2);
-}
-
-.editor-badge.off {
-  color: var(--wb-text-muted);
-  background: var(--wb-bg-root);
-}
-
-.editor-badge.strategy[data-status='constant'] {
-  color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.2);
-}
-
-.editor-badge.strategy[data-status='vector'] {
-  color: #a855f7;
-  background: rgba(168, 85, 247, 0.1);
-  border-color: rgba(168, 85, 247, 0.2);
-}
-
-.editor-badge.strategy[data-status='normal'] {
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.2);
-}
-
-.editor-badge.strategy[data-status='disabled'] {
-  color: var(--wb-text-muted);
-  background: var(--wb-bg-root);
-}
-
-.editor-keyword-grid .text-area.compact {
-  min-height: 36px;
-  height: 36px;
-  line-height: 1.35;
-}
-
-.editor-content-block {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-}
-
-.editor-content-title {
-  font-size: 12px;
-  color: var(--wb-primary-light);
-  letter-spacing: 0.01em;
-}
-
-.editor-content-area {
-  min-height: 320px;
-  flex: 1;
-  resize: none;
-  line-height: 1.5;
-}
-
-.content-resize-handle {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  height: 22px;
-  cursor: ns-resize;
-  background: var(--wb-bg-panel);
-  border-radius: 0 0 8px 8px;
-  touch-action: none;
-  user-select: none;
-}
-
-.content-resize-grip {
-  font-size: 12px;
-  color: var(--wb-text-dim);
-  letter-spacing: 3px;
-  line-height: 1;
-}
-
-.editor-advanced {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 10px;
-  padding: 12px;
-  background: var(--wb-input-bg);
-}
-
-.editor-advanced > summary {
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--wb-text-muted);
-}
-
-.editor-advanced[open] > summary {
-  margin-bottom: 7px;
-}
-
-.editor-collapsible-group {
-  display: grid;
-  gap: 8px;
-}
-
-.editor-mini-collapse {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 10px;
-  background: var(--wb-input-bg);
-}
-
-.editor-mini-collapse > summary {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  cursor: pointer;
-  color: var(--wb-primary-light);
-  font-size: 12px;
-}
-
-.editor-mini-collapse > summary::-webkit-details-marker {
-  display: none;
-}
-
-.editor-mini-collapse > summary::after {
-  content: '▾';
-  margin-left: 6px;
-  color: var(--wb-text-muted);
-  transform: rotate(-90deg);
-  transition: transform 0.2s ease;
-}
-
-.editor-mini-collapse[open] > summary::after {
-  transform: rotate(0deg);
-}
-
-.editor-mini-collapse-value {
-  margin-left: auto;
-  color: var(--wb-text-muted);
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.editor-mini-collapse-body {
-  padding: 0 10px 10px;
-}
-
-.editor-mini-collapse.disabled {
-  opacity: 0.56;
-}
-
-.editor-side {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  height: 100%;
-  min-height: 0;
-  overflow: auto;
-}
-
-.editor-side.focus .editor-grid.two-cols,
-.editor-side.focus .editor-grid.three-cols {
-  grid-template-columns: 1fr;
-}
-
-.editor-card {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 12px;
-  padding: 16px;
-  background: var(--wb-bg-panel);
-  display: grid;
-  gap: 10px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-}
-
-.focus-side-card {
-  transition: border-color 220ms ease, box-shadow 220ms ease;
-}
-
-.focus-side-summary {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 10px;
-  background: var(--wb-input-bg);
-  color: var(--wb-text-main);
-  padding: 8px 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.focus-side-summary-title {
-  color: var(--wb-primary);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.focus-side-summary-value {
-  color: var(--wb-text-muted);
-  margin-left: auto;
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.focus-side-summary-arrow {
-  color: var(--wb-text-muted);
-  font-size: 12px;
-}
-
-.focus-side-content {
-  display: grid;
-  gap: 10px;
-}
-
-.focus-side-content.hidden {
-  display: none;
-}
-
-.editor-card h4 {
-  margin: 0;
-  font-size: 12px;
-  color: var(--wb-primary);
-}
-
-.strategy-switch {
-  display: grid;
-  gap: 6px;
-}
-
-.strategy-pill {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 8px;
-  background: var(--wb-input-bg);
-  color: var(--wb-text-muted);
-  padding: 8px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-.strategy-pill:hover {
-  background: var(--wb-input-bg-hover);
-  border-color: var(--wb-border-main);
-}
-
-.strategy-pill.active.constant {
-  background: rgba(59, 130, 246, 0.12);
-  color: #3b82f6;
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.strategy-pill.active.vector {
-  background: rgba(168, 85, 247, 0.12);
-  color: #a855f7;
-  border-color: rgba(168, 85, 247, 0.3);
-}
-
-.strategy-pill.active.selective {
-  background: rgba(34, 197, 94, 0.12);
-  color: #22c55e;
-  border-color: rgba(34, 197, 94, 0.3);
-}
-
-.editor-grid {
-  display: grid;
-  gap: 8px;
-}
-
-.editor-grid.two-cols {
-  grid-template-columns: 1fr 1fr;
-}
-
-.editor-grid.three-cols {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .field {
   display: flex;
   flex-direction: column;
@@ -6522,23 +5845,6 @@ watch(hasUnsavedChanges, (val) => {
   }
 }
 
-.editor-back-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  margin: 0 0 8px 0;
-  background: var(--wb-bg-panel);
-  border: none;
-  border-radius: 6px;
-  color: var(--wb-primary);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.editor-back-btn:hover {
-  background: var(--wb-primary-hover);
-}
 
 /* ═══ Mobile Tab View ═══ */
 .mobile-tab-view {
