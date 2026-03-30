@@ -32,3 +32,6 @@ export type { UseMultiEditOptions, UseMultiEditReturn } from './useMultiEdit';
 
 export { useFocusMode } from './useFocusMode';
 export type { UseFocusModeOptions, UseFocusModeReturn } from './useFocusMode';
+
+export { useUIPickerThemeHandlers } from './useUIPickerThemeHandlers';
+export type { UseUIPickerThemeHandlersOptions, UseUIPickerThemeHandlersReturn } from './useUIPickerThemeHandlers';
