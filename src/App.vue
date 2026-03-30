@@ -3325,172 +3325,45 @@
             </div>
           </div>
 
-          <div
+          <FloatingFindWindow
             v-if="floatingPanels.find.visible"
-            class="wb-floating-window find-window"
-            :style="getFloatingPanelStyle('find')"
-            @pointerdown="bringFloatingToFront('find')"
-          >
-            <div class="wb-floating-header" @pointerdown="startFloatingDrag('find', $event)">
-              <strong>🔎 查找与替换</strong>
-              <div class="wb-floating-header-actions">
-                <button
-                  class="btn mini"
-                  type="button"
-                  :disabled="!draftEntries.length"
-                  @pointerdown.stop
-                  @click="findFirstMatch"
-                >
-                  查找
-                </button>
-                <button
-                  class="btn mini"
-                  type="button"
-                  :disabled="!draftEntries.length"
-                  @pointerdown.stop
-                  @click="findPreviousMatch"
-                >
-                  上一个
-                </button>
-                <button
-                  class="btn mini"
-                  type="button"
-                  :disabled="!draftEntries.length"
-                  @pointerdown.stop
-                  @click="findNextMatch"
-                >
-                  下一个
-                </button>
-                <button
-                  class="btn mini"
-                  type="button"
-                  :disabled="!draftEntries.length"
-                  @pointerdown.stop
-                  @click="applyBatchReplace"
-                >
-                  替换全部
-                </button>
-                <button class="btn mini danger" type="button" @pointerdown.stop @click="closeFloatingPanel('find')">
-                  关闭
-                </button>
-              </div>
-            </div>
-            <div class="wb-floating-body">
-              <div class="tool-line stacked">
-                <input v-model="batchFindText" type="text" class="text-input" placeholder="查找文本 / 正则" />
-                <input v-model="batchReplaceText" type="text" class="text-input" placeholder="替换为" />
-                <div class="find-scope-line">
-                  <label class="checkbox-inline">
-                    <input v-model="batchSearchScope" type="radio" value="all" />
-                    <span>全部条目</span>
-                  </label>
-                  <label class="checkbox-inline">
-                    <input v-model="batchSearchScope" type="radio" value="current" :disabled="!selectedEntry" />
-                    <span>当前条目</span>
-                  </label>
-                  <span class="find-summary-text">{{ findHitSummaryText }}</span>
-                </div>
-                <input
-                  v-model="batchExcludeText"
-                  type="text"
-                  class="text-input"
-                  placeholder="排除项：#UID / 名称 / 内容 / 关键词（逗号或换行）"
-                />
-                <div v-if="activeFindHit" class="find-active-hit">
-                  <strong>#{{ activeFindHit.entryUid }} {{ activeFindHit.entryName || `条目 ${activeFindHit.entryUid}` }}</strong>
-                  <span>{{ getFindFieldLabel(activeFindHit.field) }} · {{ activeFindHit.preview }}</span>
-                </div>
-                <div class="batch-exclude-note">
-                  示例: `#12, name:世界观, content:{{user}}, keys:吸血鬼`（默认命中名称/内容/关键词即排除）
-                </div>
-                <div v-if="batchExcludeTokensPreview.length" class="batch-exclude-chips">
-                  <span v-for="token in batchExcludeTokensPreview" :key="token" class="exclude-chip">{{ token }}</span>
-                </div>
-                <div class="find-flags">
-                  <label class="checkbox-inline">
-                    <input v-model="batchUseRegex" type="checkbox" />
-                    <span>正则模式</span>
-                  </label>
-                  <label class="checkbox-inline">
-                    <input v-model="batchInName" type="checkbox" />
-                    <span>名称</span>
-                  </label>
-                  <label class="checkbox-inline">
-                    <input v-model="batchInContent" type="checkbox" />
-                    <span>内容</span>
-                  </label>
-                  <label class="checkbox-inline">
-                    <input v-model="batchInKeys" type="checkbox" />
-                    <span>关键词</span>
-                  </label>
-                </div>
-              </div>
-              <details class="tool-details">
-                <summary>附加批处理工具</summary>
-                <div class="tool-line">
-                  <button class="btn" type="button" :disabled="!draftEntries.length" @click="normalizeAllEntries">
-                    标准化全部
-                  </button>
-                  <button class="btn" type="button" :disabled="!draftEntries.length" @click="sortEntriesByOrderDesc">
-                    按 order 排序
-                  </button>
-                </div>
-                <div class="tool-line">
-                  <button class="btn" type="button" :disabled="!draftEntries.length" @click="setEnabledForAll(true)">
-                    全部启用
-                  </button>
-                  <button class="btn" type="button" :disabled="!draftEntries.length" @click="setEnabledForAll(false)">
-                    全部禁用
-                  </button>
-                </div>
-              </details>
-            </div>
-          </div>
+            v-model:batch-find-text="batchFindText"
+            v-model:batch-replace-text="batchReplaceText"
+            v-model:batch-exclude-text="batchExcludeText"
+            v-model:batch-use-regex="batchUseRegex"
+            v-model:batch-in-name="batchInName"
+            v-model:batch-in-content="batchInContent"
+            v-model:batch-in-keys="batchInKeys"
+            v-model:batch-search-scope="batchSearchScope"
+            :panel-style="getFloatingPanelStyle('find')"
+            :has-entries="!!draftEntries.length"
+            :has-selected-entry="!!selectedEntry"
+            :find-hit-summary-text="findHitSummaryText"
+            :active-find-hit="activeFindHit"
+            :batch-exclude-tokens-preview="batchExcludeTokensPreview"
+            :get-find-field-label="getFindFieldLabel"
+            @bring-to-front="bringFloatingToFront('find')"
+            @start-drag="startFloatingDrag('find', $event)"
+            @find-first="findFirstMatch"
+            @find-previous="findPreviousMatch"
+            @find-next="findNextMatch"
+            @replace-all="applyBatchReplace"
+            @close="closeFloatingPanel('find')"
+            @normalize-all-entries="normalizeAllEntries"
+            @sort-entries-by-order-desc="sortEntriesByOrderDesc"
+            @set-enabled-for-all="setEnabledForAll"
+          />
 
-          <div
+          <FloatingActivationWindow
             v-if="floatingPanels.activation.visible"
-            class="wb-floating-window activation-window"
-            :style="getFloatingPanelStyle('activation')"
-            @pointerdown="bringFloatingToFront('activation')"
-          >
-            <div class="wb-floating-header" @pointerdown="startFloatingDrag('activation', $event)">
-              <strong>📡 激活监控（WORLD_INFO_ACTIVATED）</strong>
-              <div class="wb-floating-header-actions">
-                <button
-                  class="btn mini danger"
-                  type="button"
-                  :disabled="!activationLogs.length"
-                  @pointerdown.stop
-                  @click="clearActivationLogs"
-                >
-                  清空
-                </button>
-                <button
-                  class="btn mini danger"
-                  type="button"
-                  @pointerdown.stop
-                  @click="closeFloatingPanel('activation')"
-                >
-                  关闭
-                </button>
-              </div>
-            </div>
-            <div class="wb-floating-body">
-              <div class="tool-scroll">
-                <div v-for="log in activationLogs" :key="log.id" class="activation-item">
-                  <div class="activation-main">
-                    <strong>{{ log.world }}</strong>
-                    <span>#{{ log.uid }} · {{ log.name }}</span>
-                  </div>
-                  <div class="activation-sub">
-                    <span>{{ formatDateTime(log.time) }}</span>
-                    <span>{{ log.contentPreview }}</span>
-                  </div>
-                </div>
-                <div v-if="!activationLogs.length" class="empty-note">暂无激活记录</div>
-              </div>
-            </div>
-          </div>
+            :panel-style="getFloatingPanelStyle('activation')"
+            :activation-logs="activationLogs"
+            :format-date-time="formatDateTime"
+            @bring-to-front="bringFloatingToFront('activation')"
+            @start-drag="startFloatingDrag('activation', $event)"
+            @clear="clearActivationLogs"
+            @close="closeFloatingPanel('activation')"
+          />
     </template><!-- end editor mode -->
   </div>
 </template>
@@ -3498,6 +3371,8 @@
 <script setup lang="ts">
 import { klona } from 'klona';
 import { useFindReplace, useMultiEdit, useAIChat, useAIConfig, useTagSystem, useGlobalWorldbooks, useHistorySnapshots, useFocusMode, useEditorLayout, useCrossCopy } from './composables';
+import FloatingFindWindow from './components/FloatingFindWindow.vue';
+import FloatingActivationWindow from './components/FloatingActivationWindow.vue';
 import {
   createId,
   asRecord,
@@ -3513,19 +3388,13 @@ import {
   getEntryStatusLabel,
   getEntryKeyPreview,
   secondaryLogicOptions,
-  normalizeSecondaryLogic,
-  normalizeStrategyType,
-  normalizePositionType,
-  normalizeRole,
   normalizeScanDepth,
   createDefaultEntry,
-  collectExtraFields,
   normalizeEntry,
   normalizeEntryList,
   getNextUid,
   compareEntriesByPositionThenOrder,
   type StrategyType,
-  type SecondaryLogic,
   type PositionType,
   type RoleType,
 } from './utils';
@@ -3534,10 +3403,6 @@ import { normalizeCrossCopyNameKey, normalizeCrossCopyContentKey } from './diffU
 import {
   createDefaultPersistedState,
   normalizePersistedState,
-  createDefaultLayoutState,
-  normalizeLayoutState,
-  createDefaultMultiEditPersistState,
-  normalizeMultiEditPersistState,
   createDefaultTagEditorPersistState,
   normalizeTagEditorPersistState,
   createDefaultTagFilterState,
@@ -9832,90 +9697,6 @@ watch(hasUnsavedChanges, (val) => {
   color: var(--wb-primary-light);
 }
 
-.tool-line.stacked {
-  display: grid;
-  gap: 6px;
-}
-
-.find-flags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.find-scope-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.find-summary-text {
-  margin-left: auto;
-  color: var(--wb-primary-light);
-  font-size: 12px;
-}
-
-.find-active-hit {
-  border: 1px solid var(--wb-primary-light);
-  border-radius: 10px;
-  padding: 10px 12px;
-  display: grid;
-  gap: 4px;
-  background: var(--wb-primary-soft);
-  box-shadow: 0 0 0 2px var(--wb-primary-soft);
-}
-
-.find-active-hit strong {
-  color: var(--wb-text-main);
-  font-size: 12px;
-}
-
-.find-active-hit span {
-  color: var(--wb-text-muted);
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.batch-exclude-note {
-  color: var(--wb-text-muted);
-  font-size: 11px;
-}
-
-.batch-exclude-chips {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.exclude-chip {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 999px;
-  padding: 1px 8px;
-  font-size: 11px;
-  color: var(--wb-text-main);
-  background: var(--wb-bg-panel);
-}
-
-.tool-details {
-  border: 1px solid var(--wb-border-main);
-  border-radius: 8px;
-  padding: 6px;
-  background: var(--wb-bg-panel);
-}
-
-.tool-details > summary {
-  cursor: pointer;
-  color: var(--wb-text-main);
-  font-size: 12px;
-}
-
-.tool-details[open] > summary {
-  margin-bottom: 6px;
-}
-
 .history-compare {
   display: grid;
   gap: 6px;
@@ -9956,146 +9737,6 @@ watch(hasUnsavedChanges, (val) => {
   font-size: 12px;
   background: rgba(0, 0, 0, 0.02);
   text-align: center;
-}
-
-.tool-scroll {
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.tool-list-item {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 10px;
-  padding: 10px 12px;
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: center;
-  background: var(--wb-input-bg);
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.tool-list-item:hover {
-  background: var(--wb-input-bg-hover);
-  border-color: var(--wb-border-main);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.item-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.item-main strong,
-.activation-main strong {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.item-main span {
-  color: var(--wb-text-muted);
-  font-size: 12px;
-}
-
-.item-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.activation-item {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 10px;
-  padding: 10px 12px;
-  display: grid;
-  gap: 4px;
-  background: var(--wb-input-bg);
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.activation-item:hover {
-  background: var(--wb-input-bg-hover);
-  border-color: var(--wb-border-main);
-}
-
-.activation-main,
-.activation-sub {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.activation-main span,
-.activation-sub {
-  color: var(--wb-text-muted);
-  font-size: 12px;
-}
-
-.activation-sub span:last-child {
-  flex: 1;
-  text-align: right;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.wb-assistant-root .wb-floating-window {
-  position: fixed;
-  max-width: calc(100vw - 16px);
-  max-height: min(74vh, 760px);
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 12px;
-  background: var(--wb-glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.wb-assistant-root .wb-floating-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--wb-border-subtle);
-  background: var(--wb-glass-header);
-  cursor: move;
-  user-select: none;
-  touch-action: none;
-}
-
-.wb-floating-header strong {
-  font-size: 12px;
-  color: var(--wb-text-main);
-}
-
-.wb-floating-header-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.wb-floating-body {
-  min-height: 0;
-  padding: 12px;
-  display: grid;
-  gap: 10px;
-  overflow: auto;
-}
-
-.find-window .wb-floating-body {
-  gap: 10px;
-}
-
-.activation-window .tool-scroll {
-  max-height: min(58vh, 520px);
 }
 
 .wb-status {
@@ -10717,13 +10358,6 @@ watch(hasUnsavedChanges, (val) => {
   .wb-status {
     flex-direction: column;
   }
-
-
-  .wb-floating-window {
-    width: calc(100vw - 16px) !important;
-    left: 8px !important;
-    right: 8px;
-  }
 }
 
 .editor-back-btn {
@@ -10938,14 +10572,6 @@ watch(hasUnsavedChanges, (val) => {
   .list-scroll {
     max-height: 60vh;
     max-height: 60lvh;
-  }
-
-  .wb-floating-window {
-    position: absolute;
-    left: 8px !important;
-    right: 8px !important;
-    width: auto !important;
-    max-width: none !important;
   }
 }
 
