@@ -1,0 +1,212 @@
+/* Mobile root overrides + host-native form force styles */
+
+.wb-assistant-root.is-mobile {
+  padding: 6px;
+  gap: 8px;
+
+  .wb-modal-backdrop {
+    position: absolute;
+  }
+
+  .wb-header,
+  .wb-bindings,
+  .wb-toolbar {
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .toolbar-label {
+    min-width: 100%;
+  }
+
+  .toolbar-select {
+    width: 100%;
+  }
+
+  .wb-main-layout {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .wb-entry-list,
+  .wb-editor,
+  .wb-editor-shell,
+  .editor-side {
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+
+  .wb-entry-list {
+    max-height: 80vh !important;
+    max-height: 80lvh !important;
+    overflow-y: auto;
+  }
+
+  .wb-editor-shell {
+    display: block !important;
+  }
+
+  .list-scroll {
+    max-height: 60vh;
+    max-height: 60lvh;
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   Override: Force theme colors on native form elements
+   This beats SillyTavern global dark CSS which sets
+   background/color on textarea, input, select, etc.
+   ───────────────────────────────────────────────── */
+.wb-assistant-root input,
+.wb-assistant-root textarea,
+.wb-assistant-root select,
+.wb-assistant-root option,
+.wb-assistant-root button {
+  color: var(--wb-text-main) !important;
+}
+
+.wb-assistant-root input[type="text"],
+.wb-assistant-root input[type="number"],
+.wb-assistant-root textarea,
+.wb-assistant-root select {
+  background: var(--wb-input-bg) !important;
+  border-color: transparent !important;
+}
+
+.wb-assistant-root input[type="text"]:hover,
+.wb-assistant-root input[type="number"]:hover,
+.wb-assistant-root textarea:hover,
+.wb-assistant-root select:hover {
+  background: var(--wb-input-bg-hover) !important;
+}
+
+.wb-assistant-root input[type="text"]:focus,
+.wb-assistant-root input[type="number"]:focus,
+.wb-assistant-root textarea:focus,
+.wb-assistant-root select:focus {
+  background: var(--wb-input-bg-focus) !important;
+  border-color: var(--wb-primary-glow) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px var(--wb-primary-soft) !important;
+}
+
+/* ═════════════════════════════════════════════════
+   Mobile Responsive
+   ═════════════════════════════════════════════════ */
+.wb-assistant-root.is-mobile {
+  padding: 6px;
+  gap: 6px;
+  border-radius: 0;
+
+  /* ── Toolbar ── */
+  .toolbar-label {
+    min-width: unset;
+    width: 100%;
+  }
+
+  .toolbar-label select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .toolbar-btns {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .toolbar-btns .btn {
+    font-size: 0.78em;
+    padding: 4px 8px;
+  }
+
+  /* ── Bindings bar ── */
+  .wb-bindings {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 8px;
+    font-size: 0.78em;
+  }
+
+  /* ── Main layout ── */
+  .wb-main-layout {
+    display: block !important;
+    overflow: visible;
+    flex: none;
+  }
+
+  .wb-resize-handle {
+    display: none !important;
+  }
+
+  .wb-entry-list,
+  .wb-editor {
+    min-height: 0;
+    max-height: none;
+  }
+
+  /* ── Status footer ── */
+  .wb-status {
+    font-size: 0.72em;
+    padding: 4px 8px;
+    gap: 6px;
+  }
+
+  /* ── Editor content area ── */
+  .editor-content-area {
+    flex: 1;
+    min-height: 40vh;
+    min-height: 40lvh;
+  }
+
+  .content-resize-handle {
+    display: flex;
+    height: 28px;
+  }
+
+  .editor-content-block {
+    position: relative;
+    z-index: 10;
+    background: var(--wb-bg-root);
+  }
+
+  .content-top-drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    cursor: ns-resize;
+    background: var(--wb-bg-panel);
+    border-radius: 8px 8px 0 0;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .content-top-drag-grip {
+    font-size: 12px;
+    color: var(--wb-text-dim);
+    letter-spacing: 3px;
+    line-height: 1;
+  }
+
+  .text-area.compact {
+    min-height: 60px;
+  }
+
+  .editor-center {
+    padding: 8px;
+  }
+
+  .editor-side {
+    padding: 8px;
+  }
+
+  .editor-grid.two-cols {
+    grid-template-columns: 1fr;
+  }
+}
