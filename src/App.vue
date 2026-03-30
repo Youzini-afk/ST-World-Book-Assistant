@@ -1177,73 +1177,42 @@
           />
 
           <section v-show="!aiGeneratorMode && !tagEditorMode && !crossCopyMode" ref="mainLayoutRef" class="wb-main-layout" :class="{ 'focus-mode': isDesktopFocusMode, 'global-mode-visible': globalWorldbookMode }" :style="mainLayoutStyle">
-            <aside v-show="!showMobileEditor" class="wb-entry-list" :class="{ focus: isDesktopFocusMode }">
-              <div v-if="!isDesktopFocusMode" class="list-search">
-                <input v-model="searchText" type="text" class="text-input" placeholder="搜索名称 / 内容 / 关键词" />
-                <label class="checkbox-inline">
-                  <input v-model="onlyEnabled" type="checkbox" />
-                  <span>仅启用</span>
-                </label>
-              </div>
-              <div v-if="!isDesktopFocusMode" class="list-summary">
-                <span>条目 {{ filteredEntries.length }} / {{ draftEntries.length }} | 启用 {{ enabledEntryCount }} | 选中 {{ selectedEntryCount }}</span>
-                <button class="btn mini" type="button" :disabled="!draftEntries.length" :class="{ active: viewSortActive }" @click="sortEntries" style="margin-left:auto;font-size:11px;">🔢 排序</button>
-              </div>
-              <div v-if="selectedEntryCount > 1 && !isMobile" class="list-multi-edit-hint" :class="{ off: !multiEditEnabled }">
-                {{ multiEditHintText }}
-              </div>
-              <TransitionGroup name="list" tag="div" class="list-scroll">
-                <button
-                  v-for="entry in filteredEntries"
-                  :key="entry.uid"
-                  type="button"
-                  class="entry-item"
-                  :data-status="getEntryVisualStatus(entry)"
-                  :class="{
-                    selected: selectedEntryUidSet.has(entry.uid),
-                    primary: entry.uid === selectedEntryUid,
-                    'drag-source': draggingEntryUids.includes(entry.uid),
-                    'drop-before': entryDropTargetUid === entry.uid && entryDropPosition === 'before',
-                    'drop-after': entryDropTargetUid === entry.uid && entryDropPosition === 'after',
-                    disabled: !entry.enabled,
-                  }"
-                  :draggable="!isMobile"
-                  @click="selectEntry(entry.uid, $event)"
-                  @dragstart="handleEntryDragStart(entry.uid, $event)"
-                  @dragover="handleEntryDragOver(entry.uid, $event)"
-                  @drop="handleEntryDrop(entry.uid, $event)"
-                  @dragend="handleEntryDragEnd"
-                >
-                  <div class="entry-item-head">
-                    <span class="entry-status-dot" :data-status="getEntryVisualStatus(entry)"></span>
-                    <div class="entry-item-title">{{ entry.name || `条目 ${entry.uid}` }}</div>
-                    <span v-if="!isDesktopFocusMode" class="entry-chip uid">#{{ entry.uid }}</span>
-                  </div>
-                  <div v-if="!isDesktopFocusMode" class="entry-item-tags">
-                    <span class="entry-chip status" :data-status="getEntryVisualStatus(entry)">
-                      {{ getEntryStatusLabel(entry) }}
-                    </span>
-                    <span class="entry-chip">🔑 {{ entry.strategy.keys.length }}</span>
-                    <span class="entry-chip">🎯 {{ entry.probability }}</span>
-                    <span class="entry-chip mono">#{{ entry.position.order }}</span>
-                  </div>
-                  <div v-if="!isDesktopFocusMode" class="entry-item-preview">{{ getEntryKeyPreview(entry) }}</div>
-                </button>
-              </TransitionGroup>
-              <div v-if="!isDesktopFocusMode" class="list-actions">
-                <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="addEntry">新增</button>
-                <button class="btn" type="button" :disabled="!selectedEntry" @click="duplicateSelectedEntry">
-                  复制
-                </button>
-                <button class="btn danger" type="button" :disabled="!selectedEntry" @click="removeSelectedEntry">
-                  删除
-                </button>
-                <button class="btn" type="button" :disabled="!selectedEntry" @click="moveSelectedEntry(-1)">
-                  上移
-                </button>
-                <button class="btn" type="button" :disabled="!selectedEntry" @click="moveSelectedEntry(1)">下移</button>
-              </div>
-            </aside>
+            <EntryListSidebar
+              :show-mobile-editor="showMobileEditor"
+              :is-desktop-focus-mode="isDesktopFocusMode"
+              :search-text="searchText"
+              :only-enabled="onlyEnabled"
+              :filtered-entries="filteredEntries"
+              :draft-entries-count="draftEntries.length"
+              :enabled-entry-count="enabledEntryCount"
+              :selected-entry-count="selectedEntryCount"
+              :view-sort-active="viewSortActive"
+              :multi-edit-enabled="multiEditEnabled"
+              :multi-edit-hint-text="multiEditHintText"
+              :is-mobile="isMobile"
+              :selected-entry-uid-set="selectedEntryUidSet"
+              :selected-entry-uid="selectedEntryUid"
+              :dragging-entry-uids="draggingEntryUids"
+              :entry-drop-target-uid="entryDropTargetUid"
+              :entry-drop-position="entryDropPosition"
+              :selected-worldbook-name="selectedWorldbookName"
+              :has-selected-entry="!!selectedEntry"
+              :get-entry-visual-status="getEntryVisualStatus"
+              :get-entry-status-label="getEntryStatusLabel"
+              :get-entry-key-preview="getEntryKeyPreview"
+              @update:search-text="searchText = $event"
+              @update:only-enabled="onlyEnabled = $event"
+              @sort-entries="sortEntries"
+              @select-entry="selectEntry"
+              @entry-drag-start="handleEntryDragStart"
+              @entry-drag-over="handleEntryDragOver"
+              @entry-drop="handleEntryDrop"
+              @entry-drag-end="handleEntryDragEnd"
+              @add-entry="addEntry"
+              @duplicate-selected-entry="duplicateSelectedEntry"
+              @remove-selected-entry="removeSelectedEntry"
+              @move-selected-entry="moveSelectedEntry"
+            />
             <div
               v-show="!isMobile"
               class="wb-resize-handle main"
@@ -1785,11 +1754,13 @@ import DesktopToolbarBindings from './components/DesktopToolbarBindings.vue';
 import GlobalModeDesktopPanel from './components/GlobalModeDesktopPanel.vue';
 import TagEditorMobilePanel from './components/TagEditorMobilePanel.vue';
 import TagEditorDesktopPanel from './components/TagEditorDesktopPanel.vue';
+import EntryListSidebar from './components/EntryListSidebar.vue';
 import './components/crossCopyShared.css';
 import './components/globalModeDesktopShared.css';
 import './components/tagEditorShared.css';
 import './components/aiChatShared.css';
 import './components/settingsModalShared.css';
+import './components/entryListSidebarShared.css';
 import './components/worldbookPickerShared.css';
 import {
   createId,
@@ -5724,23 +5695,6 @@ watch(hasUnsavedChanges, (val) => {
   transform: translateY(-6px);
 }
 
-/* List Transitions for TransitionGroup */
-.list-move,
-.list-enter-active,
-.list-leave-active {
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.list-enter-from,
-.list-leave-to {
-  opacity: 0;
-  transform: scaleY(0.8) translateY(-10px);
-}
-
-.list-leave-active {
-  position: absolute;
-}
-
 .history-btn {
   border-color: var(--wb-primary);
   background: var(--wb-primary-soft);
@@ -5755,23 +5709,6 @@ watch(hasUnsavedChanges, (val) => {
   border-color: var(--wb-primary-light);
   background: var(--wb-primary-soft);
   color: var(--wb-primary-light);
-}
-
-.wb-main-layout {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: 100%;
-  display: grid;
-  grid-template-columns: 280px 10px minmax(0, 1fr);
-  gap: 0;
-  align-items: stretch;
-  transition: grid-template-columns 240ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.wb-main-layout.global-mode-visible {
-  flex: 0 0 auto;
-  height: auto;
-  min-height: clamp(360px, 46vh, 700px);
 }
 
 .wb-assistant-root.focus-cine-locked .wb-main-layout {
@@ -5842,331 +5779,6 @@ watch(hasUnsavedChanges, (val) => {
     transform: translateY(0) scale(1);
     filter: blur(0);
   }
-}
-
-@keyframes copy-cine-main-enter {
-  0% {
-    opacity: 0.2;
-    transform: translateY(18px) scale(0.972);
-    filter: blur(1.6px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
-  }
-}
-
-.wb-entry-list,
-.wb-editor {
-  border-radius: 12px;
-  border: 1px solid transparent;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: transparent;
-  min-height: 0;
-  height: 100%;
-  overflow: hidden;
-  transition: padding 320ms cubic-bezier(0.22, 1, 0.36, 1), background-color 320ms cubic-bezier(0.22, 1, 0.36, 1), border-color 320ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.list-search {
-  display: grid;
-  gap: 6px;
-  padding: 0 8px;
-  flex-shrink: 0;
-}
-
-.list-summary {
-  color: var(--wb-text-muted);
-  font-size: 12px;
-  padding: 0 8px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.list-multi-edit-hint {
-  margin: 0 8px;
-  border: 1px solid color-mix(in srgb, var(--wb-primary) 36%, transparent);
-  border-radius: 8px;
-  padding: 6px 8px;
-  font-size: 12px;
-  color: var(--wb-primary-light);
-  background: color-mix(in srgb, var(--wb-primary-soft) 72%, transparent);
-  flex-shrink: 0;
-}
-
-.list-multi-edit-hint.off {
-  color: var(--wb-text-muted);
-  border-color: var(--wb-border-subtle);
-  background: var(--wb-input-bg);
-}
-
-.list-scroll {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  position: relative;
-  padding: 4px 4px 4px 4px;
-  transition: padding 320ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.entry-item {
-  width: 100%;
-  text-align: left;
-  border: 1px solid transparent;
-  background: var(--wb-input-bg);
-  color: var(--wb-text-main);
-  border-radius: 10px;
-  padding: 12px 14px 12px 18px;
-  cursor: pointer;
-  display: grid;
-  gap: 6px;
-  position: relative;
-  transition:
-    background 0.25s ease,
-    transform 0.25s ease,
-    border-color 0.25s ease,
-    box-shadow 0.25s ease,
-    padding 320ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-radius 320ms cubic-bezier(0.22, 1, 0.36, 1),
-    margin-bottom 320ms cubic-bezier(0.22, 1, 0.36, 1),
-    gap 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  margin-bottom: 6px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.entry-item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  border-radius: 10px 0 0 10px;
-  background: linear-gradient(to bottom, #64748b, rgba(100, 116, 139, 0.15));
-}
-
-.entry-item[data-status='constant']::before {
-  background: linear-gradient(to bottom, #3b82f6, rgba(59, 130, 246, 0));
-}
-
-.entry-item[data-status='vector']::before {
-  background: linear-gradient(to bottom, #a855f7, rgba(168, 85, 247, 0));
-}
-
-.entry-item[data-status='normal']::before {
-  background: linear-gradient(to bottom, #22c55e, rgba(34, 197, 94, 0));
-}
-
-.entry-item[data-status='disabled']::before {
-  background: linear-gradient(to bottom, #6b7280, rgba(107, 114, 128, 0));
-}
-
-.entry-item:hover {
-  background: var(--wb-input-bg-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
-  border-color: var(--wb-border-main);
-}
-
-.entry-item.selected {
-  background: color-mix(in srgb, var(--wb-primary-soft) 65%, transparent);
-  border-color: color-mix(in srgb, var(--wb-primary) 70%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--wb-primary) 55%, transparent), 0 4px 14px rgba(0,0,0,0.12);
-  transform: translateY(-1px);
-}
-
-.entry-item.selected.primary {
-  background: var(--wb-primary-soft);
-  border-color: var(--wb-primary);
-  box-shadow: 0 0 0 1px var(--wb-primary), 0 4px 20px rgba(0,0,0,0.15);
-  transform: translateY(-1px);
-}
-
-.entry-item.drag-source {
-  opacity: 0.82;
-}
-
-.entry-item.drop-before::after,
-.entry-item.drop-after::after {
-  content: '';
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--wb-primary-light);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--wb-primary-light) 65%, transparent);
-  pointer-events: none;
-}
-
-.entry-item.drop-before::after {
-  top: -2px;
-}
-
-.entry-item.drop-after::after {
-  bottom: -2px;
-}
-
-.entry-item.disabled {
-  opacity: 0.74;
-}
-
-.entry-item-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-
-.entry-status-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: #64748b;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 2px var(--wb-bg-panel);
-}
-
-.entry-status-dot[data-status='constant'] {
-  background: #3b82f6;
-}
-
-.entry-status-dot[data-status='vector'] {
-  background: #a855f7;
-}
-
-.entry-status-dot[data-status='normal'] {
-  background: #22c55e;
-}
-
-.entry-status-dot[data-status='disabled'] {
-  background: #6b7280;
-}
-
-.entry-item-title {
-  font-weight: 700;
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: font-size 320ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.entry-item-tags {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.entry-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 999px;
-  padding: 2px 10px;
-  color: var(--wb-text-main);
-  font-size: 11px;
-  background: var(--wb-bg-panel);
-  font-weight: 500;
-}
-
-.entry-chip.uid {
-  color: var(--wb-primary-light);
-  font-size: 10px;
-  padding: 1px 7px;
-}
-
-.entry-chip.mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  font-size: 10px;
-}
-
-.entry-chip.status[data-status='constant'] {
-  color: #93c5fd;
-  background: rgba(59, 130, 246, 0.16);
-}
-
-.entry-chip.status[data-status='vector'] {
-  color: #d8b4fe;
-  background: rgba(168, 85, 247, 0.16);
-}
-
-.entry-chip.status[data-status='normal'] {
-  color: #86efac;
-  background: rgba(34, 197, 94, 0.16);
-}
-
-.entry-chip.status[data-status='disabled'] {
-  color: #cbd5e1;
-  background: rgba(100, 116, 139, 0.15);
-}
-
-.entry-item-preview {
-  color: var(--wb-text-muted);
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding-left: 16px;
-  opacity: 0.85;
-}
-
-.entry-item-preview::before {
-  content: 'Keys: ';
-  color: var(--wb-text-muted);
-  margin-right: 4px;
-}
-
-.wb-editor {
-  height: 100%;
-  overflow: hidden;
-}
-
-.wb-editor-shell {
-  height: 100%;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 10px 360px;
-  gap: 0;
-  transition: grid-template-columns 240ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.wb-assistant-root.focus-cine-locked .wb-editor-shell {
-  transition-duration: 1400ms;
-  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.wb-main-layout.focus-mode .wb-entry-list {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 12px;
-  padding: 6px;
-  background: var(--wb-bg-panel);
-}
-
-.wb-main-layout.focus-mode .list-scroll {
-  padding: 2px;
-}
-
-.wb-main-layout.focus-mode .entry-item {
-  padding: 9px 10px 9px 14px;
-  border-radius: 8px;
-  margin-bottom: 4px;
-  gap: 4px;
-}
-
-.wb-main-layout.focus-mode .entry-item-title {
-  font-size: 12px;
 }
 
 .wb-resize-handle {
@@ -7106,10 +6718,6 @@ watch(hasUnsavedChanges, (val) => {
     max-height: 60vh;
     max-height: 60lvh;
   }
-}
-
-.list-actions {
-  padding: 0 8px;
 }
 
 /* ─────────────────────────────────────────────────
