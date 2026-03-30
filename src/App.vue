@@ -2972,358 +2972,68 @@
             </div>
           </div>
 
-          <div v-if="showEntryHistoryModal" class="wb-modal-backdrop" @click.self="showEntryHistoryModal = false">
-            <div class="wb-history-modal">
-              <div class="wb-history-modal-header">
-                <div>
-                  <strong>🕰️ 条目时光机</strong>
-                  <span>{{ entryHistorySummary }}</span>
-                </div>
-                <div class="wb-history-modal-actions">
-                  <button class="btn mini" type="button" :disabled="!selectedEntry" @click="createManualEntrySnapshot">
-                    记录条目
-                  </button>
-                  <button
-                    class="btn mini danger"
-                    type="button"
-                    :disabled="!entrySnapshotsForSelected.length"
-                    @click="clearCurrentEntrySnapshots"
-                  >
-                    清空条目历史
-                  </button>
-                  <button class="btn mini" type="button" @click="showEntryHistoryModal = false">关闭</button>
-                </div>
-              </div>
+          <EntryHistoryModal
+            v-model:visible="showEntryHistoryModal"
+            v-model:entry-history-left-id="entryHistoryLeftId"
+            v-model:entry-history-right-id="entryHistoryRightId"
+            :entry-history-summary="entryHistorySummary"
+            :has-selected-entry="!!selectedEntry"
+            :has-entry-snapshots="!!entrySnapshotsForSelected.length"
+            :entry-version-views="entryVersionViews"
+            :selected-entry-history-left="selectedEntryHistoryLeft"
+            :selected-entry-history-right="selectedEntryHistoryRight"
+            :can-restore-entry-from-left="canRestoreEntryFromLeft"
+            :can-resize-history-sections="canResizeHistorySections"
+            :layout-ref="entryHistoryLayoutRef"
+            :entry-history-field-diff-rows="entryHistoryFieldDiffRows"
+            :entry-history-field-diff-summary="entryHistoryFieldDiffSummary"
+            :entry-history-content-diff="entryHistoryContentDiff"
+            :entry-history-content-diff-summary="entryHistoryContentDiffSummary"
+            :format-history-option-label="formatHistoryOptionLabel"
+            :get-history-section-style="sectionIndex => getHistorySectionStyle('entry', sectionIndex)"
+            :get-cross-copy-entry-profile="getCrossCopyEntryProfile"
+            :get-entry-version-preview="getEntryVersionPreview"
+            @create-manual-entry-snapshot="createManualEntrySnapshot"
+            @clear-current-entry-snapshots="clearCurrentEntrySnapshots"
+            @restore-entry-from-left-history="restoreEntryFromLeftHistory"
+            @start-history-section-resize="(handleIndex, event) => startHistorySectionResize('entry', handleIndex, event)"
+          />
 
-              <div class="wb-history-modal-main">
-                <aside class="wb-history-versions">
-                  <div class="wb-history-versions-title">版本列表（L/R）</div>
-                  <div class="wb-history-versions-scroll">
-                    <div v-for="ver in entryVersionViews" :key="ver.id" class="wb-history-version-item">
-                      <div class="wb-history-version-line">
-                        <strong>{{ formatHistoryOptionLabel(ver.label, ver.ts, ver.isCurrent) }}</strong>
-                        <div class="wb-history-lr">
-                          <button class="mini-lr" :class="{ active: entryHistoryLeftId === ver.id }" @click="entryHistoryLeftId = ver.id">L</button>
-                          <button class="mini-lr" :class="{ active: entryHistoryRightId === ver.id }" @click="entryHistoryRightId = ver.id">R</button>
-                        </div>
-                      </div>
-                      <span>{{ ver.name }}</span>
-                    </div>
-                    <div v-if="entryVersionViews.length <= 1" class="empty-note">暂无历史条目版本</div>
-                  </div>
-                </aside>
+          <WorldbookHistoryModal
+            v-model:visible="showWorldbookHistoryModal"
+            v-model:worldbook-history-left-id="worldbookHistoryLeftId"
+            v-model:worldbook-history-right-id="worldbookHistoryRightId"
+            v-model:worldbook-history-active-row-key="worldbookHistoryActiveRowKey"
+            :worldbook-version-diff-summary="getWorldbookVersionDiffSummary(selectedWorldbookHistoryLeft, selectedWorldbookHistoryRight)"
+            :has-selected-worldbook="!!selectedWorldbookName"
+            :has-snapshots="!!snapshotsForCurrent.length"
+            :worldbook-version-views="worldbookVersionViews"
+            :selected-worldbook-history-left="selectedWorldbookHistoryLeft"
+            :selected-worldbook-history-right="selectedWorldbookHistoryRight"
+            :can-restore-worldbook-from-left="canRestoreWorldbookFromLeft"
+            :worldbook-history-compare-rows="worldbookHistoryCompareRows"
+            :worldbook-history-compare-summary="worldbookHistoryCompareSummary"
+            :worldbook-history-active-row="worldbookHistoryActiveRow"
+            :can-resize-history-sections="canResizeHistorySections"
+            :layout-ref="worldbookHistoryLayoutRef"
+            :worldbook-history-field-diff-rows="worldbookHistoryFieldDiffRows"
+            :worldbook-history-field-diff-summary="worldbookHistoryFieldDiffSummary"
+            :worldbook-history-content-diff="worldbookHistoryContentDiff"
+            :worldbook-history-content-diff-summary="worldbookHistoryContentDiffSummary"
+            :format-history-option-label="formatHistoryOptionLabel"
+            :get-history-section-style="sectionIndex => getHistorySectionStyle('worldbook', sectionIndex)"
+            :get-cross-copy-entry-profile="getCrossCopyEntryProfile"
+            :get-cross-copy-preview-text="getCrossCopyPreviewText"
+            :get-worldbook-history-version-preview="getWorldbookHistoryVersionPreview"
+            :get-worldbook-history-status-label="getWorldbookHistoryStatusLabel"
+            :get-worldbook-history-status-badge-class="getWorldbookHistoryStatusBadgeClass"
+            @create-manual-snapshot="createManualSnapshot"
+            @clear-current-snapshots="clearCurrentSnapshots"
+            @restore-worldbook-from-left-history="restoreWorldbookFromLeftHistory"
+            @start-history-section-resize="(handleIndex, event) => startHistorySectionResize('worldbook', handleIndex, event)"
+          />
 
-                <section class="wb-history-diff-wrap">
-                  <div class="wb-history-diff-head">
-                    <div>
-                      Left: {{ selectedEntryHistoryLeft ? formatHistoryOptionLabel(selectedEntryHistoryLeft.label, selectedEntryHistoryLeft.ts, selectedEntryHistoryLeft.isCurrent) : '-' }}
-                      |
-                      Right: {{ selectedEntryHistoryRight ? formatHistoryOptionLabel(selectedEntryHistoryRight.label, selectedEntryHistoryRight.ts, selectedEntryHistoryRight.isCurrent) : '-' }}
-                    </div>
-                    <button class="btn mini" type="button" :disabled="!canRestoreEntryFromLeft" @click="restoreEntryFromLeftHistory">
-                      恢复到 Left
-                    </button>
-                  </div>
-                  <div class="wb-history-visual-main">
-                    <div ref="entryHistoryLayoutRef" class="wb-history-resizable-layout">
-                      <div class="wb-history-pane-section" :style="getHistorySectionStyle('entry', 0)">
-                        <div class="cross-copy-preview-grid cross-copy-preview-grid-modal wb-history-version-preview">
-                          <div class="cross-copy-preview-card">
-                            <strong>Left 版本</strong>
-                            <span class="name">{{ selectedEntryHistoryLeft ? selectedEntryHistoryLeft.name || `条目 ${selectedEntryHistoryLeft.entry.uid}` : '-' }}</span>
-                            <span class="meta">{{ selectedEntryHistoryLeft ? getCrossCopyEntryProfile(selectedEntryHistoryLeft.entry) : '-' }}</span>
-                            <p>{{ getEntryVersionPreview(selectedEntryHistoryLeft) || '-' }}</p>
-                          </div>
-                          <div class="cross-copy-preview-card">
-                            <strong>Right 版本</strong>
-                            <span class="name">{{ selectedEntryHistoryRight ? selectedEntryHistoryRight.name || `条目 ${selectedEntryHistoryRight.entry.uid}` : '-' }}</span>
-                            <span class="meta">{{ selectedEntryHistoryRight ? getCrossCopyEntryProfile(selectedEntryHistoryRight.entry) : '-' }}</span>
-                            <p>{{ getEntryVersionPreview(selectedEntryHistoryRight) || '-' }}</p>
-                          </div>
-                        </div>
-                      </div>
 
-                      <div
-                        v-if="canResizeHistorySections"
-                        class="wb-history-pane-splitter"
-                        @pointerdown="startHistorySectionResize('entry', 0, $event)"
-                      >
-                        <span class="wb-history-pane-splitter-grip">⋯⋯⋯</span>
-                      </div>
-
-                      <div class="wb-history-pane-section" :style="getHistorySectionStyle('entry', 1)">
-                        <section class="cross-copy-visual-section">
-                          <div class="cross-copy-visual-head">
-                            <strong>字段对比</strong>
-                            <span>{{ entryHistoryFieldDiffSummary }}</span>
-                          </div>
-                          <div class="cross-copy-field-table">
-                            <div class="cross-copy-field-row cross-copy-field-header">
-                              <span>字段</span>
-                              <span>Left</span>
-                              <span>Right</span>
-                              <span>状态</span>
-                            </div>
-                            <div v-for="field in entryHistoryFieldDiffRows" :key="field.key" class="cross-copy-field-row" :class="{ changed: field.changed }">
-                              <span class="cross-copy-field-label">{{ field.label }}</span>
-                              <span class="cross-copy-field-value left">{{ field.left }}</span>
-                              <span class="cross-copy-field-value right">{{ field.right }}</span>
-                              <span class="cross-copy-field-state" :class="{ changed: field.changed, same: !field.changed }">
-                                {{ field.changed ? '不同' : '一致' }}
-                              </span>
-                            </div>
-                          </div>
-                        </section>
-                      </div>
-
-                      <div
-                        v-if="canResizeHistorySections"
-                        class="wb-history-pane-splitter"
-                        @pointerdown="startHistorySectionResize('entry', 1, $event)"
-                      >
-                        <span class="wb-history-pane-splitter-grip">⋯⋯⋯</span>
-                      </div>
-
-                      <div class="wb-history-pane-section" :style="getHistorySectionStyle('entry', 2)">
-                        <section class="cross-copy-visual-section">
-                          <div class="cross-copy-visual-head">
-                            <strong>内容差异</strong>
-                            <span>{{ entryHistoryContentDiffSummary }}</span>
-                          </div>
-                          <div class="cross-copy-content-grid">
-                            <div class="cross-copy-content-col">
-                              <div class="wb-history-diff-title">Left / 条目内容</div>
-                              <div class="cross-copy-content-body">
-                                <div v-for="(line, idx) in entryHistoryContentDiff.left" :key="`eh-left-${idx}`" class="cross-copy-content-line" :class="line.type">
-                                  <span class="line-no">{{ line.line_no ?? '' }}</span>
-                                  <span class="line-text">{{ line.text || ' ' }}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div class="cross-copy-content-col">
-                              <div class="wb-history-diff-title">Right / 条目内容</div>
-                              <div class="cross-copy-content-body">
-                                <div v-for="(line, idx) in entryHistoryContentDiff.right" :key="`eh-right-${idx}`" class="cross-copy-content-line" :class="line.type">
-                                  <span class="line-no">{{ line.line_no ?? '' }}</span>
-                                  <span class="line-text">{{ line.text || ' ' }}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </section>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="showWorldbookHistoryModal" class="wb-modal-backdrop" @click.self="showWorldbookHistoryModal = false">
-            <div class="wb-history-modal">
-              <div class="wb-history-modal-header">
-                <div>
-                  <strong>⏪ 时光机（整本回滚）</strong>
-                  <span>{{ getWorldbookVersionDiffSummary(selectedWorldbookHistoryLeft, selectedWorldbookHistoryRight) }}</span>
-                </div>
-                <div class="wb-history-modal-actions">
-                  <button class="btn mini" type="button" :disabled="!selectedWorldbookName" @click="createManualSnapshot">
-                    创建整本快照
-                  </button>
-                  <button
-                    class="btn mini danger"
-                    type="button"
-                    :disabled="!snapshotsForCurrent.length"
-                    @click="clearCurrentSnapshots"
-                  >
-                    清空整本快照
-                  </button>
-                  <button class="btn mini" type="button" @click="showWorldbookHistoryModal = false">关闭</button>
-                </div>
-              </div>
-
-              <div class="wb-history-modal-main">
-                <aside class="wb-history-versions">
-                  <div class="wb-history-versions-title">版本列表（L/R）</div>
-                  <div class="wb-history-versions-scroll">
-                    <div v-for="ver in worldbookVersionViews" :key="ver.id" class="wb-history-version-item">
-                      <div class="wb-history-version-line">
-                        <strong>{{ formatHistoryOptionLabel(ver.label, ver.ts, ver.isCurrent) }}</strong>
-                        <div class="wb-history-lr">
-                          <button class="mini-lr" :class="{ active: worldbookHistoryLeftId === ver.id }" @click="worldbookHistoryLeftId = ver.id">L</button>
-                          <button class="mini-lr" :class="{ active: worldbookHistoryRightId === ver.id }" @click="worldbookHistoryRightId = ver.id">R</button>
-                        </div>
-                      </div>
-                      <span>entries: {{ ver.entries.length }}</span>
-                    </div>
-                  </div>
-                </aside>
-
-                <section class="wb-history-diff-wrap">
-                  <div class="wb-history-diff-head">
-                    <div>
-                      Left: {{ selectedWorldbookHistoryLeft ? formatHistoryOptionLabel(selectedWorldbookHistoryLeft.label, selectedWorldbookHistoryLeft.ts, selectedWorldbookHistoryLeft.isCurrent) : '-' }}
-                      |
-                      Right: {{ selectedWorldbookHistoryRight ? formatHistoryOptionLabel(selectedWorldbookHistoryRight.label, selectedWorldbookHistoryRight.ts, selectedWorldbookHistoryRight.isCurrent) : '-' }}
-                    </div>
-                    <button
-                      class="btn mini"
-                      type="button"
-                      :disabled="!canRestoreWorldbookFromLeft"
-                      @click="restoreWorldbookFromLeftHistory"
-                    >
-                      恢复到 Left
-                    </button>
-                  </div>
-                  <div class="wb-history-visual-main">
-                    <div class="cross-copy-preview-grid cross-copy-preview-grid-modal wb-history-version-preview">
-                      <div class="cross-copy-preview-card">
-                        <strong>Left 版本</strong>
-                        <span class="name">{{ selectedWorldbookHistoryLeft ? formatHistoryOptionLabel(selectedWorldbookHistoryLeft.label, selectedWorldbookHistoryLeft.ts, selectedWorldbookHistoryLeft.isCurrent) : '-' }}</span>
-                        <span class="meta">entries: {{ selectedWorldbookHistoryLeft ? selectedWorldbookHistoryLeft.entries.length : 0 }}</span>
-                        <p>{{ selectedWorldbookHistoryLeft ? getWorldbookHistoryVersionPreview(selectedWorldbookHistoryLeft) : '-' }}</p>
-                      </div>
-                      <div class="cross-copy-preview-card">
-                        <strong>Right 版本</strong>
-                        <span class="name">{{ selectedWorldbookHistoryRight ? formatHistoryOptionLabel(selectedWorldbookHistoryRight.label, selectedWorldbookHistoryRight.ts, selectedWorldbookHistoryRight.isCurrent) : '-' }}</span>
-                        <span class="meta">entries: {{ selectedWorldbookHistoryRight ? selectedWorldbookHistoryRight.entries.length : 0 }}</span>
-                        <p>{{ selectedWorldbookHistoryRight ? getWorldbookHistoryVersionPreview(selectedWorldbookHistoryRight) : '-' }}</p>
-                      </div>
-                    </div>
-
-                    <section class="cross-copy-visual-section wb-worldbook-compare-list-section">
-                      <div class="cross-copy-visual-head">
-                        <strong>条目变化列表</strong>
-                        <span>{{ worldbookHistoryCompareSummary }}</span>
-                      </div>
-                      <div class="wb-worldbook-compare-list">
-                        <button
-                          v-for="row in worldbookHistoryCompareRows"
-                          :key="row.key"
-                          type="button"
-                          class="wb-worldbook-compare-row"
-                          :class="{ active: worldbookHistoryActiveRowKey === row.key }"
-                          @click="worldbookHistoryActiveRowKey = row.key"
-                        >
-                          <div class="wb-worldbook-compare-row-head">
-                            <span class="cross-copy-status-badge" :class="getWorldbookHistoryStatusBadgeClass(row.status)">
-                              {{ getWorldbookHistoryStatusLabel(row.status) }}
-                            </span>
-                            <strong>{{ row.title }}</strong>
-                            <span v-if="row.uid !== null" class="entry-chip uid">#{{ row.uid }}</span>
-                          </div>
-                          <div class="wb-worldbook-compare-row-note">{{ row.note }}</div>
-                        </button>
-                        <div v-if="!worldbookHistoryCompareRows.length" class="empty-note">左右版本条目一致，无需处理。</div>
-                      </div>
-                    </section>
-
-                    <template v-if="worldbookHistoryActiveRow">
-                      <div ref="worldbookHistoryLayoutRef" class="wb-history-resizable-layout wb-history-resizable-layout-detail">
-                        <div class="wb-history-pane-section" :style="getHistorySectionStyle('worldbook', 0)">
-                          <div class="cross-copy-preview-grid cross-copy-preview-grid-modal">
-                            <div class="cross-copy-preview-card">
-                              <strong>Left 条目</strong>
-                              <template v-if="worldbookHistoryActiveRow.left_entry">
-                                <span class="name">{{ worldbookHistoryActiveRow.left_entry.name || `条目 ${worldbookHistoryActiveRow.left_entry.uid}` }}</span>
-                                <span class="meta">{{ getCrossCopyEntryProfile(worldbookHistoryActiveRow.left_entry) }}</span>
-                                <p>{{ getCrossCopyPreviewText(worldbookHistoryActiveRow.left_entry.content, 260) }}</p>
-                              </template>
-                              <template v-else>
-                                <span class="meta">该条目在 Left 版本不存在</span>
-                              </template>
-                            </div>
-                            <div class="cross-copy-preview-card">
-                              <strong>Right 条目</strong>
-                              <template v-if="worldbookHistoryActiveRow.right_entry">
-                                <span class="name">{{ worldbookHistoryActiveRow.right_entry.name || `条目 ${worldbookHistoryActiveRow.right_entry.uid}` }}</span>
-                                <span class="meta">{{ getCrossCopyEntryProfile(worldbookHistoryActiveRow.right_entry) }}</span>
-                                <p>{{ getCrossCopyPreviewText(worldbookHistoryActiveRow.right_entry.content, 260) }}</p>
-                              </template>
-                              <template v-else>
-                                <span class="meta">该条目在 Right 版本不存在</span>
-                              </template>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div
-                          v-if="canResizeHistorySections"
-                          class="wb-history-pane-splitter"
-                          @pointerdown="startHistorySectionResize('worldbook', 0, $event)"
-                        >
-                          <span class="wb-history-pane-splitter-grip">⋯⋯⋯</span>
-                        </div>
-
-                        <div class="wb-history-pane-section" :style="getHistorySectionStyle('worldbook', 1)">
-                          <section class="cross-copy-visual-section">
-                            <div class="cross-copy-visual-head">
-                              <strong>字段对比</strong>
-                              <span>{{ worldbookHistoryFieldDiffSummary }}</span>
-                            </div>
-                            <div class="cross-copy-field-table">
-                              <div class="cross-copy-field-row cross-copy-field-header">
-                                <span>字段</span>
-                                <span>Left</span>
-                                <span>Right</span>
-                                <span>状态</span>
-                              </div>
-                              <div v-for="field in worldbookHistoryFieldDiffRows" :key="field.key" class="cross-copy-field-row" :class="{ changed: field.changed }">
-                                <span class="cross-copy-field-label">{{ field.label }}</span>
-                                <span class="cross-copy-field-value left">{{ field.left }}</span>
-                                <span class="cross-copy-field-value right">{{ field.right }}</span>
-                                <span class="cross-copy-field-state" :class="{ changed: field.changed, same: !field.changed }">
-                                  {{ field.changed ? '不同' : '一致' }}
-                                </span>
-                              </div>
-                            </div>
-                          </section>
-                        </div>
-
-                        <div
-                          v-if="canResizeHistorySections"
-                          class="wb-history-pane-splitter"
-                          @pointerdown="startHistorySectionResize('worldbook', 1, $event)"
-                        >
-                          <span class="wb-history-pane-splitter-grip">⋯⋯⋯</span>
-                        </div>
-
-                        <div class="wb-history-pane-section" :style="getHistorySectionStyle('worldbook', 2)">
-                          <section class="cross-copy-visual-section">
-                            <div class="cross-copy-visual-head">
-                              <strong>内容差异</strong>
-                              <span>{{ worldbookHistoryContentDiffSummary }}</span>
-                            </div>
-                            <div class="cross-copy-content-grid">
-                              <div class="cross-copy-content-col">
-                                <div class="wb-history-diff-title">Left / 条目内容</div>
-                                <div class="cross-copy-content-body">
-                                  <div v-for="(line, idx) in worldbookHistoryContentDiff.left" :key="`wh-left-${idx}`" class="cross-copy-content-line" :class="line.type">
-                                    <span class="line-no">{{ line.line_no ?? '' }}</span>
-                                    <span class="line-text">{{ line.text || ' ' }}</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div class="cross-copy-content-col">
-                                <div class="wb-history-diff-title">Right / 条目内容</div>
-                                <div class="cross-copy-content-body">
-                                  <div v-for="(line, idx) in worldbookHistoryContentDiff.right" :key="`wh-right-${idx}`" class="cross-copy-content-line" :class="line.type">
-                                    <span class="line-no">{{ line.line_no ?? '' }}</span>
-                                    <span class="line-text">{{ line.text || ' ' }}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </section>
-                        </div>
-                      </div>
-                    </template>
-                    <div v-else class="empty-note wb-worldbook-detail-empty">请选择一条变化记录查看详细对比</div>
-                  </div>
-                </section>
-              </div>
-            </div>
-          </div>
 
           <FloatingFindWindow
             v-if="floatingPanels.find.visible"
@@ -3373,6 +3083,8 @@ import { klona } from 'klona';
 import { useFindReplace, useMultiEdit, useAIChat, useAIConfig, useTagSystem, useGlobalWorldbooks, useHistorySnapshots, useFocusMode, useEditorLayout, useCrossCopy } from './composables';
 import FloatingFindWindow from './components/FloatingFindWindow.vue';
 import FloatingActivationWindow from './components/FloatingActivationWindow.vue';
+import EntryHistoryModal from './components/EntryHistoryModal.vue';
+import WorldbookHistoryModal from './components/WorldbookHistoryModal.vue';
 import {
   createId,
   asRecord,
@@ -3399,21 +3111,16 @@ import {
   type RoleType,
 } from './utils';
 import { THEMES, type ThemeKey } from './themes';
-import { normalizeCrossCopyNameKey, normalizeCrossCopyContentKey } from './diffUtils';
+import {
+  getWorldbookHistoryVersionPreview,
+  getWorldbookHistoryStatusLabel,
+  getWorldbookHistoryStatusBadgeClass,
+  getWorldbookVersionDiffSummary,
+} from './diffUtils';
 import {
   createDefaultPersistedState,
   normalizePersistedState,
-  createDefaultTagEditorPersistState,
-  normalizeTagEditorPersistState,
-  createDefaultTagFilterState,
-  normalizeTagFilterState,
-  HISTORY_LIMIT,
-  ENTRY_HISTORY_LIMIT,
-  GLOBAL_PRESET_LIMIT,
-  TAG_LIMIT,
   TAG_COLORS,
-  AI_CHAT_SESSION_LIMIT,
-  AI_CHAT_MESSAGE_LIMIT,
   STORAGE_KEY,
   MAIN_PANE_MIN,
   FOCUS_MAIN_PANE_MIN,
@@ -3422,58 +3129,16 @@ import {
 } from './store/persistedState';
 import type {
   PositionSelectValue,
-  EntryVisualStatus,
-  FloatingPanelKey,
-  PaneResizeKey,
-  HistoryResizeTarget,
-  BatchSearchScope,
-  FindFieldKey,
   SelectionSource,
   CrossCopyRowStatus,
-  CrossCopyAction,
-  CrossCopyStatusFilter,
-  WorldbookHistoryCompareStatus,
-  CrossCopyMobileStep,
-  MultiEditPersistState,
-  TagDeleteParentMode,
-  TagEditorPersistState,
-  CrossCopyPersistState,
-  CrossCopyMatchSummary,
-  CrossCopyRow,
-  CrossCopyFieldDiffRow,
-  CrossCopyTextDiffLine,
-  CrossCopyTextDiffResult,
-  EntryFieldDiffOptions,
-  WorldbookHistoryCompareRow,
   WorldbookSwitchOptions,
   HardRefreshOptions,
-  FloatingPanelState,
-  PaneResizeState,
-  HistorySectionResizeState,
-  CrossCopyPaneResizeState,
-  WorldbookSnapshot,
-  EntrySnapshot,
   EntryVersionView,
-  WorldbookVersionView,
   RoleBindingCandidate,
-  GlobalWorldbookPreset,
-  AIChatMessage,
-  AIChatSession,
-  AIGeneratorState,
-  ExtractedTag,
-  WorldbookTagDefinition,
-  WorldbookTagState,
-  TagFilterLogic,
-  TagFilterMatchMode,
-  TagFilterState,
-  AIApiConfig,
-  LayoutState,
   PersistedState,
   ActivationLog,
   ImportedPayload,
   EventSubscription,
-  FindHit,
-  EntryConfigPatch,
   MobileEntryLongPressState,
 } from './types';
 
@@ -3637,7 +3302,7 @@ const selectedEntryIndex = computed(() => {
 const {
   batchFindText, batchReplaceText, batchExcludeText,
   batchUseRegex, batchInName, batchInContent, batchInKeys,
-  batchSearchScope, findHits, findHitIndex,
+  batchSearchScope,
   activeFindHit, findHitSummaryText, batchExcludeTokensPreview,
   getFindFieldLabel, findFirstMatch, findNextMatch, findPreviousMatch,
   applyBatchReplace, resetFindState,
@@ -3650,26 +3315,6 @@ const {
 });
 // ── end useFindReplace ───────────────────────────────────────────────
 
-// ── useMultiEdit composable ──────────────────────────────────────────
-const {
-  multiEditLastPatch, multiEditSnapshotDone, multiEditApplying,
-  multiEditEnabled, multiEditSyncExtraJson, isMultiEditSyncActive,
-  multiEditSessionKey, multiEditHintText,
-  extractEntryConfigPatch, applyEntryConfigPatch,
-  resetMultiEditSessionState, syncSelectedEntryConfigToMultiSelection,
-} = useMultiEdit({
-  persistedState,
-  selectedEntry,
-  selectedEntryUids,
-  draftEntries,
-  isMobile,
-  mobileMultiSelectMode,
-  setStatus,
-  getOrderedSelectedEntryUids,
-  pushEntrySnapshotsBulk,
-});
-// ── end useMultiEdit ─────────────────────────────────────────────────
-
 // ── useAIConfig composable ───────────────────────────────────────────
 // (depends on buildCustomApiForGenerate from useAIChat)
 
@@ -3680,7 +3325,7 @@ const {
   aiChatInputText, aiUseContext, aiChatMessagesRef,
   showApiSettings, apiModelList, apiModelLoading,
   aiSessions, aiActiveSession, aiActiveMessages,
-  aiCreateSession, aiDeleteSession, aiSwitchSession, aiRenameSession,
+  aiCreateSession, aiDeleteSession, aiSwitchSession,
   aiAddMessage, updateApiConfig, loadModelList, buildCustomApiForGenerate,
   aiSendMessage, aiStopGeneration,
   aiExtractTags, updateIgnoreTags, resetIgnoreTags,
@@ -3768,15 +3413,21 @@ const roleBindingCandidates = computed<RoleBindingCandidate[]>(() => {
   }));
 });
 
+// ── useFocusMode + useEditorLayout (forward refs) ─────────────────────
+let _layoutViewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1440);
+let _focusClampPaneWidths: () => void = () => {};
+let _focusPersistLayoutState: () => void = () => {};
+let _setCrossCopyModeActive: (next: boolean) => void = () => {};
+const isCompactLayout = computed(() => _layoutViewportWidth.value <= 1100);
+const canResizeHistorySections = computed(() => !isMobile.value && _layoutViewportWidth.value > 1380);
+
 // ── useHistorySnapshots ───────────────────────────────────────────────
 const {
   showEntryHistoryModal, showWorldbookHistoryModal,
   entryHistoryLeftId, entryHistoryRightId,
   worldbookHistoryLeftId, worldbookHistoryRightId,
-  worldbookHistoryActiveRowKey,
   entryHistoryLayoutRef, worldbookHistoryLayoutRef,
-  entryHistorySectionRatios, worldbookHistorySectionRatios,
-  historySectionResizeState,
+  worldbookHistoryActiveRowKey,
   snapshotsForCurrent, entrySnapshotsForSelected,
   entryVersionViews, worldbookVersionViews,
   selectedEntryHistoryLeft, selectedEntryHistoryRight,
@@ -3790,31 +3441,41 @@ const {
   worldbookHistoryContentDiff, worldbookHistoryContentDiffSummary,
   entryHistorySummary,
   pushSnapshotForWorldbook, pushSnapshot, createManualSnapshot,
-  createEntrySnapshotRecord, pushEntrySnapshotsBulk, pushEntrySnapshot,
+  pushEntrySnapshotsBulk,
   collectEntrySnapshotsBeforeSave,
-  restoreSnapshot, restoreWorldbookFromLeftHistory,
-  deleteSnapshot, clearCurrentSnapshots,
-  restoreEntrySnapshot, restoreEntryFromLeftHistory,
-  deleteEntrySnapshot, clearCurrentEntrySnapshots,
+  restoreWorldbookFromLeftHistory, clearCurrentSnapshots,
+  restoreEntryFromLeftHistory, clearCurrentEntrySnapshots,
   createManualEntrySnapshot,
   openEntryHistoryModal, openWorldbookHistoryModal,
-  getHistorySectionRatios, setHistorySectionRatios,
-  getHistorySectionStyle, startHistorySectionResize,
+  getHistorySectionStyle, startHistorySectionResize, stopHistorySectionResize,
 } = useHistorySnapshots({
   persistedState, updatePersistedState, setStatus,
   selectedWorldbookName, draftEntries, originalEntries,
   selectedEntry, selectedEntryIndex, selectedEntryUid,
   ensureSelectedEntryExists,
-  canResizeHistorySections: computed(() => !isMobile.value && viewportWidth.value > 1380),
+  canResizeHistorySections,
 });
 // ── end useHistorySnapshots ───────────────────────────────────────────
 
-// ── useFocusMode + useEditorLayout (forward refs) ─────────────────────
-let _layoutViewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1440);
-let _focusClampPaneWidths: () => void = () => {};
-let _focusPersistLayoutState: () => void = () => {};
-let _setCrossCopyModeActive: (next: boolean) => void = () => {};
-const isCompactLayout = computed(() => _layoutViewportWidth.value <= 1100);
+// ── useMultiEdit composable ──────────────────────────────────────────
+const {
+  multiEditLastPatch, multiEditApplying,
+  multiEditEnabled, multiEditSyncExtraJson, isMultiEditSyncActive,
+  multiEditSessionKey, multiEditHintText,
+  extractEntryConfigPatch,
+  resetMultiEditSessionState, syncSelectedEntryConfigToMultiSelection,
+} = useMultiEdit({
+  persistedState,
+  selectedEntry,
+  selectedEntryUids,
+  draftEntries,
+  isMobile,
+  mobileMultiSelectMode,
+  setStatus,
+  getOrderedSelectedEntryUids,
+  pushEntrySnapshotsBulk,
+});
+// ── end useMultiEdit ─────────────────────────────────────────────────
 
 const {
   isFocusEditing,
@@ -4936,217 +4597,6 @@ function getEntryVersionPreview(view: EntryVersionView | null): string {
     return '(空内容)';
   }
   return content.slice(0, 160);
-}
-
-function getWorldbookHistoryVersionPreview(view: WorldbookVersionView | null): string {
-  if (!view) {
-    return '';
-  }
-  if (!view.entries.length) {
-    return '空世界书';
-  }
-  const enabledCount = view.entries.filter(entry => entry.enabled).length;
-  const sampleNames = view.entries
-    .slice(0, 3)
-    .map(entry => entry.name || `#${entry.uid}`)
-    .join(' / ');
-  const suffix = view.entries.length > 3 ? ' ...' : '';
-  return `启用 ${enabledCount}/${view.entries.length} · ${sampleNames}${suffix}`;
-}
-
-function getWorldbookHistoryStatusLabel(status: WorldbookHistoryCompareStatus): string {
-  if (status === 'added') {
-    return '新增';
-  }
-  if (status === 'removed') {
-    return '删除';
-  }
-  return '修改';
-}
-
-function getWorldbookHistoryStatusBadgeClass(status: WorldbookHistoryCompareStatus): string {
-  if (status === 'added') {
-    return 'new';
-  }
-  if (status === 'removed') {
-    return 'invalid';
-  }
-  return 'changed';
-}
-
-function getEntryPairDiffSummary(
-  left: WorldbookEntry | null,
-  right: WorldbookEntry | null,
-  labels: { left: string; right: string } = { left: 'Left', right: 'Right' },
-): string {
-  if (!left && !right) {
-    return '无可比较条目';
-  }
-  if (!left) {
-    return `仅${labels.right}存在`;
-  }
-  if (!right) {
-    return `仅${labels.left}存在`;
-  }
-
-  const diff: string[] = [];
-  if (normalizeCrossCopyNameKey(left.name) !== normalizeCrossCopyNameKey(right.name)) {
-    diff.push('名称不同');
-  }
-  if (normalizeCrossCopyContentKey(left.content) !== normalizeCrossCopyContentKey(right.content)) {
-    diff.push('内容不同');
-  }
-  if (left.enabled !== right.enabled) {
-    diff.push('启用状态不同');
-  }
-  if (left.strategy.type !== right.strategy.type) {
-    diff.push('策略不同');
-  }
-  if (left.probability !== right.probability) {
-    diff.push('概率不同');
-  }
-  if (
-    left.position.type !== right.position.type ||
-    left.position.order !== right.position.order ||
-    left.position.role !== right.position.role ||
-    left.position.depth !== right.position.depth
-  ) {
-    diff.push('插入设置不同');
-  }
-  if (
-    left.recursion.prevent_incoming !== right.recursion.prevent_incoming ||
-    left.recursion.prevent_outgoing !== right.recursion.prevent_outgoing ||
-    left.recursion.delay_until !== right.recursion.delay_until
-  ) {
-    diff.push('递归设置不同');
-  }
-  if (
-    left.effect.sticky !== right.effect.sticky ||
-    left.effect.cooldown !== right.effect.cooldown ||
-    left.effect.delay !== right.effect.delay ||
-    left.effect.delay_until !== right.effect.delay_until
-  ) {
-    diff.push('效果设置不同');
-  }
-  if (left.strategy.keys.length !== right.strategy.keys.length) {
-    diff.push('主要关键词数量不同');
-  }
-  if (left.strategy.keys_secondary.keys.length !== right.strategy.keys_secondary.keys.length) {
-    diff.push('次要关键词数量不同');
-  }
-
-  if (!diff.length) {
-    return '主要字段一致';
-  }
-  return diff.join(' / ');
-}
-
-function serializeWorldbookEntryForDiff(entry: WorldbookEntry | null): string {
-  if (!entry) {
-    return '';
-  }
-  const payload = {
-    uid: entry.uid,
-    name: entry.name,
-    enabled: entry.enabled,
-    strategy: entry.strategy,
-    position: entry.position,
-    probability: entry.probability,
-    recursion: entry.recursion,
-    effect: entry.effect,
-    content: entry.content,
-    extra: entry.extra ?? null,
-  };
-  return JSON.stringify(payload, null, 2);
-}
-
-function areWorldbookEntriesEqual(left: WorldbookEntry | null, right: WorldbookEntry | null): boolean {
-  return serializeWorldbookEntryForDiff(left) === serializeWorldbookEntryForDiff(right);
-}
-
-function buildWorldbookHistoryCompareRows(
-  left: WorldbookVersionView | null,
-  right: WorldbookVersionView | null,
-): WorldbookHistoryCompareRow[] {
-  if (!left || !right) {
-    return [];
-  }
-
-  const rows: WorldbookHistoryCompareRow[] = [];
-  const leftMap = new Map<number, WorldbookEntry>();
-  const rightMap = new Map<number, WorldbookEntry>();
-  for (const entry of left.entries) {
-    leftMap.set(entry.uid, entry);
-  }
-  for (const entry of right.entries) {
-    rightMap.set(entry.uid, entry);
-  }
-
-  for (const rightEntry of right.entries) {
-    const leftEntry = leftMap.get(rightEntry.uid) ?? null;
-    if (!leftEntry) {
-      rows.push({
-        key: `added:${rightEntry.uid}`,
-        uid: rightEntry.uid,
-        status: 'added',
-        title: rightEntry.name || `条目 ${rightEntry.uid}`,
-        note: '仅在 Right 版本存在',
-        left_entry: null,
-        right_entry: rightEntry,
-      });
-      continue;
-    }
-    if (!areWorldbookEntriesEqual(leftEntry, rightEntry)) {
-      rows.push({
-        key: `changed:${rightEntry.uid}`,
-        uid: rightEntry.uid,
-        status: 'changed',
-        title: rightEntry.name || leftEntry.name || `条目 ${rightEntry.uid}`,
-        note: getEntryPairDiffSummary(leftEntry, rightEntry),
-        left_entry: leftEntry,
-        right_entry: rightEntry,
-      });
-    }
-  }
-
-  for (const leftEntry of left.entries) {
-    if (rightMap.has(leftEntry.uid)) {
-      continue;
-    }
-    rows.push({
-      key: `removed:${leftEntry.uid}`,
-      uid: leftEntry.uid,
-      status: 'removed',
-      title: leftEntry.name || `条目 ${leftEntry.uid}`,
-      note: '仅在 Left 版本存在',
-      left_entry: leftEntry,
-      right_entry: null,
-    });
-  }
-
-  return rows;
-}
-
-function getWorldbookVersionDiffSummary(
-  left: WorldbookVersionView | null,
-  right: WorldbookVersionView | null,
-): string {
-  if (!left || !right) {
-    return '请选择左右版本进行对比';
-  }
-  let added = 0;
-  let removed = 0;
-  let changed = 0;
-  for (const row of buildWorldbookHistoryCompareRows(left, right)) {
-    if (row.status === 'added') {
-      added += 1;
-    } else if (row.status === 'removed') {
-      removed += 1;
-    } else {
-      changed += 1;
-    }
-  }
-  return `新增 ${added} / 修改 ${changed} / 删除 ${removed}`;
 }
 
 

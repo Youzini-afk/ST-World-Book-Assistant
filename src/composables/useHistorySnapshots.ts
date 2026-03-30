@@ -118,6 +118,7 @@ export interface UseHistorySnapshotsReturn {
   setHistorySectionRatios: (target: HistoryResizeTarget, next: [number, number, number]) => void;
   getHistorySectionStyle: (target: HistoryResizeTarget, sectionIndex: 0 | 1 | 2) => Record<string, string> | undefined;
   startHistorySectionResize: (target: HistoryResizeTarget, handleIndex: 0 | 1, event: PointerEvent) => void;
+  stopHistorySectionResize: () => void;
 }
 
 export function useHistorySnapshots(options: UseHistorySnapshotsOptions): UseHistorySnapshotsReturn {
@@ -556,5 +557,6 @@ export function useHistorySnapshots(options: UseHistorySnapshotsOptions): UseHis
     openEntryHistoryModal, openWorldbookHistoryModal,
     getHistorySectionRatios, setHistorySectionRatios, getHistorySectionStyle,
     startHistorySectionResize,
+    stopHistorySectionResize,
   };
 }
