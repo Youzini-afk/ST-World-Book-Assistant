@@ -48,7 +48,7 @@
           </div>
 
           <div class="wb-history-visual-main">
-            <div :ref="layoutRef" class="wb-history-resizable-layout">
+            <div :ref="setLayoutRef" class="wb-history-resizable-layout">
               <div class="wb-history-pane-section" :style="getHistorySectionStyle(0)">
                 <div class="cross-copy-preview-grid cross-copy-preview-grid-modal wb-history-version-preview">
                   <div class="cross-copy-preview-card">
@@ -137,7 +137,7 @@
 
 <script setup lang="ts">
 import './historyModalShared.css';
-import { computed, type Ref } from 'vue';
+import { computed, type ComponentPublicInstance } from 'vue';
 import type {
   CrossCopyFieldDiffRow,
   CrossCopyTextDiffResult,
@@ -156,7 +156,7 @@ interface EntryHistoryModalProps {
   selectedEntryHistoryRight: EntryVersionView | null;
   canRestoreEntryFromLeft: boolean;
   canResizeHistorySections: boolean;
-  layoutRef: Ref<HTMLElement | null>;
+  setLayoutElement: (element: HTMLElement | null) => void;
   entryHistoryFieldDiffRows: CrossCopyFieldDiffRow[];
   entryHistoryFieldDiffSummary: string;
   entryHistoryContentDiff: CrossCopyTextDiffResult;
@@ -193,6 +193,15 @@ const entryHistoryRightIdModel = computed({
   get: () => props.entryHistoryRightId,
   set: value => emit('update:entryHistoryRightId', value),
 });
+
+function setLayoutRef(element: Element | ComponentPublicInstance | null): void {
+  if (element instanceof HTMLElement) {
+    props.setLayoutElement(element);
+    return;
+  }
+  const hostElement = (element as ComponentPublicInstance | null)?.$el;
+  props.setLayoutElement(hostElement instanceof HTMLElement ? hostElement : null);
+}
 
 function onStartHistorySectionResize(handleIndex: 0 | 1, event: PointerEvent): void {
   emit('startHistorySectionResize', handleIndex, event);

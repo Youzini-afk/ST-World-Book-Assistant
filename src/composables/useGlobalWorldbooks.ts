@@ -35,6 +35,7 @@ export interface UseGlobalWorldbooksReturn {
   roleBindingSourceCandidates: Ref<PresetRoleBinding[]>;
   rolePickerOpen: Ref<boolean>;
   globalAddSearchText: Ref<string>;
+  globalFilterText: Ref<string>;
 
   // Computed
   globalWorldbookPresets: ComputedRef<GlobalWorldbookPreset[]>;
@@ -43,10 +44,12 @@ export interface UseGlobalWorldbooksReturn {
   isCurrentRoleBoundToSelectedPreset: ComputedRef<boolean>;
   isGlobalBound: ComputedRef<boolean>;
   globalAddCandidates: ComputedRef<string[]>;
+  filteredGlobalWorldbooks: ComputedRef<string[]>;
 
   // Functions
   syncSelectedGlobalPresetFromState: () => void;
   applyGlobalWorldbooks: (nextGlobal: string[], statusLabel?: string) => Promise<boolean>;
+  addFirstGlobalCandidate: () => Promise<void>;
   addGlobalWorldbook: (name: string) => Promise<void>;
   removeGlobalWorldbook: (name: string) => Promise<void>;
   clearGlobalWorldbooks: () => Promise<void>;
@@ -85,6 +88,7 @@ export function useGlobalWorldbooks(options: UseGlobalWorldbooksOptions): UseGlo
   const roleBindingSourceCandidates = ref<PresetRoleBinding[]>([]);
   const rolePickerOpen = ref(false);
   const globalAddSearchText = ref('');
+  const globalFilterText = ref('');
 
   // ── Computed ───────────────────────────────────────────────────────
   const globalWorldbookPresets = computed(() => persistedState.value.global_presets ?? []);
@@ -111,6 +115,12 @@ export function useGlobalWorldbooks(options: UseGlobalWorldbooksOptions): UseGlo
     const keyword = globalAddSearchText.value.trim().toLowerCase();
     return worldbookNames.value
       .filter(name => !bindings.global.includes(name))
+      .filter(name => !keyword || name.toLowerCase().includes(keyword));
+  });
+
+  const filteredGlobalWorldbooks = computed(() => {
+    const keyword = globalFilterText.value.trim().toLowerCase();
+    return bindings.global
       .filter(name => !keyword || name.toLowerCase().includes(keyword));
   });
 
@@ -148,6 +158,14 @@ export function useGlobalWorldbooks(options: UseGlobalWorldbooksOptions): UseGlo
       toastr.error(`更新全局世界书失败: ${message}`);
       return false;
     }
+  }
+
+  async function addFirstGlobalCandidate(): Promise<void> {
+    const first = globalAddCandidates.value[0];
+    if (!first) {
+      return;
+    }
+    await addGlobalWorldbook(first);
   }
 
   async function addGlobalWorldbook(name: string): Promise<void> {
@@ -484,13 +502,16 @@ export function useGlobalWorldbooks(options: UseGlobalWorldbooksOptions): UseGlo
     roleBindingSourceCandidates,
     rolePickerOpen,
     globalAddSearchText,
+    globalFilterText,
     globalWorldbookPresets,
     selectedGlobalPreset,
     selectedGlobalPresetRoleBindings,
     isCurrentRoleBoundToSelectedPreset,
     isGlobalBound,
     globalAddCandidates,
+    filteredGlobalWorldbooks,
     syncSelectedGlobalPresetFromState,
+    addFirstGlobalCandidate,
     applyGlobalWorldbooks,
     addGlobalWorldbook,
     removeGlobalWorldbook,

@@ -90,7 +90,7 @@
             </section>
 
             <template v-if="worldbookHistoryActiveRow">
-              <div :ref="layoutRef" class="wb-history-resizable-layout wb-history-resizable-layout-detail">
+              <div :ref="setLayoutRef" class="wb-history-resizable-layout wb-history-resizable-layout-detail">
                 <div class="wb-history-pane-section" :style="getHistorySectionStyle(0)">
                   <div class="cross-copy-preview-grid cross-copy-preview-grid-modal">
                     <div class="cross-copy-preview-card">
@@ -191,7 +191,7 @@
 
 <script setup lang="ts">
 import './historyModalShared.css';
-import { computed, type Ref } from 'vue';
+import { computed, type ComponentPublicInstance } from 'vue';
 import type {
   CrossCopyFieldDiffRow,
   CrossCopyTextDiffResult,
@@ -215,7 +215,7 @@ interface WorldbookHistoryModalProps {
   worldbookHistoryCompareSummary: string;
   worldbookHistoryActiveRowKey: string;
   worldbookHistoryActiveRow: WorldbookHistoryCompareRow | null;
-  layoutRef: Ref<HTMLElement | null>;
+  setLayoutElement: (element: HTMLElement | null) => void;
   canResizeHistorySections: boolean;
   worldbookHistoryFieldDiffRows: CrossCopyFieldDiffRow[];
   worldbookHistoryFieldDiffSummary: string;
@@ -262,6 +262,15 @@ const worldbookHistoryActiveRowKeyModel = computed({
   get: () => props.worldbookHistoryActiveRowKey,
   set: value => emit('update:worldbookHistoryActiveRowKey', value),
 });
+
+function setLayoutRef(element: Element | ComponentPublicInstance | null): void {
+  if (element instanceof HTMLElement) {
+    props.setLayoutElement(element);
+    return;
+  }
+  const hostElement = (element as ComponentPublicInstance | null)?.$el;
+  props.setLayoutElement(hostElement instanceof HTMLElement ? hostElement : null);
+}
 
 function onStartHistorySectionResize(handleIndex: 0 | 1, event: PointerEvent): void {
   emit('startHistorySectionResize', handleIndex, event);

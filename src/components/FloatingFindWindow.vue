@@ -51,7 +51,7 @@
         </div>
 
         <div class="batch-exclude-note">
-          示例: `#12, name:世界观, content:{{user}}, keys:吸血鬼`（默认命中名称/内容/关键词即排除）
+          示例: `#12, name:世界观, content:&#123;&#123;user&#125;&#125;, keys:吸血鬼`（默认命中名称/内容/关键词即排除）
         </div>
 
         <div v-if="batchExcludeTokensPreview.length" class="batch-exclude-chips">

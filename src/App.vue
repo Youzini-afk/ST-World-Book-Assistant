@@ -2594,98 +2594,21 @@
       </div>
     </div>
 
-          <div v-if="showCrossCopyDiffModal && crossCopyDiffRow" class="wb-modal-backdrop" @click.self="closeCrossCopyDiff">
-            <div class="wb-history-modal cross-copy-diff-modal">
-              <div class="wb-history-modal-header">
-                <div>
-                  <strong>📚 跨书条目对比</strong>
-                  <span>{{ crossCopyDiffHeaderText }}</span>
-                </div>
-                <div class="wb-history-modal-actions">
-                  <span class="cross-copy-status-badge" :class="getCrossCopyStatusBadgeClass(crossCopyDiffRow.status)">
-                    {{ getCrossCopyStatusLabel(crossCopyDiffRow.status) }}
-                  </span>
-                  <button class="btn mini" type="button" @click="closeCrossCopyDiff">关闭</button>
-                </div>
-              </div>
-
-              <div class="cross-copy-diff-main">
-                <div class="cross-copy-preview-grid cross-copy-preview-grid-modal">
-                  <div class="cross-copy-preview-card">
-                    <strong>来源</strong>
-                    <span class="name">{{ crossCopyDiffRow.source_entry.name || `条目 ${crossCopyDiffRow.source_entry.uid}` }}</span>
-                    <span class="meta">{{ getCrossCopyEntryProfile(crossCopyDiffRow.source_entry) }}</span>
-                    <p>{{ getCrossCopyPreviewText(crossCopyDiffRow.source_entry.content, 260) }}</p>
-                  </div>
-                  <div class="cross-copy-preview-card">
-                    <strong>目标命中</strong>
-                    <template v-if="crossCopyDiffTargetEntry">
-                      <span class="name">{{ crossCopyDiffTargetEntry.name || `条目 ${crossCopyDiffTargetEntry.uid}` }}</span>
-                      <span class="meta">{{ getCrossCopyEntryProfile(crossCopyDiffTargetEntry) }}</span>
-                      <p>{{ getCrossCopyPreviewText(crossCopyDiffTargetEntry.content, 260) }}</p>
-                    </template>
-                    <template v-else>
-                      <span class="meta">无直接命中条目（右侧为空）</span>
-                      <p class="cross-copy-diff-empty">该条目在目标世界书中将按“新建”逻辑处理。</p>
-                    </template>
-                  </div>
-                </div>
-
-                <section class="cross-copy-visual-section">
-                  <div class="cross-copy-visual-head">
-                    <strong>字段对比</strong>
-                    <span>{{ crossCopyDiffSummary }}</span>
-                    <span v-if="crossCopyDiffRow.target_summary.same_name_matches.length > 1" class="cross-copy-diff-note">
-                      同名命中 {{ crossCopyDiffRow.target_summary.same_name_matches.length }} 条（右侧展示首条）
-                    </span>
-                  </div>
-                  <div class="cross-copy-field-table">
-                    <div class="cross-copy-field-row cross-copy-field-header">
-                      <span>字段</span>
-                      <span>来源</span>
-                      <span>目标</span>
-                      <span>状态</span>
-                    </div>
-                    <div v-for="field in crossCopyFieldDiffRows" :key="field.key" class="cross-copy-field-row" :class="{ changed: field.changed }">
-                      <span class="cross-copy-field-label">{{ field.label }}</span>
-                      <span class="cross-copy-field-value left">{{ field.left }}</span>
-                      <span class="cross-copy-field-value right">{{ field.right }}</span>
-                      <span class="cross-copy-field-state" :class="{ changed: field.changed, same: !field.changed }">
-                        {{ field.changed ? '不同' : '一致' }}
-                      </span>
-                    </div>
-                  </div>
-                </section>
-
-                <section class="cross-copy-visual-section">
-                  <div class="cross-copy-visual-head">
-                    <strong>内容差异</strong>
-                    <span>{{ crossCopyContentDiffSummary }}</span>
-                  </div>
-                  <div class="cross-copy-content-grid">
-                    <div class="cross-copy-content-col">
-                      <div class="wb-history-diff-title">Left / 来源内容</div>
-                      <div class="cross-copy-content-body">
-                        <div v-for="(line, idx) in crossCopyContentDiff.left" :key="`cc-left-${idx}`" class="cross-copy-content-line" :class="line.type">
-                          <span class="line-no">{{ line.line_no ?? '' }}</span>
-                          <span class="line-text">{{ line.text || ' ' }}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="cross-copy-content-col">
-                      <div class="wb-history-diff-title">Right / 目标内容</div>
-                      <div class="cross-copy-content-body">
-                        <div v-for="(line, idx) in crossCopyContentDiff.right" :key="`cc-right-${idx}`" class="cross-copy-content-line" :class="line.type">
-                          <span class="line-no">{{ line.line_no ?? '' }}</span>
-                          <span class="line-text">{{ line.text || ' ' }}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              </div>
-            </div>
-          </div>
+          <CrossCopyDiffModal
+            :visible="showCrossCopyDiffModal"
+            :row="crossCopyDiffRow"
+            :header-text="crossCopyDiffHeaderText"
+            :diff-summary="crossCopyDiffSummary"
+            :content-diff-summary="crossCopyContentDiffSummary"
+            :target-entry="crossCopyDiffTargetEntry"
+            :field-diff-rows="crossCopyFieldDiffRows"
+            :content-diff="crossCopyContentDiff"
+            :get-status-badge-class="getCrossCopyStatusBadgeClass"
+            :get-status-label="getCrossCopyStatusLabel"
+            :get-entry-profile="getCrossCopyEntryProfile"
+            :get-preview-text="getCrossCopyPreviewText"
+            @close="closeCrossCopyDiff"
+          />
 
           <EntryHistoryModal
             v-model:visible="showEntryHistoryModal"
@@ -2699,7 +2622,7 @@
             :selected-entry-history-right="selectedEntryHistoryRight"
             :can-restore-entry-from-left="canRestoreEntryFromLeft"
             :can-resize-history-sections="canResizeHistorySections"
-            :layout-ref="entryHistoryLayoutRef"
+            :set-layout-element="setEntryHistoryLayoutElement"
             :entry-history-field-diff-rows="entryHistoryFieldDiffRows"
             :entry-history-field-diff-summary="entryHistoryFieldDiffSummary"
             :entry-history-content-diff="entryHistoryContentDiff"
@@ -2730,7 +2653,7 @@
             :worldbook-history-compare-summary="worldbookHistoryCompareSummary"
             :worldbook-history-active-row="worldbookHistoryActiveRow"
             :can-resize-history-sections="canResizeHistorySections"
-            :layout-ref="worldbookHistoryLayoutRef"
+            :set-layout-element="setWorldbookHistoryLayoutElement"
             :worldbook-history-field-diff-rows="worldbookHistoryFieldDiffRows"
             :worldbook-history-field-diff-summary="worldbookHistoryFieldDiffSummary"
             :worldbook-history-content-diff="worldbookHistoryContentDiff"
@@ -2802,6 +2725,7 @@ import EntryHistoryModal from './components/EntryHistoryModal.vue';
 import WorldbookHistoryModal from './components/WorldbookHistoryModal.vue';
 import CrossCopyMobilePanel from './components/CrossCopyMobilePanel.vue';
 import CrossCopyDesktopPanel from './components/CrossCopyDesktopPanel.vue';
+import CrossCopyDiffModal from './components/CrossCopyDiffModal.vue';
 import './components/crossCopyShared.css';
 import {
   createId,
@@ -2824,7 +2748,6 @@ import {
   normalizeEntryList,
   getNextUid,
   compareEntriesByPositionThenOrder,
-  type StrategyType,
   type PositionType,
   type RoleType,
 } from './utils';
@@ -3094,7 +3017,7 @@ const {
   tagPathMap, tagDescendantsMap, tagFilterSummary,
   tagTreeRows, tagManagementRows,
   tagAssignOptions, tagAssignWorldbooks,
-  toggleTagFilterSelection, clearTagFilterSelection,
+  getWorldbookTagPathSummary, toggleTagFilterSelection, clearTagFilterSelection,
   toggleTagTreeExpanded, ensureTagAssignTargetSelected,
   tagSetParent,
   isTagParentOptionDisabled, setTagDeleteParentMode,
@@ -3109,13 +3032,13 @@ const {
 const {
   globalWorldbookMode, selectedGlobalPresetId,
   currentRoleContext, roleBindingSourceCandidates,
-  rolePickerOpen, globalAddSearchText,
+  rolePickerOpen, globalAddSearchText, globalFilterText,
   globalWorldbookPresets, selectedGlobalPreset,
   selectedGlobalPresetRoleBindings, isCurrentRoleBoundToSelectedPreset,
-  isGlobalBound, globalAddCandidates,
+  isGlobalBound, globalAddCandidates, filteredGlobalWorldbooks,
   syncSelectedGlobalPresetFromState,
-  addGlobalWorldbook, removeGlobalWorldbook, clearGlobalWorldbooks,
-  toggleGlobalBinding,
+  addFirstGlobalCandidate, addGlobalWorldbook, removeGlobalWorldbook,
+  clearGlobalWorldbooks, toggleGlobalBinding,
   onGlobalPresetSelectionChanged, saveCurrentAsGlobalPreset,
   overwriteSelectedGlobalPreset, deleteSelectedGlobalPreset,
   bindCurrentRoleToSelectedPreset, bindRoleCandidateToSelectedPreset,
@@ -3286,6 +3209,16 @@ _focusPersistLayoutState = persistLayoutState;
 // ── end useFocusMode + useEditorLayout ───────────────────────────────
 void contentTextareaRef;
 void editorContentBlockRef;
+
+function getFloatingPanelStyle(key: 'find' | 'activation'): Record<string, string> {
+  const panel = floatingPanels[key];
+  return {
+    left: `${panel.x}px`,
+    top: `${panel.y}px`,
+    zIndex: String(panel.z),
+    width: `${panel.width}px`,
+  };
+}
 
 
 
@@ -3478,6 +3411,14 @@ const {
 
 function setCrossCopyGridElement(element: HTMLElement | null): void {
   crossCopyGridRef.value = element;
+}
+
+function setEntryHistoryLayoutElement(element: HTMLElement | null): void {
+  entryHistoryLayoutRef.value = element;
+}
+
+function setWorldbookHistoryLayoutElement(element: HTMLElement | null): void {
+  worldbookHistoryLayoutRef.value = element;
 }
 
 function setCrossCopyModeActive(next: boolean): void {
@@ -4240,12 +4181,6 @@ function switchPanelMode(mode: 'browse' | 'editor'): void {
 
 function browseToggleEnabled(entry: WorldbookEntry): void {
   entry.enabled = !entry.enabled;
-}
-
-function browseCycleStrategy(entry: WorldbookEntry): void {
-  const order: StrategyType[] = ['constant', 'selective', 'vectorized'];
-  const idx = order.indexOf(entry.strategy.type);
-  entry.strategy.type = order[(idx + 1) % order.length];
 }
 
 function browseGetPositionLabel(entry: WorldbookEntry): string {

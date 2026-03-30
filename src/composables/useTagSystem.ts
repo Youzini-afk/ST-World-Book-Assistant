@@ -28,6 +28,7 @@ interface TagTreeRow {
   name: string;
   color: string;
   depth: number;
+  path: string;
   hasChildren: boolean;
   parentId: string | null;
 }
@@ -39,6 +40,7 @@ interface TagManagementRow {
   parentId: string | null;
   parentName: string;
   path: string;
+  depth: number;
   hasChildren: boolean;
   assignedCount: number;
 }
@@ -65,10 +67,10 @@ export interface UseTagSystemReturn {
   tagDefinitions: ComputedRef<WorldbookTagDefinition[]>;
   tagAssignments: ComputedRef<Record<string, string[]>>;
   tagFilterState: ComputedRef<ReturnType<typeof normalizeTagFilterState>>;
-  selectedTagFilterIds: ComputedRef<string[]>;
+  selectedTagFilterIds: Ref<string[]>;
   selectedTagFilterIdSet: ComputedRef<Set<string>>;
-  tagFilterLogic: ComputedRef<TagFilterLogic>;
-  tagFilterMatchMode: ComputedRef<TagFilterMatchMode>;
+  tagFilterLogic: Ref<TagFilterLogic>;
+  tagFilterMatchMode: Ref<TagFilterMatchMode>;
   tagDefinitionMap: ComputedRef<Map<string, WorldbookTagDefinition>>;
   tagChildrenMap: ComputedRef<Map<string | null, WorldbookTagDefinition[]>>;
   tagRootIds: ComputedRef<string[]>;
@@ -78,10 +80,11 @@ export interface UseTagSystemReturn {
   tagTreeRows: ComputedRef<TagTreeRow[]>;
   tagManagementRows: ComputedRef<TagManagementRow[]>;
   tagAssignOptions: ComputedRef<Array<{ id: string; name: string; path: string; color: string }>>;
-  tagAssignWorldbooks: ComputedRef<Array<{ name: string; assigned: boolean }>>;
+  tagAssignWorldbooks: ComputedRef<string[]>;
 
   // Functions
   getTagPathLabel: (tagId: string) => string;
+  getWorldbookTagPathSummary: (worldbookName: string) => string;
   toggleTagFilterSelection: (tagId: string) => void;
   clearTagFilterSelection: () => void;
   toggleTagTreeExpanded: (tagId: string) => void;
@@ -237,6 +240,7 @@ export function useTagSystem(options: UseTagSystemOptions): UseTagSystemReturn {
             name: def.name,
             color: def.color,
             depth,
+            path,
             hasChildren,
             parentId: def.parent_id ?? null,
           });
@@ -253,7 +257,7 @@ export function useTagSystem(options: UseTagSystemOptions): UseTagSystemReturn {
   // ── Computed: management rows ─────────────────────────────────────
   const tagManagementRows = computed<TagManagementRow[]>(() => {
     const rows: TagManagementRow[] = [];
-    function walk(parentId: string | null): void {
+    function walk(parentId: string | null, depth: number): void {
       const children = tagChildrenMap.value.get(parentId) ?? [];
       for (const def of children) {
         const path = tagPathMap.value.get(def.id) ?? def.name;
@@ -270,13 +274,14 @@ export function useTagSystem(options: UseTagSystemOptions): UseTagSystemReturn {
           parentId: def.parent_id ?? null,
           parentName: parentDef?.name ?? '(根)',
           path,
+          depth,
           hasChildren,
           assignedCount,
         });
-        walk(def.id);
+        walk(def.id, depth + 1);
       }
     }
-    walk(null);
+    walk(null, 0);
     return rows;
   });
 
@@ -291,14 +296,24 @@ export function useTagSystem(options: UseTagSystemOptions): UseTagSystemReturn {
 
   const tagAssignWorldbooks = computed(() => {
     const keyword = tagAssignSearch.value.trim().toLowerCase();
-    const targetId = tagAssignTargetId.value;
     return worldbookNames.value
-      .filter(name => !keyword || name.toLowerCase().includes(keyword))
-      .map(name => ({
-        name,
-        assigned: (tagAssignments.value[name] ?? []).includes(targetId),
-      }));
+      .filter(name => !keyword || name.toLowerCase().includes(keyword));
   });
+
+  function getWorldbookTagPathSummary(worldbookName: string): string {
+    const ids = tagAssignments.value[worldbookName] ?? [];
+    if (!ids.length) {
+      return '未分配标签';
+    }
+    const paths = ids
+      .map(id => tagPathMap.value.get(id))
+      .filter((path): path is string => Boolean(path));
+    if (!paths.length) {
+      return '未分配标签';
+    }
+    const preview = paths.slice(0, 2).join(' · ');
+    return paths.length > 2 ? `${preview} +${paths.length - 2}` : preview;
+  }
 
   // ── Tag filter actions ────────────────────────────────────────────
   function toggleTagFilterSelection(tagId: string): void {
@@ -569,6 +584,7 @@ export function useTagSystem(options: UseTagSystemOptions): UseTagSystemReturn {
     tagAssignOptions,
     tagAssignWorldbooks,
     getTagPathLabel,
+    getWorldbookTagPathSummary,
     toggleTagFilterSelection,
     clearTagFilterSelection,
     toggleTagTreeExpanded,
