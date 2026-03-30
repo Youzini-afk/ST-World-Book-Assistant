@@ -322,24 +322,6 @@
   margin-right: 4px;
 }
 
-.wb-editor {
-  height: 100%;
-  overflow: hidden;
-}
-
-.wb-editor-shell {
-  height: 100%;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 10px 360px;
-  gap: 0;
-  transition: grid-template-columns 240ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.wb-assistant-root.focus-cine-locked .wb-editor-shell {
-  transition-duration: 1400ms;
-  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-}
 
 .wb-main-layout.focus-mode .wb-entry-list {
   border: 1px solid var(--wb-border-subtle);
@@ -365,4 +347,11 @@
 
 .list-actions {
   padding: 0 8px;
+}
+
+
+@media (max-width: 1100px) {
+  .wb-main-layout {
+    grid-template-columns: 1fr;
+  }
 }

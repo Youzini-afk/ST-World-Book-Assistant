@@ -1,0 +1,123 @@
+/* Mobile tab view shared styles */
+
+.mobile-tab-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mobile-tab-content {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.mobile-pane {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mobile-multi-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  border: 1px solid var(--wb-border-subtle);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--wb-bg-panel);
+  margin-bottom: 4px;
+}
+
+.mobile-multi-title {
+  font-size: 12px;
+  color: var(--wb-primary-light);
+}
+
+.mobile-multi-actions {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mobile-multi-item {
+  position: relative;
+}
+
+.mobile-multi-checkbox {
+  flex-shrink: 0;
+}
+
+.mobile-multi-content-note {
+  margin-bottom: 6px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.mobile-danger-zone {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--wb-border);
+}
+
+.mobile-danger-zone .btn {
+  flex: 1;
+}
+
+.mobile-tab-bar {
+  flex-shrink: 0;
+  z-index: 10100;
+  display: flex;
+  border-top: 1px solid var(--wb-border-main);
+  background: var(--wb-bg-panel);
+  height: 52px;
+}
+
+.mobile-tab-bar button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  color: var(--wb-text-muted);
+  font-size: 10px;
+  padding: 4px 0;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-tab-bar button.active {
+  color: var(--wb-primary-light);
+  background: var(--wb-primary-soft);
+}
+
+.mobile-tab-bar .tab-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.mobile-tab-bar .tab-label {
+  font-weight: 500;
+}
