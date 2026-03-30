@@ -58,6 +58,7 @@ export interface UseEditorLayoutReturn {
   startPaneResize: (key: PaneResizeKey, event: PointerEvent) => void;
   startContentResize: (e: PointerEvent) => void;
   startContentTopDrag: (e: PointerEvent) => void;
+  stopPaneResize: () => void;
   applyLayoutStateFromPersisted: () => void;
   persistLayoutState: () => void;
   handleFloatingWindowResize: () => void;
@@ -66,6 +67,8 @@ export interface UseEditorLayoutReturn {
   closeFloatingPanel: (key: FloatingPanelKey) => void;
   toggleFloatingPanel: (key: FloatingPanelKey) => void;
   startFloatingDrag: (key: FloatingPanelKey, event: PointerEvent) => void;
+  stopFloatingDrag: () => void;
+  resolveHostWindow: () => Window;
   clampFloatingPanelToViewport: (panel: FloatingPanelState) => void;
 }
 
@@ -388,6 +391,7 @@ export function useEditorLayout(options: UseEditorLayoutOptions): UseEditorLayou
     startPaneResize,
     startContentResize,
     startContentTopDrag,
+    stopPaneResize,
     applyLayoutStateFromPersisted,
     persistLayoutState,
     handleFloatingWindowResize,
@@ -396,6 +400,8 @@ export function useEditorLayout(options: UseEditorLayoutOptions): UseEditorLayou
     closeFloatingPanel,
     toggleFloatingPanel,
     startFloatingDrag,
+    stopFloatingDrag,
+    resolveHostWindow,
     clampFloatingPanelToViewport,
   };
 }

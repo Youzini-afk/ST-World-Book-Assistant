@@ -65,8 +65,21 @@ declare function updateWorldbookWith(
 declare function createOrReplaceWorldbook(
   name: string,
   entries: WorldbookEntry[],
+  options?: {
+    render?: string;
+    [key: string]: unknown;
+  },
 ): Promise<void>;
-declare function importRawWorldbook(data: unknown): Promise<string>;
+declare function replaceWorldbook(
+  name: string,
+  entries: WorldbookEntry[],
+  options?: {
+    render?: string;
+    [key: string]: unknown;
+  },
+): Promise<void>;
+declare function deleteWorldbook(name: string): Promise<boolean>;
+declare function importRawWorldbook(data: unknown, payload?: unknown): Promise<{ ok: boolean; status: number; [key: string]: unknown } | string>;
 
 // ═══════════════════════════════════════════════════════════════════════
 // ── Worldbook Binding Queries ──────────────────────────────────────────

@@ -18,7 +18,7 @@
               </button>
               <div v-if="worldbookPickerOpen" class="worldbook-picker-dropdown">
                 <input
-                  ref="worldbookPickerSearchInputRef"
+                  
                   v-model="worldbookPickerSearchText"
                   type="text"
                   class="text-input worldbook-picker-search"
@@ -553,197 +553,53 @@
           <!-- Tab: 复制 -->
           <Transition name="mobile-tab">
           <div v-show="mobileTab === 'copy'" class="mobile-pane">
-            <section class="cross-copy-panel mobile">
-              <div class="cross-copy-head">
-                <strong>📚 跨世界书复制</strong>
-                <span>{{ crossCopyWorkspaceComparedText }}</span>
-              </div>
-              <div class="cross-copy-mobile-stepper">
-                <button class="cross-copy-mobile-step" type="button" :class="{ active: crossCopyMobileStep === 1 }" @click="goToCrossCopyMobileStep(1)">
-                  1 配置
-                </button>
-                <button
-                  class="cross-copy-mobile-step"
-                  type="button"
-                  :class="{ active: crossCopyMobileStep === 2 }"
-                  :disabled="!crossCopyMobileCanGoStep2 && crossCopyMobileStep !== 2"
-                  @click="goToCrossCopyMobileStep(2)"
-                >
-                  2 选择
-                </button>
-                <button
-                  class="cross-copy-mobile-step"
-                  type="button"
-                  :class="{ active: crossCopyMobileStep === 3 }"
-                  :disabled="!crossCopyMobileCanGoStep3 && crossCopyMobileStep !== 3"
-                  @click="goToCrossCopyMobileStep(3)"
-                >
-                  3 执行
-                </button>
-              </div>
-              <div v-if="crossCopySourceTargetInvalid" class="cross-copy-inline-tip warning">来源和目标不能相同。</div>
-              <div v-if="crossCopyLastResultSummary" class="cross-copy-inline-tip success">{{ crossCopyLastResultSummary }}</div>
-              <div class="cross-copy-mobile-stage">
-                <section v-show="crossCopyMobileStep === 1" class="cross-copy-mobile-stage-panel">
-                  <div class="cross-copy-controls">
-                    <label class="field">
-                      <span>来源世界书</span>
-                      <select v-model="crossCopySourceWorldbook" class="text-input">
-                        <option value="">请选择来源世界书</option>
-                        <option v-for="name in worldbookNames" :key="`m-copy-source-${name}`" :value="name">{{ name }}</option>
-                      </select>
-                    </label>
-                    <label class="field">
-                      <span>目标世界书</span>
-                      <select v-model="crossCopyTargetWorldbook" class="text-input">
-                        <option value="">请选择目标世界书</option>
-                        <option v-for="name in worldbookNames" :key="`m-copy-target-${name}`" :value="name">{{ name }}</option>
-                      </select>
-                    </label>
-                    <div class="cross-copy-control-actions">
-                      <button class="btn" type="button" :disabled="!crossCopyCanCompare || crossCopyCompareLoading || crossCopyApplyLoading" @click="refreshCrossCopyComparison">
-                        {{ crossCopyCompareLoading ? '比较中...' : '刷新比较' }}
-                      </button>
-                    </div>
-                  </div>
-                  <button class="btn mini utility-btn cross-copy-mobile-advanced-toggle" type="button" @click="toggleCrossCopyControlsCollapsed">
-                    {{ crossCopyControlsCollapsed ? '展开高级项' : '收起高级项' }}
-                  </button>
-                  <Transition name="copy-controls-advanced">
-                    <div v-if="!crossCopyControlsCollapsed" class="cross-copy-mobile-advanced">
-                      <label class="checkbox-inline">
-                        <input
-                          v-model="crossCopyUseDraftSourceWhenCurrent"
-                          type="checkbox"
-                          :disabled="!crossCopySourceIsCurrentWorldbook"
-                        />
-                        <span>{{ crossCopySourceVersionLabel }}</span>
-                      </label>
-                      <label class="checkbox-inline">
-                        <input v-model="crossCopySnapshotBeforeApply" type="checkbox" />
-                        <span>执行前写入目标快照（默认开启）</span>
-                      </label>
-                    </div>
-                  </Transition>
-                  <div v-if="crossCopyControlsCollapsed" class="cross-copy-inline-tip">
-                    {{ crossCopySourceVersionLabel }} | {{ crossCopySnapshotBeforeApply ? '执行前写入快照' : '不写入快照' }}
-                  </div>
-                  <div v-if="crossCopyCompareSummary" class="cross-copy-inline-tip">{{ crossCopyCompareSummary }}</div>
-                </section>
-
-                <section v-show="crossCopyMobileStep === 2" class="cross-copy-mobile-stage-panel">
-                  <div class="cross-copy-list-head">
-                    <strong>来源条目</strong>
-                    <span>{{ crossCopyRows.length }} 条</span>
-                  </div>
-                  <div class="cross-copy-list-tools">
-                    <input v-model="crossCopySearchText" type="text" class="text-input" placeholder="搜索来源名称 / 内容" />
-                    <div class="cross-copy-mini-actions">
-                      <button class="btn mini" type="button" :disabled="!crossCopySourceRowsFiltered.length" @click="setCrossCopySelectionForFiltered(true)">全选显示</button>
-                      <button class="btn mini" type="button" :disabled="!crossCopyRows.length" @click="setCrossCopySelectionForAll(false)">全不选</button>
-                    </div>
-                  </div>
-                  <div class="cross-copy-source-list mobile-source-list">
-                    <label v-for="row in crossCopySourceRowsFiltered" :key="`m-copy-pick-${row.id}`" class="cross-copy-source-item" :class="{ checked: row.selected }">
-                      <input v-model="row.selected" type="checkbox" :disabled="row.status === 'invalid_same_source_target' || crossCopyApplyLoading" />
-                      <span class="cross-copy-status-dot" :class="getCrossCopyStatusBadgeClass(row.status)"></span>
-                      <span class="cross-copy-source-name" :title="row.source_entry.name || `条目 ${row.source_entry.uid}`">
-                        {{ row.source_entry.name || `条目 ${row.source_entry.uid}` }}
-                      </span>
-                    </label>
-                    <div v-if="!crossCopySourceRowsFiltered.length" class="empty-note">暂无可选条目，请先刷新比较</div>
-                  </div>
-                </section>
-
-                <section v-show="crossCopyMobileStep === 3" class="cross-copy-mobile-stage-panel">
-                  <div class="cross-copy-list-head">
-                    <strong>对比与动作</strong>
-                    <span>已选 {{ crossCopySelectedCount }} 条</span>
-                  </div>
-                  <div class="cross-copy-list-tools">
-                    <select v-model="crossCopyStatusFilter" class="text-input">
-                      <option value="all">全部状态</option>
-                      <option v-for="status in CROSS_COPY_STATUS_PRIORITY" :key="`m-copy-filter-${status}`" :value="status">
-                        {{ getCrossCopyStatusLabel(status) }} ({{ crossCopyStatusCounts[status] }})
-                      </option>
-                    </select>
-                  </div>
-                  <div class="cross-copy-mobile-bulk">
-                    <button class="btn mini" type="button" :disabled="!crossCopyRows.length" @click="setCrossCopySelectionForAll(false)">全不选</button>
-                    <button class="btn mini" type="button" :disabled="!crossCopySelectedCount" @click="applyCrossCopyActionByStatus('same_name_changed', 'overwrite')">同名更新→覆盖</button>
-                    <button class="btn mini" type="button" :disabled="!crossCopySelectedCount" @click="applyCrossCopyActionByStatus('duplicate_exact', 'skip')">同名同内容→跳过</button>
-                    <button class="btn mini" type="button" :disabled="!crossCopySelectedCount" @click="applyCrossCopyActionByStatus('content_duplicate_other_name', 'skip')">异名同内容→跳过</button>
-                    <div class="cross-copy-bulk-box">
-                      <select v-model="crossCopyBulkAction" class="text-input">
-                        <option value="skip">{{ getCrossCopyActionLabel('skip') }}</option>
-                        <option value="overwrite">{{ getCrossCopyActionLabel('overwrite') }}</option>
-                        <option value="create">{{ getCrossCopyActionLabel('create') }}</option>
-                        <option value="rename_create">{{ getCrossCopyActionLabel('rename_create') }}</option>
-                      </select>
-                      <button class="btn mini" type="button" :disabled="!crossCopySelectedCount" @click="applyCrossCopyBulkAction()">应用到已选</button>
-                    </div>
-                  </div>
-                  <div class="cross-copy-rows mobile-rows">
-                    <article v-for="row in crossCopyRowsFiltered" :key="`m-copy-row-${row.id}`" class="cross-copy-row">
-                      <div class="cross-copy-row-head">
-                        <div class="cross-copy-row-title">
-                          <span class="cross-copy-status-badge" :class="getCrossCopyStatusBadgeClass(row.status)">{{ getCrossCopyStatusLabel(row.status) }}</span>
-                          <strong :title="row.source_entry.name || `条目 ${row.source_entry.uid}`">{{ row.source_entry.name || `条目 ${row.source_entry.uid}` }}</strong>
-                        </div>
-                        <label class="checkbox-inline">
-                          <input v-model="row.selected" type="checkbox" :disabled="row.status === 'invalid_same_source_target' || crossCopyApplyLoading" />
-                          <span>选中</span>
-                        </label>
-                      </div>
-                      <div class="cross-copy-row-note">{{ row.note || getCrossCopyRowDiffSummary(row) }}</div>
-                      <div class="cross-copy-row-actions">
-                        <select v-model="row.action" class="text-input" :disabled="!row.selected || row.status === 'invalid_same_source_target' || crossCopyApplyLoading" @change="onCrossCopyRowActionChange(row)">
-                          <option value="skip">{{ getCrossCopyActionLabel('skip') }}</option>
-                          <option value="overwrite">{{ getCrossCopyActionLabel('overwrite') }}</option>
-                          <option value="create">{{ getCrossCopyActionLabel('create') }}</option>
-                          <option value="rename_create">{{ getCrossCopyActionLabel('rename_create') }}</option>
-                        </select>
-                        <input
-                          v-if="row.action === 'rename_create'"
-                          v-model="row.rename_name"
-                          type="text"
-                          class="text-input"
-                          placeholder="输入新名称（自动去重）"
-                          :disabled="!row.selected || crossCopyApplyLoading"
-                          @blur="onCrossCopyRowRenameBlur(row)"
-                        />
-                      </div>
-                      <button class="btn mini cross-copy-detail-trigger" type="button" @click="openCrossCopyDiff(row)">
-                        ▷ 查看对比明细
-                      </button>
-                    </article>
-                    <div v-if="!crossCopyRowsFiltered.length" class="empty-note">当前筛选下无条目</div>
-                  </div>
-                </section>
-              </div>
-
-              <div class="cross-copy-mobile-nav">
-                <button class="btn mini" type="button" :disabled="crossCopyMobileStep === 1" @click="goToPreviousCrossCopyMobileStep">上一步</button>
-                <button
-                  v-if="crossCopyMobileStep < 3"
-                  class="btn mini primary"
-                  type="button"
-                  :disabled="crossCopyMobileNextDisabled"
-                  @click="goToNextCrossCopyMobileStep"
-                >
-                  下一步
-                </button>
-                <button
-                  v-else
-                  class="btn primary"
-                  type="button"
-                  :disabled="crossCopyMobileNextDisabled"
-                  @click="applyCrossCopySelection"
-                >
-                  {{ crossCopyApplyLoading ? '执行中...' : `执行复制（${crossCopySelectedCount}）` }}
-                </button>
-              </div>
-            </section>
+            <CrossCopyMobilePanel
+              :workspace-compared-text="crossCopyWorkspaceComparedText"
+              :worldbook-names="worldbookNames"
+              :status-priority="CROSS_COPY_STATUS_PRIORITY"
+              :rows="crossCopyRows"
+              :source-rows-filtered="crossCopySourceRowsFiltered"
+              :rows-filtered="crossCopyRowsFiltered"
+              :status-counts="crossCopyStatusCounts"
+              :selected-count="crossCopySelectedCount"
+              :can-compare="crossCopyCanCompare"
+              :compare-loading="crossCopyCompareLoading"
+              :apply-loading="crossCopyApplyLoading"
+              v-model:source-worldbook="crossCopySourceWorldbook"
+              v-model:target-worldbook="crossCopyTargetWorldbook"
+              v-model:use-draft-source-when-current="crossCopyUseDraftSourceWhenCurrent"
+              :source-is-current-worldbook="crossCopySourceIsCurrentWorldbook"
+              :source-version-label="crossCopySourceVersionLabel"
+              v-model:snapshot-before-apply="crossCopySnapshotBeforeApply"
+              :source-target-invalid="crossCopySourceTargetInvalid"
+              :compare-summary="crossCopyCompareSummary"
+              :last-result-summary="crossCopyLastResultSummary"
+              :controls-collapsed="crossCopyControlsCollapsed"
+              v-model:status-filter="crossCopyStatusFilter"
+              v-model:bulk-action="crossCopyBulkAction"
+              v-model:search-text="crossCopySearchText"
+              :mobile-step="crossCopyMobileStep"
+              :mobile-can-go-step2="crossCopyMobileCanGoStep2"
+              :mobile-can-go-step3="crossCopyMobileCanGoStep3"
+              :mobile-next-disabled="crossCopyMobileNextDisabled"
+              :get-status-label="getCrossCopyStatusLabel"
+              :get-action-label="getCrossCopyActionLabel"
+              :get-status-badge-class="getCrossCopyStatusBadgeClass"
+              :get-row-diff-summary="getCrossCopyRowDiffSummary"
+              @go-to-mobile-step="goToCrossCopyMobileStep"
+              @go-to-previous-mobile-step="goToPreviousCrossCopyMobileStep"
+              @go-to-next-mobile-step="goToNextCrossCopyMobileStep"
+              @toggle-controls-collapsed="toggleCrossCopyControlsCollapsed"
+              @refresh-comparison="refreshCrossCopyComparison"
+              @set-selection-for-filtered="setCrossCopySelectionForFiltered"
+              @set-selection-for-all="setCrossCopySelectionForAll"
+              @apply-action-by-status="applyCrossCopyActionByStatus"
+              @apply-bulk-action="applyCrossCopyBulkAction"
+              @row-action-change="onCrossCopyRowActionChange"
+              @row-rename-blur="onCrossCopyRowRenameBlur"
+              @open-diff="openCrossCopyDiff"
+              @apply-selection="applyCrossCopySelection"
+            />
           </div>
           </Transition>
 
@@ -943,7 +799,7 @@
             </button>
             <div v-if="worldbookPickerOpen" class="worldbook-picker-dropdown">
               <input
-                ref="worldbookPickerSearchInputRef"
+                
                 v-model="worldbookPickerSearchText"
                 type="text"
                 class="text-input worldbook-picker-search"
@@ -1257,7 +1113,7 @@
                     </Transition>
                   </div>
                   <input
-                    ref="worldbookPickerSearchInputRef"
+                    
                     v-model="worldbookPickerSearchText"
                     type="text"
                     class="text-input worldbook-picker-search"
@@ -1298,7 +1154,7 @@
             </div>
           </section>
 
-          <section v-else ref="focusToolbarRef" class="wb-focus-toolbar" :class="{ compact: isFocusToolbarCompact }">
+          <section v-else  class="wb-focus-toolbar" :class="{ compact: isFocusToolbarCompact }">
             <div class="wb-focus-toolbar-row">
               <div class="wb-focus-core-group">
                 <label class="toolbar-label focus-toolbar-label">
@@ -1358,7 +1214,7 @@
                         </Transition>
                       </div>
                       <input
-                        ref="worldbookPickerSearchInputRef"
+                        
                         v-model="worldbookPickerSearchText"
                         type="text"
                         class="text-input worldbook-picker-search"
@@ -1986,197 +1842,56 @@
             <div v-else class="empty-note" style="margin-top:20px;">暂无标签，请先创建</div>
           </section>
 
-          <section v-if="crossCopyMode" class="cross-copy-panel desktop">
-            <div class="cross-copy-head">
-              <div class="cross-copy-head-main">
-                <strong>📚 跨世界书复制条目</strong>
-                <span>{{ crossCopyWorkspaceSummary }}</span>
-              </div>
-              <div class="cross-copy-head-actions">
-                <span>{{ crossCopyWorkspaceComparedText }}</span>
-                <button class="btn mini utility-btn" type="button" @click="toggleCrossCopyControlsCollapsed">
-                  {{ crossCopyControlsCollapsed ? '展开高级项' : '收起高级项' }}
-                </button>
-                <button class="btn mini utility-btn" type="button" :disabled="isAnyCineLocked" @click="toggleCrossCopyMode">退出模式</button>
-                <div class="copy-cine-sink-cluster" aria-hidden="true">
-                  <span class="copy-cine-sink" data-copy-sink="focus_toggle"></span>
-                  <span class="copy-cine-sink" data-copy-sink="save_btn"></span>
-                  <span class="copy-cine-sink" data-copy-sink="more_btn"></span>
-                  <span class="copy-cine-sink" data-copy-sink="tools_btn"></span>
-                  <span class="copy-cine-sink" data-copy-sink="tool_global"></span>
-                  <span class="copy-cine-sink" data-copy-sink="tool_entry_history"></span>
-                  <span class="copy-cine-sink" data-copy-sink="tool_worldbook_history"></span>
-                  <span class="copy-cine-sink" data-copy-sink="tool_activation"></span>
-                  <span class="copy-cine-sink" data-copy-sink="tool_ai_generate"></span>
-                  <span class="copy-cine-sink" data-copy-sink="tool_extract"></span>
-                  <span class="copy-cine-sink" data-copy-sink="tool_tag"></span>
-                  <span class="copy-cine-sink" data-copy-sink="tool_copy"></span>
-                  <span class="copy-cine-sink" data-copy-sink="tool_settings"></span>
-                  <span class="copy-cine-sink" data-copy-sink="tool_ai_config"></span>
-                </div>
-              </div>
-            </div>
-
-            <div class="cross-copy-controls-wrap">
-              <div class="cross-copy-controls cross-copy-controls-primary">
-                <label class="field">
-                  <span>来源世界书</span>
-                  <select v-model="crossCopySourceWorldbook" class="text-input">
-                    <option value="">请选择来源世界书</option>
-                    <option v-for="name in worldbookNames" :key="`d-copy-source-${name}`" :value="name">{{ name }}</option>
-                  </select>
-                </label>
-                <label class="field">
-                  <span>目标世界书</span>
-                  <select v-model="crossCopyTargetWorldbook" class="text-input">
-                    <option value="">请选择目标世界书</option>
-                    <option v-for="name in worldbookNames" :key="`d-copy-target-${name}`" :value="name">{{ name }}</option>
-                  </select>
-                </label>
-                <div class="cross-copy-control-actions">
-                  <button class="btn" type="button" :disabled="!crossCopyCanCompare || crossCopyCompareLoading || crossCopyApplyLoading" @click="refreshCrossCopyComparison">
-                    {{ crossCopyCompareLoading ? '比较中...' : '刷新比较' }}
-                  </button>
-                </div>
-              </div>
-
-              <Transition name="copy-controls-advanced">
-                <div v-if="!crossCopyControlsCollapsed" class="cross-copy-controls cross-copy-controls-advanced">
-                  <label class="checkbox-inline">
-                    <input
-                      v-model="crossCopyUseDraftSourceWhenCurrent"
-                      type="checkbox"
-                      :disabled="!crossCopySourceIsCurrentWorldbook"
-                    />
-                    <span>{{ crossCopySourceVersionLabel }}</span>
-                  </label>
-                  <label class="checkbox-inline">
-                    <input v-model="crossCopySnapshotBeforeApply" type="checkbox" />
-                    <span>执行前写入目标快照</span>
-                  </label>
-                </div>
-              </Transition>
-
-              <div v-if="crossCopyControlsCollapsed" class="cross-copy-inline-tip">
-                {{ crossCopySourceVersionLabel }} | {{ crossCopySnapshotBeforeApply ? '执行前写入快照' : '不写入快照' }}
-              </div>
-              <div class="cross-copy-inline-tips">
-                <div v-if="crossCopySourceTargetInvalid" class="cross-copy-inline-tip warning">来源和目标不能相同。</div>
-                <div v-if="crossCopyCompareSummary" class="cross-copy-inline-tip">{{ crossCopyCompareSummary }}</div>
-                <div v-if="crossCopyLastResultSummary" class="cross-copy-inline-tip success">{{ crossCopyLastResultSummary }}</div>
-              </div>
-            </div>
-
-            <div
-              ref="crossCopyGridRef"
-              class="cross-copy-grid"
-              :class="{ 'single-column': crossCopyDesktopSingleColumn }"
-              :style="crossCopyGridStyle"
-            >
-              <aside class="cross-copy-left">
-                <div class="cross-copy-list-head">
-                  <strong>来源条目</strong>
-                  <span>{{ crossCopyRows.length }} 条</span>
-                </div>
-                <div class="cross-copy-list-tools">
-                  <input v-model="crossCopySearchText" type="text" class="text-input" placeholder="搜索来源名称 / 内容" />
-                  <div class="cross-copy-mini-actions">
-                    <button class="btn mini" type="button" :disabled="!crossCopySourceRowsFiltered.length" @click="setCrossCopySelectionForFiltered(true)">全选显示</button>
-                    <button class="btn mini" type="button" :disabled="!crossCopyRows.length" @click="setCrossCopySelectionForAll(false)">全不选</button>
-                  </div>
-                </div>
-                <div class="cross-copy-source-list">
-                  <label v-for="row in crossCopySourceRowsFiltered" :key="`d-copy-pick-${row.id}`" class="cross-copy-source-item" :class="{ checked: row.selected }">
-                    <input v-model="row.selected" type="checkbox" :disabled="row.status === 'invalid_same_source_target' || crossCopyApplyLoading" />
-                    <span class="cross-copy-status-dot" :class="getCrossCopyStatusBadgeClass(row.status)"></span>
-                    <span class="cross-copy-source-name" :title="row.source_entry.name || `条目 ${row.source_entry.uid}`">
-                      {{ row.source_entry.name || `条目 ${row.source_entry.uid}` }}
-                    </span>
-                  </label>
-                  <div v-if="!crossCopySourceRowsFiltered.length" class="empty-note">暂无可选条目，请先刷新比较</div>
-                </div>
-              </aside>
-
-              <div
-                v-if="!crossCopyDesktopSingleColumn"
-                class="cross-copy-splitter"
-                :class="{ dragging: Boolean(crossCopyPaneResizeState) }"
-                @pointerdown="startCrossCopyPaneResize"
-              >
-                <span>⋮</span>
-              </div>
-
-              <section class="cross-copy-right">
-                <div class="cross-copy-list-head">
-                  <strong>对比与动作</strong>
-                  <span>已选 {{ crossCopySelectedCount }} 条</span>
-                </div>
-                <div class="cross-copy-list-tools">
-                  <select v-model="crossCopyStatusFilter" class="text-input">
-                    <option value="all">全部状态</option>
-                    <option v-for="status in CROSS_COPY_STATUS_PRIORITY" :key="`d-copy-filter-${status}`" :value="status">
-                      {{ getCrossCopyStatusLabel(status) }} ({{ crossCopyStatusCounts[status] }})
-                    </option>
-                  </select>
-                </div>
-                <div class="cross-copy-rows">
-                  <article v-for="row in crossCopyRowsFiltered" :key="`d-copy-row-${row.id}`" class="cross-copy-row">
-                    <div class="cross-copy-row-head">
-                      <div class="cross-copy-row-title">
-                        <span class="cross-copy-status-badge" :class="getCrossCopyStatusBadgeClass(row.status)">{{ getCrossCopyStatusLabel(row.status) }}</span>
-                        <strong :title="row.source_entry.name || `条目 ${row.source_entry.uid}`">{{ row.source_entry.name || `条目 ${row.source_entry.uid}` }}</strong>
-                      </div>
-                      <label class="checkbox-inline">
-                        <input v-model="row.selected" type="checkbox" :disabled="row.status === 'invalid_same_source_target' || crossCopyApplyLoading" />
-                        <span>选中</span>
-                      </label>
-                    </div>
-                    <div class="cross-copy-row-note">{{ row.note || getCrossCopyRowDiffSummary(row) }}</div>
-                    <div class="cross-copy-row-actions">
-                      <select v-model="row.action" class="text-input" :disabled="!row.selected || row.status === 'invalid_same_source_target' || crossCopyApplyLoading" @change="onCrossCopyRowActionChange(row)">
-                        <option value="skip">{{ getCrossCopyActionLabel('skip') }}</option>
-                        <option value="overwrite">{{ getCrossCopyActionLabel('overwrite') }}</option>
-                        <option value="create">{{ getCrossCopyActionLabel('create') }}</option>
-                        <option value="rename_create">{{ getCrossCopyActionLabel('rename_create') }}</option>
-                      </select>
-                      <input
-                        v-if="row.action === 'rename_create'"
-                        v-model="row.rename_name"
-                        type="text"
-                        class="text-input"
-                        placeholder="输入新名称（自动去重）"
-                        :disabled="!row.selected || crossCopyApplyLoading"
-                        @blur="onCrossCopyRowRenameBlur(row)"
-                      />
-                    </div>
-                    <button class="btn mini cross-copy-detail-trigger" type="button" @click="openCrossCopyDiff(row)">
-                      ▷ 查看对比明细
-                    </button>
-                  </article>
-                  <div v-if="!crossCopyRowsFiltered.length" class="empty-note">当前筛选下无条目</div>
-                </div>
-              </section>
-            </div>
-
-            <div class="cross-copy-actions">
-              <button class="btn mini" type="button" :disabled="!crossCopyRows.length" @click="setCrossCopySelectionForAll(false)">全不选</button>
-              <button class="btn mini" type="button" :disabled="!crossCopySelectedCount" @click="applyCrossCopyActionByStatus('same_name_changed', 'overwrite')">同名更新→覆盖</button>
-              <button class="btn mini" type="button" :disabled="!crossCopySelectedCount" @click="applyCrossCopyActionByStatus('duplicate_exact', 'skip')">同名同内容→跳过</button>
-              <button class="btn mini" type="button" :disabled="!crossCopySelectedCount" @click="applyCrossCopyActionByStatus('content_duplicate_other_name', 'skip')">异名同内容→跳过</button>
-              <div class="cross-copy-bulk-box">
-                <select v-model="crossCopyBulkAction" class="text-input">
-                  <option value="skip">{{ getCrossCopyActionLabel('skip') }}</option>
-                  <option value="overwrite">{{ getCrossCopyActionLabel('overwrite') }}</option>
-                  <option value="create">{{ getCrossCopyActionLabel('create') }}</option>
-                  <option value="rename_create">{{ getCrossCopyActionLabel('rename_create') }}</option>
-                </select>
-                <button class="btn mini" type="button" :disabled="!crossCopySelectedCount" @click="applyCrossCopyBulkAction()">应用到已选</button>
-              </div>
-              <button class="btn primary" type="button" :disabled="!crossCopyCanApply" @click="applyCrossCopySelection">
-                {{ crossCopyApplyLoading ? '执行中...' : `执行复制（${crossCopySelectedCount}）` }}
-              </button>
-            </div>
-          </section>
+          <CrossCopyDesktopPanel
+            v-if="crossCopyMode"
+            :is-any-cine-locked="isAnyCineLocked"
+            :workspace-summary="crossCopyWorkspaceSummary"
+            :workspace-compared-text="crossCopyWorkspaceComparedText"
+            :controls-collapsed="crossCopyControlsCollapsed"
+            :can-compare="crossCopyCanCompare"
+            :compare-loading="crossCopyCompareLoading"
+            :apply-loading="crossCopyApplyLoading"
+            v-model:source-worldbook="crossCopySourceWorldbook"
+            v-model:target-worldbook="crossCopyTargetWorldbook"
+            :worldbook-names="worldbookNames"
+            v-model:use-draft-source-when-current="crossCopyUseDraftSourceWhenCurrent"
+            :source-is-current-worldbook="crossCopySourceIsCurrentWorldbook"
+            :source-version-label="crossCopySourceVersionLabel"
+            v-model:snapshot-before-apply="crossCopySnapshotBeforeApply"
+            :source-target-invalid="crossCopySourceTargetInvalid"
+            :compare-summary="crossCopyCompareSummary"
+            :last-result-summary="crossCopyLastResultSummary"
+            :set-grid-element="setCrossCopyGridElement"
+            :desktop-single-column="crossCopyDesktopSingleColumn"
+            :cross-copy-grid-style="crossCopyGridStyle"
+            :rows="crossCopyRows"
+            v-model:search-text="crossCopySearchText"
+            :source-rows-filtered="crossCopySourceRowsFiltered"
+            :rows-filtered="crossCopyRowsFiltered"
+            :selected-count="crossCopySelectedCount"
+            v-model:status-filter="crossCopyStatusFilter"
+            :status-counts="crossCopyStatusCounts"
+            v-model:bulk-action="crossCopyBulkAction"
+            :can-apply="crossCopyCanApply"
+            :pane-resize-state="crossCopyPaneResizeState"
+            :status-priority="CROSS_COPY_STATUS_PRIORITY"
+            :get-status-label="getCrossCopyStatusLabel"
+            :get-action-label="getCrossCopyActionLabel"
+            :get-status-badge-class="getCrossCopyStatusBadgeClass"
+            :get-row-diff-summary="getCrossCopyRowDiffSummary"
+            @toggle-controls-collapsed="toggleCrossCopyControlsCollapsed"
+            @toggle-mode="toggleCrossCopyMode"
+            @refresh-comparison="refreshCrossCopyComparison"
+            @start-pane-resize="startCrossCopyPaneResize"
+            @set-selection-for-filtered="setCrossCopySelectionForFiltered"
+            @set-selection-for-all="setCrossCopySelectionForAll"
+            @row-action-change="onCrossCopyRowActionChange"
+            @row-rename-blur="onCrossCopyRowRenameBlur"
+            @open-diff="openCrossCopyDiff"
+            @apply-action-by-status="applyCrossCopyActionByStatus"
+            @apply-bulk-action="applyCrossCopyBulkAction"
+            @apply-selection="applyCrossCopySelection"
+          />
 
           <section v-show="!aiGeneratorMode && !tagEditorMode && !crossCopyMode" ref="mainLayoutRef" class="wb-main-layout" :class="{ 'focus-mode': isDesktopFocusMode, 'global-mode-visible': globalWorldbookMode }" :style="mainLayoutStyle">
             <aside v-show="!showMobileEditor" class="wb-entry-list" :class="{ focus: isDesktopFocusMode }">
@@ -3085,6 +2800,9 @@ import FloatingFindWindow from './components/FloatingFindWindow.vue';
 import FloatingActivationWindow from './components/FloatingActivationWindow.vue';
 import EntryHistoryModal from './components/EntryHistoryModal.vue';
 import WorldbookHistoryModal from './components/WorldbookHistoryModal.vue';
+import CrossCopyMobilePanel from './components/CrossCopyMobilePanel.vue';
+import CrossCopyDesktopPanel from './components/CrossCopyDesktopPanel.vue';
+import './components/crossCopyShared.css';
 import {
   createId,
   asRecord,
@@ -3165,14 +2883,28 @@ const selectedWorldbookName = ref('');
 const worldbookPickerOpen = ref(false);
 const worldbookPickerSearchText = ref('');
 const worldbookPickerRef = ref<HTMLElement | null>(null);
-const worldbookPickerSearchInputRef = ref<HTMLInputElement | null>(null);
-const focusToolbarRef = ref<HTMLElement | null>(null);
 const roleBindSearchText = ref('');
 const focusWorldbookMenuRef = ref<HTMLElement | null>(null);
 const rolePickerRef = ref<HTMLElement | null>(null);
 const rolePickerSearchInputRef = ref<HTMLInputElement | null>(null);
 const currentTheme = ref<ThemeKey>('ocean');
 const themePickerOpen = ref(false);
+const positionSelectOptions: Array<{
+  value: PositionSelectValue;
+  type: PositionType;
+  role?: RoleType;
+  label: string;
+}> = [
+  { value: 'before_character_definition', type: 'before_character_definition', label: '角色定义之前' },
+  { value: 'after_character_definition', type: 'after_character_definition', label: '角色定义之后' },
+  { value: 'before_example_messages', type: 'before_example_messages', label: '示例消息前（↑EM）' },
+  { value: 'after_example_messages', type: 'after_example_messages', label: '示例消息后（↓EM）' },
+  { value: 'before_author_note', type: 'before_author_note', label: '作者注释之前' },
+  { value: 'after_author_note', type: 'after_author_note', label: '作者注释之后' },
+  { value: 'at_depth_as_system', type: 'at_depth', role: 'system', label: '@D ⚙ [系统]在深度' },
+  { value: 'at_depth_as_user', type: 'at_depth', role: 'user', label: '@D 👤 [用户]在深度' },
+  { value: 'at_depth_as_assistant', type: 'at_depth', role: 'assistant', label: '@D 🤖 [AI]在深度' },
+];
 const aiGeneratorMode = ref(false);
 const panelMode = ref<'browse' | 'editor'>('browse');
 const expandedBrowseCardUids = ref<Set<number>>(new Set());
@@ -3247,6 +2979,7 @@ const isBusy = ref(false);
 const isSaving = ref(false);
 const mainLayoutRef = ref<HTMLElement | null>(null);
 const editorShellRef = ref<HTMLElement | null>(null);
+const rootRef = ref<HTMLElement | null>(null);
 const hostResizeWindow = ref<Window | null>(null);
 
 const screenWidth = ref(typeof window !== 'undefined' ? window.screen.width : 1440);
@@ -3326,9 +3059,9 @@ const {
   showApiSettings, apiModelList, apiModelLoading,
   aiSessions, aiActiveSession, aiActiveMessages,
   aiCreateSession, aiDeleteSession, aiSwitchSession,
-  aiAddMessage, updateApiConfig, loadModelList, buildCustomApiForGenerate,
+  updateApiConfig, loadModelList, buildCustomApiForGenerate,
   aiSendMessage, aiStopGeneration,
-  aiExtractTags, updateIgnoreTags, resetIgnoreTags,
+  updateIgnoreTags, resetIgnoreTags,
   markDuplicatesInTags, extractFromChat, aiCreateSelectedEntries,
 } = useAIChat({
   persistedState,
@@ -3337,11 +3070,12 @@ const {
   selectedWorldbookName,
 });
 // ── end useAIChat ────────────────────────────────────────────────────
+void aiChatMessagesRef;
 
 const {
   aiConfigInput, aiConfigChanges, aiConfigPreview,
   aiConfigGenerating, aiConfigTargetWorldbook, aiConfigCustomPrompt,
-  buildConfigSystemPrompt, loadDefaultConfigPrompt,
+  loadDefaultConfigPrompt,
   aiConfigGenerate, aiConfigApply,
 } = useAIConfig({
   persistedState, buildCustomApiForGenerate, loadWorldbook, setStatus,
@@ -3353,19 +3087,19 @@ const {
   tagEditorMode, tagFilterPanelOpen, tagFilterSearchText,
   tagNewName, tagNewParentId, tagAssignSearch, tagAssignTargetId,
   tagTreeExpandedIds,
-  tagDefinitions, tagAssignments, tagFilterState,
+  tagDefinitions, tagAssignments,
   selectedTagFilterIds, selectedTagFilterIdSet,
   tagFilterLogic, tagFilterMatchMode,
-  tagDefinitionMap, tagChildrenMap, tagRootIds,
+  tagDefinitionMap, tagRootIds,
   tagPathMap, tagDescendantsMap, tagFilterSummary,
   tagTreeRows, tagManagementRows,
   tagAssignOptions, tagAssignWorldbooks,
-  getTagPathLabel, toggleTagFilterSelection, clearTagFilterSelection,
-  toggleTagTreeExpanded, normalizeTagNameKey, ensureTagAssignTargetSelected,
-  isTagDescendantOf, collectTagSubtreeIds, tagSetParent,
+  toggleTagFilterSelection, clearTagFilterSelection,
+  toggleTagTreeExpanded, ensureTagAssignTargetSelected,
+  tagSetParent,
   isTagParentOptionDisabled, setTagDeleteParentMode,
   tagCreate, tagDelete, tagRename, tagSetColor,
-  tagToggleAssignment, tagToggleAssignmentForSelectedTag, tagResetAll,
+  tagToggleAssignmentForSelectedTag, tagResetAll,
 } = useTagSystem({
   persistedState, updatePersistedState, setStatus, worldbookNames,
 });
@@ -3379,9 +3113,9 @@ const {
   globalWorldbookPresets, selectedGlobalPreset,
   selectedGlobalPresetRoleBindings, isCurrentRoleBoundToSelectedPreset,
   isGlobalBound, globalAddCandidates,
-  syncSelectedGlobalPresetFromState, applyGlobalWorldbooks,
+  syncSelectedGlobalPresetFromState,
   addGlobalWorldbook, removeGlobalWorldbook, clearGlobalWorldbooks,
-  toggleGlobalBinding, getCurrentGlobalWorldbookSet,
+  toggleGlobalBinding,
   onGlobalPresetSelectionChanged, saveCurrentAsGlobalPreset,
   overwriteSelectedGlobalPreset, deleteSelectedGlobalPreset,
   bindCurrentRoleToSelectedPreset, bindRoleCandidateToSelectedPreset,
@@ -3520,6 +3254,8 @@ const {
   getEntryStatusLabel,
   getPositionTypeLabel: (type, role) => getPositionTypeLabel(type as PositionType, role as RoleType),
 });
+void focusCineOverlayRef;
+void copyCineOverlayRef;
 
 const isDesktopFocusMode = computed(() => !isMobile.value && !isCompactLayout.value && isFocusEditing.value);
 
@@ -3528,12 +3264,13 @@ const {
   mainPaneWidth, editorSideWidth,
   focusMainPaneWidth, focusEditorSideWidth,
   paneResizeState, contentTextareaRef, editorContentBlockRef,
-  floatingPanels, floatingPanelKeys, floatingZCounter,
+  floatingPanels,
   clampPaneWidths, startPaneResize, startContentResize, startContentTopDrag,
+  stopPaneResize,
   applyLayoutStateFromPersisted, persistLayoutState,
   handleFloatingWindowResize, bringFloatingToFront,
-  openFloatingPanel, closeFloatingPanel, toggleFloatingPanel,
-  startFloatingDrag, clampFloatingPanelToViewport,
+  closeFloatingPanel, toggleFloatingPanel,
+  startFloatingDrag, stopFloatingDrag, resolveHostWindow,
 } = useEditorLayout({
   persistedState, updatePersistedState,
   isCompactLayout,
@@ -3547,11 +3284,41 @@ _layoutViewportWidth = viewportWidth;
 _focusClampPaneWidths = clampPaneWidths;
 _focusPersistLayoutState = persistLayoutState;
 // ── end useFocusMode + useEditorLayout ───────────────────────────────
+void contentTextareaRef;
+void editorContentBlockRef;
 
 
 
 const selectedEntryUidSet = computed(() => new Set(selectedEntryUids.value));
 const selectedEntryCount = computed(() => selectedEntryUids.value.length);
+
+function parseAtDepthRoleFromPositionValue(value: unknown): RoleType | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const depthMatch = value.match(/^at_depth_as_(system|assistant|user)$/);
+  if (!depthMatch) {
+    return null;
+  }
+  return depthMatch[1] as RoleType;
+}
+
+function applySelectedPositionSelectValue(value: PositionSelectValue): void {
+  if (!selectedEntry.value) {
+    return;
+  }
+  const depthRole = parseAtDepthRoleFromPositionValue(value);
+  if (depthRole) {
+    selectedEntry.value.position.type = 'at_depth';
+    selectedEntry.value.position.role = depthRole;
+    selectedEntry.value.position.depth = Math.max(0, Math.floor(Number(selectedEntry.value.position.depth || 0)));
+    return;
+  }
+  selectedEntry.value.position.type = value as PositionType;
+  selectedEntry.value.position.role = 'system';
+  selectedEntry.value.position.depth = 4;
+}
+
 const selectedPositionSelectValue = computed<PositionSelectValue>({
   get() {
     if (!selectedEntry.value) {
@@ -3635,7 +3402,6 @@ const {
   crossCopySnapshotBeforeApply,
   crossCopyControlsCollapsed,
   crossCopyWorkspaceToolsExpanded,
-  crossCopyDesktopLeftWidth,
   crossCopyRows,
   crossCopySourceBaselineEntries,
   crossCopyTargetBaselineEntries,
@@ -3659,7 +3425,6 @@ const {
   crossCopySourceTargetInvalid,
   crossCopySourceRowsFiltered,
   crossCopyRowsFiltered,
-  crossCopySelectedRows,
   crossCopyStatusCounts,
   crossCopySelectedCount,
   crossCopyCanCompare,
@@ -3710,6 +3475,10 @@ const {
   loadWorldbook,
   pushSnapshotForWorldbook,
 });
+
+function setCrossCopyGridElement(element: HTMLElement | null): void {
+  crossCopyGridRef.value = element;
+}
 
 function setCrossCopyModeActive(next: boolean): void {
   if (!next) {
@@ -3763,7 +3532,7 @@ const activeEditorSideMin = computed(() => (isDesktopFocusMode.value ? FOCUS_EDI
 const activeMainPaneWidth = computed(() => (isDesktopFocusMode.value ? focusMainPaneWidth.value : mainPaneWidth.value));
 const activeEditorSideWidth = computed(() => (isDesktopFocusMode.value ? focusEditorSideWidth.value : editorSideWidth.value));
 
-const mainLayoutStyle = computed<Record<string, string> | undefined>(() => {
+const mainLayoutStyle = computed(() => {
   if (isMobile.value) {
     return {
       display: 'block',
@@ -3779,7 +3548,7 @@ const mainLayoutStyle = computed<Record<string, string> | undefined>(() => {
   };
 });
 
-const editorShellStyle = computed<Record<string, string> | undefined>(() => {
+const editorShellStyle = computed(() => {
   if (isCompactLayout.value) {
     return undefined;
   }
@@ -5278,10 +5047,12 @@ async function onImportChange(event: Event): Promise<void> {
       return;
     }
     const response = await importRawWorldbook(file.name, fileText);
-    if (!response.ok) {
+    if (typeof response !== 'string' && !response.ok) {
       throw new Error(`原生导入失败: HTTP ${response.status}`);
     }
+    const importedName = typeof response === 'string' ? response.trim() : '';
     await hardRefresh({ source: 'manual', reason: '导入后刷新' });
+    if (importedName) setStatus(`原生导入成功: ${importedName}`);
     toastr.success('已按酒馆原生方式导入');
   } finally {
     if (target) {
@@ -5430,6 +5201,15 @@ function runFocusWorldbookAction(action: 'create' | 'duplicate' | 'delete' | 'ex
     return;
   }
   triggerImport();
+}
+
+function closeWorldbookPicker(): void {
+  worldbookPickerOpen.value = false;
+}
+
+function openWorldbookPicker(): void {
+  worldbookPickerSearchText.value = '';
+  worldbookPickerOpen.value = true;
 }
 
 
@@ -5821,7 +5601,6 @@ function onPanelDiscard(): void {
   discardUnsavedDraft();
 }
 
-const rootRef = ref<HTMLElement | null>(null);
 let _mobileResizeHandler: (() => void) | null = null;
 
 onMounted(() => {
@@ -5905,11 +5684,12 @@ onMounted(() => {
   window.addEventListener('wb-helper:set-theme', onSetThemeEvent);
   window.addEventListener(FAB_VISIBLE_CHANGED_EVENT, onFabVisibleChanged);
   window.dispatchEvent(new CustomEvent(FAB_VISIBLE_SET_EVENT, { detail: fabVisible.value }));
-  hostResizeWindow.value = resolveHostWindow();
-  const hostDoc = hostResizeWindow.value.document;
+  const hostWindow = resolveHostWindow();
+  hostResizeWindow.value = hostWindow;
+  const hostDoc = hostWindow.document;
   hostDoc.addEventListener('pointerdown', onHostPointerDownForWorldbookPicker, true);
   hostDoc.addEventListener('keydown', onHostKeyDownForWorldbookPicker, true);
-  hostResizeWindow.value.addEventListener('resize', handleFloatingWindowResize);
+  hostWindow.addEventListener('resize', handleFloatingWindowResize);
 
   handleFloatingWindowResize();
   updateHostPanelTheme();
@@ -5934,8 +5714,6 @@ onUnmounted(() => {
     clearTimeout(secondaryKeysDebounceTimer);
     secondaryKeysDebounceTimer = null;
   }
-  aiStreamSubscription?.stop();
-  aiStreamSubscription = null;
   aiIsGenerating.value = false;
   aiCurrentGenerationId.value = null;
   if (_mobileResizeHandler) {
@@ -6588,796 +6366,6 @@ watch(hasUnsavedChanges, (val) => {
 
 .wb-settings-wrapper {
   width: 100%;
-}
-
-.cross-copy-panel {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 12px;
-  background: var(--wb-bg-panel);
-  padding: 12px;
-  display: grid;
-  gap: 10px;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.cross-copy-panel.mobile {
-  padding: 10px;
-  gap: 8px;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-}
-
-.cross-copy-panel.desktop {
-  height: clamp(620px, calc(100vh - 220px), 82vh);
-  max-height: calc(100vh - 110px);
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-}
-
-.cross-copy-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 13px;
-  flex-wrap: wrap;
-}
-
-.cross-copy-head-main {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.cross-copy-head-main span {
-  color: var(--wb-text-muted);
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cross-copy-head-actions {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.copy-cine-sink-cluster {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  width: 0;
-  height: 0;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.copy-cine-sink {
-  width: 86px;
-  height: 34px;
-  border-radius: 8px;
-}
-
-.copy-cine-sink-cluster .copy-cine-sink {
-  position: absolute;
-  right: 0;
-  top: 0;
-  transform: translateY(-50%);
-}
-
-.copy-cine-sink-cluster.workspace {
-  left: 50%;
-  right: auto;
-}
-
-.copy-cine-sink-cluster.workspace .copy-cine-sink {
-  left: 0;
-  right: auto;
-  transform: translate(-50%, -50%);
-}
-
-.cross-copy-head strong {
-  font-size: 15px;
-}
-
-.cross-copy-head span {
-  color: var(--wb-text-muted);
-  font-size: 12px;
-}
-
-.cross-copy-controls-wrap {
-  display: grid;
-  gap: 8px;
-}
-
-.cross-copy-controls {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 8px 10px;
-  align-items: center;
-}
-
-.cross-copy-panel.mobile .cross-copy-controls {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.cross-copy-controls-primary {
-  grid-template-columns: repeat(2, minmax(220px, 1fr)) auto;
-}
-
-.cross-copy-controls-advanced {
-  grid-template-columns: repeat(2, minmax(240px, 1fr));
-  padding: 8px 10px;
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.16);
-}
-
-.cross-copy-control-actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: end;
-}
-
-.cross-copy-panel.mobile .cross-copy-control-actions {
-  justify-content: flex-start;
-}
-
-.cross-copy-inline-tips {
-  display: grid;
-  gap: 6px;
-}
-
-.cross-copy-inline-tip {
-  border-radius: 8px;
-  border: 1px solid var(--wb-border-subtle);
-  padding: 6px 8px;
-  font-size: 12px;
-  background: var(--wb-input-bg);
-}
-
-.cross-copy-inline-tip.warning {
-  color: #f59e0b;
-}
-
-.cross-copy-inline-tip.success {
-  color: #34d399;
-}
-
-.copy-controls-advanced-enter-active,
-.copy-controls-advanced-leave-active {
-  transition: opacity 200ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms ease;
-  overflow: hidden;
-}
-
-.copy-controls-advanced-enter-from,
-.copy-controls-advanced-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-  max-height: 0;
-}
-
-.copy-controls-advanced-enter-to,
-.copy-controls-advanced-leave-from {
-  opacity: 1;
-  transform: translateY(0);
-  max-height: 180px;
-}
-
-.cross-copy-grid {
-  display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-  gap: 10px;
-  min-height: 0;
-  flex: 1;
-}
-
-.cross-copy-grid.single-column {
-  grid-template-columns: minmax(0, 1fr) !important;
-}
-
-.cross-copy-grid.mobile {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.cross-copy-splitter {
-  width: 100%;
-  min-height: 0;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--wb-border-main) 68%, transparent);
-  cursor: col-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--wb-text-muted);
-  user-select: none;
-  touch-action: none;
-  transition: background 160ms ease, color 160ms ease;
-}
-
-.cross-copy-splitter:hover,
-.cross-copy-splitter.dragging {
-  background: color-mix(in srgb, var(--wb-primary) 50%, transparent);
-  color: var(--wb-primary-light);
-}
-
-.cross-copy-left,
-.cross-copy-right {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 10px;
-  padding: 8px;
-  background: rgba(0, 0, 0, 0.12);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 0;
-}
-
-.cross-copy-list-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.cross-copy-list-head strong {
-  font-size: 13px;
-}
-
-.cross-copy-list-head span {
-  color: var(--wb-text-muted);
-}
-
-.cross-copy-list-tools {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.cross-copy-mini-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.cross-copy-source-list,
-.cross-copy-rows {
-  min-height: 0;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.cross-copy-source-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 8px;
-  padding: 7px 8px;
-  cursor: pointer;
-  background: var(--wb-input-bg);
-}
-
-.cross-copy-source-item.checked {
-  border-color: var(--wb-primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--wb-primary) 35%, transparent);
-}
-
-.cross-copy-source-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cross-copy-status-dot,
-.cross-copy-status-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  border: 1px solid transparent;
-}
-
-.cross-copy-status-dot {
-  width: 10px;
-  height: 10px;
-  flex-shrink: 0;
-}
-
-.cross-copy-status-badge {
-  padding: 2px 8px;
-  font-size: 11px;
-}
-
-.cross-copy-status-dot.new,
-.cross-copy-status-badge.new {
-  background: rgba(34, 197, 94, 0.2);
-  border-color: rgba(34, 197, 94, 0.5);
-  color: #22c55e;
-}
-
-.cross-copy-status-dot.changed,
-.cross-copy-status-badge.changed {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.5);
-  color: #60a5fa;
-}
-
-.cross-copy-status-dot.duplicate,
-.cross-copy-status-badge.duplicate {
-  background: rgba(245, 158, 11, 0.2);
-  border-color: rgba(245, 158, 11, 0.5);
-  color: #f59e0b;
-}
-
-.cross-copy-status-dot.content-duplicate,
-.cross-copy-status-badge.content-duplicate {
-  background: rgba(168, 85, 247, 0.22);
-  border-color: rgba(168, 85, 247, 0.5);
-  color: #c084fc;
-}
-
-.cross-copy-status-dot.invalid,
-.cross-copy-status-badge.invalid {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.5);
-  color: #f87171;
-}
-
-.cross-copy-row {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 10px;
-  padding: 6px 8px;
-  background: var(--wb-input-bg);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cross-copy-row-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-
-.cross-copy-row-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.cross-copy-row-title strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cross-copy-row-note {
-  color: var(--wb-text-muted);
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cross-copy-row-actions {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
-}
-
-.cross-copy-detail-trigger {
-  align-self: flex-start;
-  font-size: 11px;
-  color: var(--wb-text-muted);
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.cross-copy-preview-grid {
-  margin-top: 6px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.cross-copy-preview-card {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 8px;
-  padding: 8px;
-  background: rgba(0, 0, 0, 0.14);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-}
-
-.cross-copy-preview-card .name {
-  font-weight: 600;
-}
-
-.cross-copy-preview-card .meta {
-  color: var(--wb-text-muted);
-}
-
-.cross-copy-preview-card p {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.cross-copy-diff-modal {
-  width: min(1320px, 100%);
-  max-height: min(92vh, 1020px);
-}
-
-.cross-copy-diff-main {
-  min-height: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
-  gap: 10px;
-  padding: 0 10px 10px;
-}
-
-.cross-copy-preview-grid.cross-copy-preview-grid-modal {
-  margin-top: 10px;
-  padding: 10px;
-  border: 1px solid var(--wb-border-main);
-  border-radius: 10px;
-  background: var(--wb-bg-panel);
-}
-
-.cross-copy-diff-empty {
-  color: var(--wb-text-muted);
-}
-
-.cross-copy-diff-note {
-  color: var(--wb-text-muted);
-  font-size: 11px;
-}
-
-.cross-copy-visual-section {
-  border: 1px solid var(--wb-border-main);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--wb-input-bg-focus);
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.cross-copy-visual-head {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--wb-border-main);
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-  font-size: 12px;
-  color: var(--wb-text-muted);
-  background: var(--wb-bg-panel);
-}
-
-.cross-copy-visual-head strong {
-  font-size: 13px;
-  color: var(--wb-primary-light);
-}
-
-.cross-copy-field-table {
-  min-height: 0;
-  overflow: auto;
-}
-
-.cross-copy-field-row {
-  display: grid;
-  grid-template-columns: 140px minmax(220px, 1fr) minmax(220px, 1fr) 68px;
-  gap: 8px;
-  align-items: start;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--wb-border-subtle);
-  font-size: 12px;
-}
-
-.cross-copy-field-row:last-child {
-  border-bottom: none;
-}
-
-.cross-copy-field-row.changed {
-  background: color-mix(in srgb, var(--wb-primary-soft) 35%, transparent);
-}
-
-.cross-copy-field-row.cross-copy-field-header {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--wb-bg-panel);
-  font-size: 11px;
-  color: var(--wb-text-muted);
-  border-bottom-color: var(--wb-border-main);
-}
-
-.cross-copy-field-label {
-  font-weight: 600;
-  color: var(--wb-text-main);
-}
-
-.cross-copy-field-value {
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: var(--wb-text-main);
-}
-
-.cross-copy-field-state {
-  justify-self: end;
-  border: 1px solid var(--wb-border-main);
-  border-radius: 999px;
-  padding: 1px 8px;
-  font-size: 11px;
-}
-
-.cross-copy-field-state.same {
-  color: #22c55e;
-  border-color: rgba(34, 197, 94, 0.45);
-  background: rgba(34, 197, 94, 0.16);
-}
-
-.cross-copy-field-state.changed {
-  color: #f59e0b;
-  border-color: rgba(245, 158, 11, 0.5);
-  background: rgba(245, 158, 11, 0.16);
-}
-
-.cross-copy-content-grid {
-  min-height: 0;
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-.cross-copy-content-col {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.cross-copy-content-col + .cross-copy-content-col {
-  border-left: 1px solid var(--wb-border-main);
-}
-
-.cross-copy-content-body {
-  min-height: 0;
-  flex: 1;
-  overflow: auto;
-}
-
-.cross-copy-content-line {
-  display: grid;
-  grid-template-columns: 54px 1fr;
-  align-items: start;
-  border-bottom: 1px solid var(--wb-border-subtle);
-}
-
-.cross-copy-content-line .line-no {
-  color: var(--wb-text-muted);
-  padding: 2px 8px;
-  border-right: 1px solid var(--wb-border-subtle);
-  user-select: none;
-}
-
-.cross-copy-content-line .line-text {
-  white-space: pre-wrap;
-  word-break: break-word;
-  padding: 2px 8px;
-  color: var(--wb-text-main);
-}
-
-.cross-copy-content-line.add {
-  background: rgba(34, 197, 94, 0.2);
-}
-
-.cross-copy-content-line.del {
-  background: rgba(239, 68, 68, 0.2);
-}
-
-.cross-copy-content-line.empty {
-  background: rgba(100, 116, 139, 0.08);
-}
-
-.cross-copy-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-  border-top: 1px solid var(--wb-border-subtle);
-  padding: 10px 12px;
-  margin: 0 -12px -12px;
-  position: sticky;
-  bottom: 0;
-  z-index: 8;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  background: color-mix(in srgb, var(--wb-bg-panel) 78%, rgba(5, 8, 20, 0.88));
-}
-
-.cross-copy-actions.mobile {
-  position: static;
-  margin: 0;
-  padding: 0;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  background: transparent;
-}
-
-.cross-copy-panel.desktop .cross-copy-actions .btn.primary {
-  margin-left: auto;
-}
-
-.cross-copy-bulk-box {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.cross-copy-bulk-box .text-input {
-  min-width: 120px;
-}
-
-.cross-copy-mobile-stepper {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.cross-copy-mobile-step {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 8px;
-  background: var(--wb-input-bg);
-  color: var(--wb-text-muted);
-  padding: 6px 8px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.cross-copy-mobile-step.active {
-  border-color: var(--wb-primary);
-  color: var(--wb-primary-light);
-  background: color-mix(in srgb, var(--wb-primary) 18%, transparent);
-}
-
-.cross-copy-mobile-step:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.cross-copy-mobile-stage {
-  min-height: 0;
-  flex: 1;
-  display: flex;
-}
-
-.cross-copy-mobile-stage-panel {
-  min-height: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.cross-copy-mobile-advanced-toggle {
-  width: fit-content;
-}
-
-.cross-copy-mobile-advanced {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 10px;
-  padding: 8px;
-  display: grid;
-  gap: 6px;
-  background: rgba(0, 0, 0, 0.14);
-}
-
-.mobile-source-list,
-.mobile-rows {
-  flex: 1;
-}
-
-.cross-copy-mobile-bulk {
-  display: grid;
-  gap: 6px;
-}
-
-.cross-copy-mobile-nav {
-  position: sticky;
-  bottom: 0;
-  z-index: 6;
-  display: flex;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--wb-border-subtle);
-  background: color-mix(in srgb, var(--wb-bg-panel) 82%, rgba(5, 8, 20, 0.9));
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-.cross-copy-mobile-nav .btn {
-  flex: 1 1 0;
-}
-
-@media (max-width: 1200px) {
-  .cross-copy-controls-primary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .cross-copy-controls-primary .cross-copy-control-actions {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-  }
-
-  .cross-copy-head-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .cross-copy-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .cross-copy-splitter {
-    display: none;
-  }
-
-  .cross-copy-row-actions {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .cross-copy-field-row {
-    grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr) 62px;
-  }
-}
-
-@media (max-width: 780px) {
-  .cross-copy-preview-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .cross-copy-content-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .cross-copy-content-col + .cross-copy-content-col {
-    border-left: none;
-    border-top: 1px solid var(--wb-border-main);
-  }
-
-  .cross-copy-field-row.cross-copy-field-header {
-    display: none;
-  }
-
-  .cross-copy-field-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-  }
-
-  .cross-copy-field-state {
-    justify-self: start;
-  }
 }
 
 .wb-header {
@@ -9316,323 +8304,6 @@ watch(hasUnsavedChanges, (val) => {
   display: none;
 }
 
-.wb-assistant-root .wb-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: var(--wb-overlay-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10020;
-  padding: 14px;
-  box-sizing: border-box;
-}
-
-.wb-assistant-root .wb-history-modal {
-  width: min(1260px, 100%);
-  max-height: min(88vh, 940px);
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 12px;
-  background: var(--wb-glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-.wb-assistant-root .wb-history-modal-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--wb-border-subtle);
-  background: var(--wb-glass-header);
-}
-
-.wb-history-modal-header strong {
-  display: block;
-  font-size: 14px;
-}
-
-.wb-history-modal-header span {
-  color: var(--wb-text-muted);
-  font-size: 11px;
-}
-
-.wb-history-modal-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.wb-history-modal-main {
-  min-height: 0;
-  flex: 1;
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  overflow: hidden;
-}
-
-.wb-history-versions {
-  border-right: 1px solid var(--wb-border-main);
-  background: var(--wb-bg-panel);
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.wb-history-versions-title {
-  padding: 8px 10px;
-  font-size: 11px;
-  color: var(--wb-text-muted);
-  border-bottom: 1px solid var(--wb-border-main);
-}
-
-.wb-history-versions-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.wb-history-version-item {
-  border: 1px solid var(--wb-border-main);
-  border-radius: 8px;
-  padding: 6px;
-  display: grid;
-  gap: 4px;
-  background: var(--wb-bg-panel);
-}
-
-.wb-history-version-line {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  align-items: center;
-}
-
-.wb-history-version-line strong {
-  font-size: 11px;
-  color: var(--wb-text-main);
-}
-
-.wb-history-version-item span {
-  font-size: 11px;
-  color: var(--wb-text-muted);
-  word-break: break-all;
-}
-
-.wb-history-lr {
-  display: inline-flex;
-  gap: 4px;
-}
-
-.mini-lr {
-  border: 1px solid var(--wb-border-main);
-  background: var(--wb-input-bg);
-  color: var(--wb-text-muted);
-  border-radius: 6px;
-  min-width: 24px;
-  font-size: 10px;
-  cursor: pointer;
-}
-
-.mini-lr.active {
-  border-color: #22d3ee;
-  color: #67e8f9;
-}
-
-.wb-history-diff-wrap {
-  min-height: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.wb-history-diff-head {
-  border-bottom: 1px solid var(--wb-border-main);
-  background: var(--wb-bg-panel);
-  padding: 8px 10px;
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: center;
-  font-size: 11px;
-  color: var(--wb-text-muted);
-}
-
-.wb-history-visual-main {
-  min-height: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  overflow: hidden;
-  padding: 10px;
-}
-
-.wb-history-version-preview {
-  margin-top: 0;
-}
-
-.wb-worldbook-compare-list-section {
-  min-height: 0;
-  flex: 0 0 auto;
-}
-
-.wb-history-resizable-layout {
-  min-height: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.wb-history-resizable-layout-detail {
-  margin-top: 2px;
-}
-
-.wb-history-pane-section {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.wb-history-pane-section > .cross-copy-preview-grid,
-.wb-history-pane-section > .cross-copy-visual-section {
-  min-height: 0;
-  height: 100%;
-  margin-top: 0;
-}
-
-.wb-history-pane-section > .cross-copy-preview-grid {
-  overflow: auto;
-}
-
-.wb-history-pane-section .cross-copy-field-table,
-.wb-history-pane-section .cross-copy-content-grid {
-  min-height: 0;
-  flex: 1;
-}
-
-.wb-history-pane-section .cross-copy-field-row {
-  line-height: 1.35;
-}
-
-.wb-history-pane-splitter {
-  position: relative;
-  flex: 0 0 10px;
-  height: 10px;
-  cursor: row-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-  touch-action: none;
-}
-
-.wb-history-pane-splitter::before {
-  content: '';
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  top: 50%;
-  height: 1px;
-  background: var(--wb-border-main);
-  transform: translateY(-50%);
-}
-
-.wb-history-pane-splitter-grip {
-  position: relative;
-  z-index: 1;
-  font-size: 10px;
-  color: var(--wb-text-muted);
-  letter-spacing: 1px;
-  background: var(--wb-bg-panel);
-  border-radius: 999px;
-  padding: 0 6px;
-  border: 1px solid var(--wb-border-subtle);
-}
-
-.wb-history-pane-splitter:hover .wb-history-pane-splitter-grip {
-  color: var(--wb-primary-light);
-  border-color: var(--wb-primary);
-}
-
-.wb-history-diff-title {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--wb-border-main);
-  font-size: 11px;
-  color: var(--wb-primary-light);
-}
-
-.wb-worldbook-compare-list {
-  min-height: 0;
-  max-height: 240px;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px;
-}
-
-.wb-worldbook-compare-row {
-  width: 100%;
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 8px;
-  background: var(--wb-input-bg);
-  color: var(--wb-text-main);
-  padding: 8px;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  cursor: pointer;
-}
-
-.wb-worldbook-compare-row.active {
-  border-color: var(--wb-primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--wb-primary) 32%, transparent);
-}
-
-.wb-worldbook-compare-row-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.wb-worldbook-compare-row-head strong {
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wb-worldbook-compare-row-note {
-  font-size: 12px;
-  color: var(--wb-text-muted);
-}
-
-.wb-worldbook-detail-empty {
-  border: 1px dashed var(--wb-border-subtle);
-  border-radius: 10px;
-  padding: 10px;
-  background: var(--wb-input-bg);
-}
-
 @media (max-width: 1380px) {
   .wb-editor-shell {
     grid-template-columns: 1fr;
@@ -9641,123 +8312,6 @@ watch(hasUnsavedChanges, (val) => {
   .editor-side {
     overflow: visible;
     max-height: none;
-  }
-
-  .wb-history-modal-main {
-    grid-template-columns: 1fr;
-  }
-
-  .wb-history-versions {
-    border-right: none;
-    border-bottom: 1px solid var(--wb-border-main);
-    max-height: 120px;
-  }
-
-  .wb-modal-backdrop {
-    padding: 2px;
-  }
-
-  .wb-history-modal {
-    width: 100%;
-    max-height: calc(100vh - 4px);
-    height: calc(100vh - 4px);
-    border-radius: 6px;
-  }
-
-  .wb-history-modal-header {
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 6px 8px;
-    flex-shrink: 0;
-  }
-
-  .wb-history-modal-header strong {
-    font-size: 12px;
-  }
-
-  .wb-history-modal-header > div:first-child span {
-    display: none;
-  }
-
-  .wb-history-modal-actions {
-    gap: 4px;
-  }
-
-  .wb-history-modal-actions .btn {
-    font-size: 10px;
-    padding: 3px 6px;
-  }
-
-  .wb-history-modal-main {
-    grid-template-columns: 1fr;
-    overflow-y: auto;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .wb-history-diff-wrap {
-    overflow-y: auto;
-    min-height: 0;
-  }
-
-  .wb-history-visual-main {
-    overflow: auto;
-    gap: 8px;
-    padding: 8px;
-  }
-
-  .wb-history-resizable-layout {
-    overflow: visible;
-    gap: 8px;
-  }
-
-  .wb-history-pane-section {
-    overflow: visible;
-    flex: 0 0 auto !important;
-  }
-
-  .wb-history-pane-section > .cross-copy-preview-grid,
-  .wb-history-pane-section > .cross-copy-visual-section {
-    height: auto;
-  }
-
-  .wb-history-pane-splitter {
-    display: none;
-  }
-
-  .wb-history-version-preview {
-    grid-template-columns: 1fr;
-  }
-
-  .wb-worldbook-compare-list {
-    max-height: 180px;
-  }
-
-  .wb-history-visual-main .cross-copy-content-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .wb-history-visual-main .cross-copy-content-col + .cross-copy-content-col {
-    border-left: none;
-    border-top: 1px solid var(--wb-border-main);
-  }
-
-  .wb-history-visual-main .cross-copy-content-line {
-    grid-template-columns: 1fr;
-  }
-
-  .wb-history-visual-main .cross-copy-content-line .line-no {
-    display: none;
-  }
-
-  .wb-history-diff-head {
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 6px 8px;
-  }
-
-  .wb-history-diff-head > div {
-    font-size: 10px;
   }
 }
 
