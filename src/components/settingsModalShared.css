@@ -145,3 +145,91 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Mobile overrides */
+.wb-assistant-root.is-mobile .ai-tag-review-overlay {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  z-index: 10200;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.wb-assistant-root.is-mobile .ai-tag-review-modal {
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  height: 100%;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.wb-assistant-root.is-mobile .ai-tag-review-head {
+  padding: 12px 14px;
+  flex-shrink: 0;
+}
+
+.wb-assistant-root.is-mobile .ai-tag-review-title {
+  font-size: 13px;
+}
+
+.wb-assistant-root.is-mobile .ai-tag-review-close {
+  width: 28px;
+  height: 28px;
+  font-size: 1em;
+}
+
+.wb-assistant-root.is-mobile .ai-tag-review-target {
+  padding: 10px 14px;
+  flex-shrink: 0;
+}
+
+.wb-assistant-root.is-mobile .ai-tag-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 14px;
+}
+
+.wb-assistant-root.is-mobile .ai-tag-item {
+  padding: 10px 0;
+  gap: 10px;
+}
+
+.wb-assistant-root.is-mobile .ai-tag-item:hover {
+  margin: 0;
+  padding: 10px 0;
+  background: transparent;
+}
+
+.wb-assistant-root.is-mobile .ai-tag-review-actions {
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px;
+  flex-shrink: 0;
+}
+
+.wb-assistant-root.is-mobile .ai-tag-review-actions .btn {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.wb-assistant-root.is-mobile .ai-tag-review-modal > div:not(.ai-tag-review-head):not(.ai-tag-review-actions):not(.ai-tag-review-target):not(.ai-tag-list):not(.ai-tag-ignore-config) {
+  max-height: none !important;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.wb-assistant-root.is-mobile .ai-tag-review-modal table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  font-size: 12px;
+}
