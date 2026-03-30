@@ -9,37 +9,34 @@
         <div class="mobile-browse-view">
           <!-- Mobile browse toolbar -->
           <section class="wb-toolbar browse-toolbar mobile-browse-toolbar">
-            <div ref="worldbookPickerRef" class="worldbook-picker">
-              <button class="worldbook-picker-trigger" type="button" @click="toggleWorldbookPicker">
-                <span class="worldbook-picker-trigger-text" :title="selectedWorldbookName || '请选择世界书'">
-                  {{ selectedWorldbookName || '请选择' }}
-                </span>
-                <span class="worldbook-picker-trigger-arrow">▾</span>
-              </button>
-              <div v-if="worldbookPickerOpen" class="worldbook-picker-dropdown">
-                <input
-                  
-                  v-model="worldbookPickerSearchText"
-                  type="text"
-                  class="text-input worldbook-picker-search"
-                  placeholder="搜索..."
-                  @keydown.enter.prevent="filteredSelectableWorldbookNames[0] && selectWorldbookFromPicker(filteredSelectableWorldbookNames[0])"
-                />
-                <div class="worldbook-picker-list">
-                  <button
-                    v-for="name in filteredSelectableWorldbookNames"
-                    :key="`mbrowse-wb-${name}`"
-                    class="worldbook-picker-item"
-                    :class="{ active: name === selectedWorldbookName }"
-                    type="button"
-                    @click="selectWorldbookFromPicker(name)"
-                  >
-                    {{ name }}
-                  </button>
-                  <div v-if="!filteredSelectableWorldbookNames.length" class="empty-note">无匹配</div>
-                </div>
-              </div>
-            </div>
+            <WorldbookPicker
+              :open="worldbookPickerOpen"
+              v-model:search-text="worldbookPickerSearchText"
+              :selected-worldbook-name="selectedWorldbookName"
+              :filtered-names="filteredSelectableWorldbookNames"
+              trigger-placeholder="请选择"
+              title-placeholder="请选择世界书"
+              search-placeholder="搜索..."
+              empty-text="无匹配"
+              list-key-prefix="mbrowse-wb"
+              :show-open-state-arrow="false"
+              :set-picker-element="setWorldbookPickerElement"
+              :show-tag-filter="false"
+              :tag-filter-panel-open="tagFilterPanelOpen"
+              :tag-filter-summary="tagFilterSummary"
+              :tag-filter-logic="tagFilterLogic"
+              :tag-filter-match-mode="tagFilterMatchMode"
+              :selected-tag-filter-ids="selectedTagFilterIds"
+              :selected-tag-filter-id-set="selectedTagFilterIdSet"
+              :tag-filter-search-text="tagFilterSearchText"
+              :tag-assign-options="tagAssignOptions"
+              :tag-tree-rows="tagTreeRows"
+              :tag-tree-expanded-ids="tagTreeExpandedIds"
+              :tag-path-map="tagPathMap"
+              :is-mobile="isMobile"
+              @toggle="toggleWorldbookPicker"
+              @select="selectWorldbookFromPicker"
+            />
             <input v-model="searchText" type="text" class="text-input browse-search" placeholder="🔍 搜索..." />
             <button class="btn" type="button" :class="{ 'glow-pulse': hasUnsavedChanges }" :disabled="!hasUnsavedChanges" @click="saveCurrentWorldbook">💾</button>
           </section>
@@ -177,92 +174,38 @@
               <section class="wb-toolbar">
                 <label class="toolbar-label">
                 <span>世界书</span>
-                <div ref="worldbookPickerRef" class="worldbook-picker">
-                  <button class="worldbook-picker-trigger" type="button" @click="toggleWorldbookPicker">
-                    <span class="worldbook-picker-trigger-text" :title="selectedWorldbookName || '请选择世界书'">
-                      {{ selectedWorldbookName || '请选择世界书' }}
-                    </span>
-                    <span class="worldbook-picker-arrow">▾</span>
-                  </button>
-                  <div v-if="worldbookPickerOpen" class="worldbook-picker-dropdown">
-                    <div v-if="tagDefinitions.length" class="worldbook-picker-tags tree-mode">
-                      <div class="tag-filter-toolbar">
-                        <button class="btn mini tag-filter-open" type="button" @click="tagFilterPanelOpen = !tagFilterPanelOpen">🏷 标签筛选</button>
-                        <span class="tag-filter-summary">{{ tagFilterSummary }}</span>
-                        <select v-model="tagFilterLogic" class="text-input tag-filter-select">
-                          <option value="or">OR</option>
-                          <option value="and">AND</option>
-                        </select>
-                        <select v-model="tagFilterMatchMode" class="text-input tag-filter-select">
-                          <option value="descendants">子树</option>
-                          <option value="exact">精确</option>
-                        </select>
-                        <button class="btn mini" type="button" :disabled="!selectedTagFilterIds.length" @click="clearTagFilterSelection">清空</button>
-                      </div>
-                      <Transition name="tag-filter-panel">
-                        <div v-if="tagFilterPanelOpen" class="tag-filter-panel" :class="{ mobile: isMobile }">
-                          <input v-model="tagFilterSearchText" type="text" class="text-input tag-filter-search" placeholder="搜索标签名称 / 路径..." />
-                          <div v-if="selectedTagFilterIds.length" class="tag-filter-selected-list">
-                            <button
-                              v-for="tagId in selectedTagFilterIds"
-                              :key="`tag-selected-mobile-${tagId}`"
-                              class="tag-filter-selected-chip"
-                              type="button"
-                              @click="toggleTagFilterSelection(tagId)"
-                            >
-                              {{ tagPathMap.get(tagId) ?? tagId }} ×
-                            </button>
-                          </div>
-                          <div v-if="isMobile" class="tag-flat-list">
-                            <label
-                              v-for="tag in tagAssignOptions.filter(item => !tagFilterSearchText.trim() || item.path.toLowerCase().includes(tagFilterSearchText.trim().toLowerCase()))"
-                              :key="`tag-flat-mobile-${tag.id}`"
-                              class="tag-flat-item"
-                              :style="{ '--tag-color': tag.color }"
-                            >
-                              <input type="checkbox" :checked="selectedTagFilterIdSet.has(tag.id)" @change="toggleTagFilterSelection(tag.id)" />
-                              <span>{{ tag.path }}</span>
-                            </label>
-                            <div v-if="!tagAssignOptions.length" class="empty-note">暂无标签</div>
-                          </div>
-                          <div v-else class="tag-tree-list">
-                            <div v-for="row in tagTreeRows" :key="`tag-tree-mobile-${row.id}`" class="tag-tree-row" :style="{ '--depth': row.depth, '--tag-color': row.color }">
-                              <button
-                                v-if="row.hasChildren"
-                                class="tag-tree-toggle"
-                                type="button"
-                                @click.stop="toggleTagTreeExpanded(row.id)"
-                              >{{ tagTreeExpandedIds.includes(row.id) || tagFilterSearchText.trim() ? '▾' : '▸' }}</button>
-                              <span v-else class="tag-tree-toggle placeholder"></span>
-                              <input type="checkbox" :checked="selectedTagFilterIdSet.has(row.id)" @change="toggleTagFilterSelection(row.id)" />
-                              <span class="tag-tree-name">{{ row.name }}</span>
-                              <span class="tag-tree-path">{{ row.path }}</span>
-                            </div>
-                            <div v-if="!tagTreeRows.length" class="empty-note">没有匹配的标签</div>
-                          </div>
-                        </div>
-                      </Transition>
-                    </div>
-                    <input
-                      v-model="worldbookPickerSearchText"
-                      type="text"
-                      class="text-input worldbook-picker-search"
-                      placeholder="搜索世界书..."
-                      @keydown.enter.prevent="filteredSelectableWorldbookNames[0] && selectWorldbookFromPicker(filteredSelectableWorldbookNames[0])"
-                    />
-                    <div class="worldbook-picker-list">
-                      <button
-                        v-for="name in filteredSelectableWorldbookNames"
-                        :key="`wb-pick-m-${name}`"
-                        class="worldbook-picker-item"
-                        :class="{ active: name === selectedWorldbookName }"
-                        type="button"
-                        @click="selectWorldbookFromPicker(name)"
-                      >{{ name }}</button>
-                      <div v-if="!filteredSelectableWorldbookNames.length" class="empty-note">没有匹配的世界书</div>
-                    </div>
-                  </div>
-                </div>
+                <WorldbookPicker
+                  :open="worldbookPickerOpen"
+                  v-model:search-text="worldbookPickerSearchText"
+                  :selected-worldbook-name="selectedWorldbookName"
+                  :filtered-names="filteredSelectableWorldbookNames"
+                  trigger-placeholder="请选择世界书"
+                  title-placeholder="请选择世界书"
+                  search-placeholder="搜索世界书..."
+                  empty-text="没有匹配的世界书"
+                  list-key-prefix="wb-pick-m"
+                  :show-open-state-arrow="false"
+                  :set-picker-element="setWorldbookPickerElement"
+                  :show-tag-filter="tagDefinitions.length > 0"
+                  :tag-filter-panel-open="tagFilterPanelOpen"
+                  :tag-filter-summary="tagFilterSummary"
+                  v-model:tag-filter-logic="tagFilterLogic"
+                  v-model:tag-filter-match-mode="tagFilterMatchMode"
+                  :selected-tag-filter-ids="selectedTagFilterIds"
+                  :selected-tag-filter-id-set="selectedTagFilterIdSet"
+                  v-model:tag-filter-search-text="tagFilterSearchText"
+                  :tag-assign-options="tagAssignOptions"
+                  :tag-tree-rows="tagTreeRows"
+                  :tag-tree-expanded-ids="tagTreeExpandedIds"
+                  :tag-path-map="tagPathMap"
+                  :is-mobile="isMobile"
+                  @toggle="toggleWorldbookPicker"
+                  @select="selectWorldbookFromPicker"
+                  @toggle-tag-filter-panel="tagFilterPanelOpen = !tagFilterPanelOpen"
+                  @clear-tag-filter-selection="clearTagFilterSelection"
+                  @toggle-tag-filter-selection="toggleTagFilterSelection"
+                  @toggle-tag-tree-expanded="toggleTagTreeExpanded"
+                />
               </label>
               <div class="toolbar-btns" style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button class="btn" type="button" :class="{ 'glow-pulse': hasUnsavedChanges }" :disabled="!hasUnsavedChanges" @click="saveCurrentWorldbook" style="padding:8px 14px;font-size:13px;">💾 保存</button>
@@ -671,37 +614,34 @@
       <section class="wb-toolbar browse-toolbar">
         <label class="toolbar-label">
           <span>世界书</span>
-          <div ref="worldbookPickerRef" class="worldbook-picker">
-            <button class="worldbook-picker-trigger" type="button" @click="toggleWorldbookPicker">
-              <span class="worldbook-picker-trigger-text" :title="selectedWorldbookName || '请选择世界书'">
-                {{ selectedWorldbookName || '请选择世界书' }}
-              </span>
-              <span class="worldbook-picker-trigger-arrow">{{ worldbookPickerOpen ? '▴' : '▾' }}</span>
-            </button>
-            <div v-if="worldbookPickerOpen" class="worldbook-picker-dropdown">
-              <input
-                
-                v-model="worldbookPickerSearchText"
-                type="text"
-                class="text-input worldbook-picker-search"
-                placeholder="搜索世界书..."
-                @keydown.enter.prevent="filteredSelectableWorldbookNames[0] && selectWorldbookFromPicker(filteredSelectableWorldbookNames[0])"
-              />
-              <div class="worldbook-picker-list">
-                <button
-                  v-for="name in filteredSelectableWorldbookNames"
-                  :key="`browse-wb-${name}`"
-                  class="worldbook-picker-item"
-                  :class="{ active: name === selectedWorldbookName }"
-                  type="button"
-                  @click="selectWorldbookFromPicker(name)"
-                >
-                  {{ name }}
-                </button>
-                <div v-if="!filteredSelectableWorldbookNames.length" class="empty-note">没有匹配的世界书</div>
-              </div>
-            </div>
-          </div>
+          <WorldbookPicker
+            :open="worldbookPickerOpen"
+            v-model:search-text="worldbookPickerSearchText"
+            :selected-worldbook-name="selectedWorldbookName"
+            :filtered-names="filteredSelectableWorldbookNames"
+            trigger-placeholder="请选择世界书"
+            title-placeholder="请选择世界书"
+            search-placeholder="搜索世界书..."
+            empty-text="没有匹配的世界书"
+            list-key-prefix="browse-wb"
+            :show-open-state-arrow="true"
+            :set-picker-element="setWorldbookPickerElement"
+            :show-tag-filter="false"
+            :tag-filter-panel-open="tagFilterPanelOpen"
+            :tag-filter-summary="tagFilterSummary"
+            :tag-filter-logic="tagFilterLogic"
+            :tag-filter-match-mode="tagFilterMatchMode"
+            :selected-tag-filter-ids="selectedTagFilterIds"
+            :selected-tag-filter-id-set="selectedTagFilterIdSet"
+            :tag-filter-search-text="tagFilterSearchText"
+            :tag-assign-options="tagAssignOptions"
+            :tag-tree-rows="tagTreeRows"
+            :tag-tree-expanded-ids="tagTreeExpandedIds"
+            :tag-path-map="tagPathMap"
+            :is-mobile="isMobile"
+            @toggle="toggleWorldbookPicker"
+            @select="selectWorldbookFromPicker"
+          />
         </label>
         <button class="btn" type="button" @click="createNewWorldbook">新建</button>
         <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="duplicateWorldbook">另存为</button>
@@ -892,83 +832,38 @@
     <section v-if="!isDesktopFocusMode" class="wb-toolbar">
             <label class="toolbar-label">
               <span>世界书</span>
-              <div ref="worldbookPickerRef" class="worldbook-picker">
-                <button class="worldbook-picker-trigger" type="button" @click="toggleWorldbookPicker">
-                  <span class="worldbook-picker-trigger-text" :title="selectedWorldbookName || '请选择世界书'">
-                    {{ selectedWorldbookName || '请选择世界书' }}
-                  </span>
-                  <span class="worldbook-picker-trigger-arrow">{{ worldbookPickerOpen ? '▴' : '▾' }}</span>
-                </button>
-                <div v-if="worldbookPickerOpen" class="worldbook-picker-dropdown">
-                  <div v-if="tagDefinitions.length" class="worldbook-picker-tags tree-mode">
-                    <div class="tag-filter-toolbar">
-                      <button class="btn mini tag-filter-open" type="button" @click="tagFilterPanelOpen = !tagFilterPanelOpen">🏷 标签筛选</button>
-                      <span class="tag-filter-summary">{{ tagFilterSummary }}</span>
-                      <select v-model="tagFilterLogic" class="text-input tag-filter-select">
-                        <option value="or">OR</option>
-                        <option value="and">AND</option>
-                      </select>
-                      <select v-model="tagFilterMatchMode" class="text-input tag-filter-select">
-                        <option value="descendants">子树</option>
-                        <option value="exact">精确</option>
-                      </select>
-                      <button class="btn mini" type="button" :disabled="!selectedTagFilterIds.length" @click="clearTagFilterSelection">清空</button>
-                    </div>
-                    <Transition name="tag-filter-panel">
-                      <div v-if="tagFilterPanelOpen" class="tag-filter-panel">
-                        <input v-model="tagFilterSearchText" type="text" class="text-input tag-filter-search" placeholder="搜索标签名称 / 路径..." />
-                        <div v-if="selectedTagFilterIds.length" class="tag-filter-selected-list">
-                          <button
-                            v-for="tagId in selectedTagFilterIds"
-                            :key="`tag-selected-desktop-${tagId}`"
-                            class="tag-filter-selected-chip"
-                            type="button"
-                            @click="toggleTagFilterSelection(tagId)"
-                          >
-                            {{ tagPathMap.get(tagId) ?? tagId }} ×
-                          </button>
-                        </div>
-                        <div class="tag-tree-list">
-                          <div v-for="row in tagTreeRows" :key="`tag-tree-desktop-${row.id}`" class="tag-tree-row" :style="{ '--depth': row.depth, '--tag-color': row.color }">
-                            <button
-                              v-if="row.hasChildren"
-                              class="tag-tree-toggle"
-                              type="button"
-                              @click.stop="toggleTagTreeExpanded(row.id)"
-                            >{{ tagTreeExpandedIds.includes(row.id) || tagFilterSearchText.trim() ? '▾' : '▸' }}</button>
-                            <span v-else class="tag-tree-toggle placeholder"></span>
-                            <input type="checkbox" :checked="selectedTagFilterIdSet.has(row.id)" @change="toggleTagFilterSelection(row.id)" />
-                            <span class="tag-tree-name">{{ row.name }}</span>
-                            <span class="tag-tree-path">{{ row.path }}</span>
-                          </div>
-                          <div v-if="!tagTreeRows.length" class="empty-note">没有匹配的标签</div>
-                        </div>
-                      </div>
-                    </Transition>
-                  </div>
-                  <input
-                    
-                    v-model="worldbookPickerSearchText"
-                    type="text"
-                    class="text-input worldbook-picker-search"
-                    placeholder="搜索世界书..."
-                    @keydown.enter.prevent="filteredSelectableWorldbookNames[0] && selectWorldbookFromPicker(filteredSelectableWorldbookNames[0])"
-                  />
-                  <div class="worldbook-picker-list">
-                    <button
-                      v-for="name in filteredSelectableWorldbookNames"
-                      :key="`worldbook-${name}`"
-                      class="worldbook-picker-item"
-                      :class="{ active: name === selectedWorldbookName }"
-                      type="button"
-                      @click="selectWorldbookFromPicker(name)"
-                    >
-                      {{ name }}
-                    </button>
-                    <div v-if="!filteredSelectableWorldbookNames.length" class="empty-note">没有匹配的世界书</div>
-                  </div>
-                </div>
-              </div>
+              <WorldbookPicker
+                :open="worldbookPickerOpen"
+                v-model:search-text="worldbookPickerSearchText"
+                :selected-worldbook-name="selectedWorldbookName"
+                :filtered-names="filteredSelectableWorldbookNames"
+                trigger-placeholder="请选择世界书"
+                title-placeholder="请选择世界书"
+                search-placeholder="搜索世界书..."
+                empty-text="没有匹配的世界书"
+                list-key-prefix="worldbook"
+                :show-open-state-arrow="true"
+                :set-picker-element="setWorldbookPickerElement"
+                :show-tag-filter="tagDefinitions.length > 0"
+                :tag-filter-panel-open="tagFilterPanelOpen"
+                :tag-filter-summary="tagFilterSummary"
+                v-model:tag-filter-logic="tagFilterLogic"
+                v-model:tag-filter-match-mode="tagFilterMatchMode"
+                :selected-tag-filter-ids="selectedTagFilterIds"
+                :selected-tag-filter-id-set="selectedTagFilterIdSet"
+                v-model:tag-filter-search-text="tagFilterSearchText"
+                :tag-assign-options="tagAssignOptions"
+                :tag-tree-rows="tagTreeRows"
+                :tag-tree-expanded-ids="tagTreeExpandedIds"
+                :tag-path-map="tagPathMap"
+                :is-mobile="isMobile"
+                @toggle="toggleWorldbookPicker"
+                @select="selectWorldbookFromPicker"
+                @toggle-tag-filter-panel="tagFilterPanelOpen = !tagFilterPanelOpen"
+                @clear-tag-filter-selection="clearTagFilterSelection"
+                @toggle-tag-filter-selection="toggleTagFilterSelection"
+                @toggle-tag-tree-expanded="toggleTagTreeExpanded"
+              />
             </label>
             <button class="btn" data-focus-hero="wb_new" type="button" @click="createNewWorldbook">新建</button>
             <button class="btn" data-focus-hero="wb_duplicate" type="button" :disabled="!selectedWorldbookName" @click="duplicateWorldbook">
@@ -993,83 +888,38 @@
               <div class="wb-focus-core-group">
                 <label class="toolbar-label focus-toolbar-label">
                   <span class="focus-toolbar-label-text">世界书</span>
-                  <div ref="worldbookPickerRef" class="worldbook-picker">
-                    <button class="worldbook-picker-trigger" type="button" @click="toggleWorldbookPicker">
-                      <span class="worldbook-picker-trigger-text" :title="selectedWorldbookName || '请选择世界书'">
-                        {{ selectedWorldbookName || '请选择世界书' }}
-                      </span>
-                      <span class="worldbook-picker-trigger-arrow">{{ worldbookPickerOpen ? '▴' : '▾' }}</span>
-                    </button>
-                    <div v-if="worldbookPickerOpen" class="worldbook-picker-dropdown">
-                      <div v-if="tagDefinitions.length" class="worldbook-picker-tags tree-mode">
-                        <div class="tag-filter-toolbar">
-                          <button class="btn mini tag-filter-open" type="button" @click="tagFilterPanelOpen = !tagFilterPanelOpen">🏷 标签筛选</button>
-                          <span class="tag-filter-summary">{{ tagFilterSummary }}</span>
-                          <select v-model="tagFilterLogic" class="text-input tag-filter-select">
-                            <option value="or">OR</option>
-                            <option value="and">AND</option>
-                          </select>
-                          <select v-model="tagFilterMatchMode" class="text-input tag-filter-select">
-                            <option value="descendants">子树</option>
-                            <option value="exact">精确</option>
-                          </select>
-                          <button class="btn mini" type="button" :disabled="!selectedTagFilterIds.length" @click="clearTagFilterSelection">清空</button>
-                        </div>
-                        <Transition name="tag-filter-panel">
-                          <div v-if="tagFilterPanelOpen" class="tag-filter-panel">
-                            <input v-model="tagFilterSearchText" type="text" class="text-input tag-filter-search" placeholder="搜索标签名称 / 路径..." />
-                            <div v-if="selectedTagFilterIds.length" class="tag-filter-selected-list">
-                              <button
-                                v-for="tagId in selectedTagFilterIds"
-                                :key="`tag-selected-focus-${tagId}`"
-                                class="tag-filter-selected-chip"
-                                type="button"
-                                @click="toggleTagFilterSelection(tagId)"
-                              >
-                                {{ tagPathMap.get(tagId) ?? tagId }} ×
-                              </button>
-                            </div>
-                            <div class="tag-tree-list">
-                              <div v-for="row in tagTreeRows" :key="`tag-tree-focus-${row.id}`" class="tag-tree-row" :style="{ '--depth': row.depth, '--tag-color': row.color }">
-                                <button
-                                  v-if="row.hasChildren"
-                                  class="tag-tree-toggle"
-                                  type="button"
-                                  @click.stop="toggleTagTreeExpanded(row.id)"
-                                >{{ tagTreeExpandedIds.includes(row.id) || tagFilterSearchText.trim() ? '▾' : '▸' }}</button>
-                                <span v-else class="tag-tree-toggle placeholder"></span>
-                                <input type="checkbox" :checked="selectedTagFilterIdSet.has(row.id)" @change="toggleTagFilterSelection(row.id)" />
-                                <span class="tag-tree-name">{{ row.name }}</span>
-                                <span class="tag-tree-path">{{ row.path }}</span>
-                              </div>
-                              <div v-if="!tagTreeRows.length" class="empty-note">没有匹配的标签</div>
-                            </div>
-                          </div>
-                        </Transition>
-                      </div>
-                      <input
-                        
-                        v-model="worldbookPickerSearchText"
-                        type="text"
-                        class="text-input worldbook-picker-search"
-                        placeholder="搜索世界书..."
-                        @keydown.enter.prevent="filteredSelectableWorldbookNames[0] && selectWorldbookFromPicker(filteredSelectableWorldbookNames[0])"
-                      />
-                      <div class="worldbook-picker-list">
-                        <button
-                          v-for="name in filteredSelectableWorldbookNames"
-                          :key="`focus-worldbook-${name}`"
-                          class="worldbook-picker-item"
-                          :class="{ active: name === selectedWorldbookName }"
-                          type="button"
-                          @click="selectWorldbookFromPicker(name)"
-                        >
-                          {{ name }}
-                        </button>
-                        <div v-if="!filteredSelectableWorldbookNames.length" class="empty-note">没有匹配的世界书</div>
-                      </div>
-                    </div>
-                  </div>
+                  <WorldbookPicker
+                    :open="worldbookPickerOpen"
+                    v-model:search-text="worldbookPickerSearchText"
+                    :selected-worldbook-name="selectedWorldbookName"
+                    :filtered-names="filteredSelectableWorldbookNames"
+                    trigger-placeholder="请选择世界书"
+                    title-placeholder="请选择世界书"
+                    search-placeholder="搜索世界书..."
+                    empty-text="没有匹配的世界书"
+                    list-key-prefix="focus-worldbook"
+                    :show-open-state-arrow="true"
+                    :set-picker-element="setWorldbookPickerElement"
+                    :show-tag-filter="tagDefinitions.length > 0"
+                    :tag-filter-panel-open="tagFilterPanelOpen"
+                    :tag-filter-summary="tagFilterSummary"
+                    v-model:tag-filter-logic="tagFilterLogic"
+                    v-model:tag-filter-match-mode="tagFilterMatchMode"
+                    :selected-tag-filter-ids="selectedTagFilterIds"
+                    :selected-tag-filter-id-set="selectedTagFilterIdSet"
+                    v-model:tag-filter-search-text="tagFilterSearchText"
+                    :tag-assign-options="tagAssignOptions"
+                    :tag-tree-rows="tagTreeRows"
+                    :tag-tree-expanded-ids="tagTreeExpandedIds"
+                    :tag-path-map="tagPathMap"
+                    :is-mobile="isMobile"
+                    @toggle="toggleWorldbookPicker"
+                    @select="selectWorldbookFromPicker"
+                    @toggle-tag-filter-panel="tagFilterPanelOpen = !tagFilterPanelOpen"
+                    @clear-tag-filter-selection="clearTagFilterSelection"
+                    @toggle-tag-filter-selection="toggleTagFilterSelection"
+                    @toggle-tag-tree-expanded="toggleTagTreeExpanded"
+                  />
                 </label>
                 <button class="btn" data-focus-hero="save_btn" data-copy-hero="save_btn" type="button" :class="{ 'glow-pulse': hasUnsavedChanges }" :disabled="!hasUnsavedChanges || isAnyCineLocked" @click="saveCurrentWorldbook">
                   {{ isFocusToolbarCompact ? '💾' : '💾 保存' }}
@@ -1164,145 +1014,36 @@
               'copy-workspace': crossCopyMode && !globalWorldbookMode && !isDesktopFocusMode,
             }"
           >
-            <div v-if="!isDesktopFocusMode && crossCopyMode" class="wb-copy-workspace-head">
-              <div class="wb-copy-workspace-title">
-                <strong>📚 跨书复制工作台</strong>
-                <span>{{ crossCopyWorkspaceSummary }}</span>
-              </div>
-              <div class="wb-copy-workspace-actions">
-                <span class="wb-copy-workspace-meta">{{ crossCopyWorkspaceComparedText }}</span>
-                <div class="wb-copy-workspace-tool-anchor">
-                  <button class="btn mini utility-btn" type="button" :disabled="isAnyCineLocked" @click="toggleCrossCopyWorkspaceTools">
-                    {{ crossCopyWorkspaceToolsExpanded ? '收起工具' : '展开工具' }}
-                  </button>
-                  <div class="copy-cine-sink-cluster workspace" aria-hidden="true">
-                    <span class="copy-cine-sink" data-copy-sink="focus_toggle"></span>
-                    <span class="copy-cine-sink" data-copy-sink="save_btn"></span>
-                    <span class="copy-cine-sink" data-copy-sink="more_btn"></span>
-                    <span class="copy-cine-sink" data-copy-sink="tools_btn"></span>
-                    <span class="copy-cine-sink" data-copy-sink="tool_global"></span>
-                    <span class="copy-cine-sink" data-copy-sink="tool_entry_history"></span>
-                    <span class="copy-cine-sink" data-copy-sink="tool_worldbook_history"></span>
-                    <span class="copy-cine-sink" data-copy-sink="tool_activation"></span>
-                    <span class="copy-cine-sink" data-copy-sink="tool_ai_generate"></span>
-                    <span class="copy-cine-sink" data-copy-sink="tool_extract"></span>
-                    <span class="copy-cine-sink" data-copy-sink="tool_tag"></span>
-                    <span class="copy-cine-sink" data-copy-sink="tool_copy"></span>
-                    <span class="copy-cine-sink" data-copy-sink="tool_settings"></span>
-                    <span class="copy-cine-sink" data-copy-sink="tool_ai_config"></span>
-                  </div>
-                </div>
-                <button class="btn mini utility-btn" type="button" :disabled="isAnyCineLocked" @click="toggleCrossCopyMode">退出模式</button>
-              </div>
-            </div>
-            <Transition name="copy-workspace-tools">
-            <div v-if="!isDesktopFocusMode && (!crossCopyMode || crossCopyWorkspaceToolsExpanded)" class="wb-history-shortcuts" :class="{ 'copy-workspace-tools': crossCopyMode }">
-              <button class="btn history-btn utility-btn" data-focus-hero="focus_toggle" data-copy-hero="focus_toggle" type="button" :disabled="isAnyCineLocked" @click="toggleFocusEditing">🎯 专注编辑</button>
-              <button
-                class="btn history-btn utility-btn"
-                data-focus-hero="tool_global"
-                data-copy-hero="tool_global"
-                type="button"
-                :class="{ active: globalWorldbookMode }"
-                @click="toggleGlobalMode"
-              >
-                🌐 全局模式
-              </button>
-              <button class="btn history-btn" data-focus-hero="tool_entry_history" data-copy-hero="tool_entry_history" type="button" :disabled="!selectedEntry" @click="openEntryHistoryModal">
-                🕰️ 条目时光机
-              </button>
-              <button
-                class="btn history-btn"
-                data-focus-hero="tool_worldbook_history"
-                data-copy-hero="tool_worldbook_history"
-                type="button"
-                :disabled="!selectedWorldbookName"
-                @click="openWorldbookHistoryModal"
-              >
-                ⏪ 整本时光机
-              </button>
-              <button
-                class="btn history-btn utility-btn"
-                data-focus-hero="find_btn"
-                data-copy-hero="find_btn"
-                type="button"
-                :class="{ active: floatingPanels.find.visible }"
-                :disabled="!draftEntries.length || isAnyCineLocked"
-                @click="toggleFloatingPanel('find')"
-              >
-                🔎 查找与替换
-              </button>
-              <button
-                class="btn history-btn utility-btn"
-                data-focus-hero="tool_activation"
-                data-copy-hero="tool_activation"
-                type="button"
-                :class="{ active: floatingPanels.activation.visible }"
-                @click="toggleFloatingPanel('activation')"
-              >
-                📡 激活监控
-              </button>
-              <button
-                v-if="persistedState.show_ai_chat"
-                class="btn history-btn utility-btn"
-                data-focus-hero="tool_ai_generate"
-                data-copy-hero="tool_ai_generate"
-                type="button"
-                :class="{ active: aiGeneratorMode }"
-                @click="aiToggleMode"
-              >
-                🤖 AI 生成
-              </button>
-              <button
-                class="btn history-btn utility-btn"
-                data-focus-hero="tool_extract"
-                data-copy-hero="tool_extract"
-                type="button"
-                @click="extractFromChat"
-              >
-                📥 从聊天提取
-              </button>
-              <button
-                class="btn history-btn utility-btn"
-                data-focus-hero="tool_tag"
-                data-copy-hero="tool_tag"
-                type="button"
-                :class="{ active: tagEditorMode }"
-                @click="tagToggleMode"
-              >
-                🏷️ 标签管理
-              </button>
-              <button
-                class="btn history-btn utility-btn"
-                data-focus-hero="tool_copy"
-                data-copy-hero="tool_copy"
-                type="button"
-                :class="{ active: crossCopyMode }"
-                :disabled="isAnyCineLocked"
-                @click="toggleCrossCopyMode"
-              >
-                📚 跨书复制
-              </button>
-              <button
-                class="btn history-btn utility-btn"
-                data-focus-hero="tool_settings"
-                data-copy-hero="tool_settings"
-                type="button"
-                @click="showApiSettings = true"
-              >
-                ⚙️ 设置
-              </button>
-              <button
-                class="btn history-btn utility-btn"
-                data-focus-hero="tool_ai_config"
-                data-copy-hero="tool_ai_config"
-                type="button"
-                @click="aiConfigPreview = false; aiConfigChanges = []; aiConfigTargetWorldbook = selectedWorldbookName || ''"
-              >
-                🔧 AI配置
-              </button>
-            </div>
-            </Transition>
+            <DesktopToolbarBindings
+              :is-desktop-focus-mode="isDesktopFocusMode"
+              :cross-copy-mode="crossCopyMode"
+              :cross-copy-workspace-summary="crossCopyWorkspaceSummary"
+              :cross-copy-workspace-compared-text="crossCopyWorkspaceComparedText"
+              :is-any-cine-locked="isAnyCineLocked"
+              :cross-copy-workspace-tools-expanded="crossCopyWorkspaceToolsExpanded"
+              :global-worldbook-mode="globalWorldbookMode"
+              :has-selected-entry="!!selectedEntry"
+              :has-selected-worldbook="!!selectedWorldbookName"
+              :has-draft-entries="!!draftEntries.length"
+              :find-panel-visible="floatingPanels.find.visible"
+              :activation-panel-visible="floatingPanels.activation.visible"
+              :show-ai-chat="persistedState.show_ai_chat"
+              :ai-generator-mode="aiGeneratorMode"
+              :tag-editor-mode="tagEditorMode"
+              @toggle-cross-copy-workspace-tools="toggleCrossCopyWorkspaceTools"
+              @toggle-cross-copy-mode="toggleCrossCopyMode"
+              @toggle-focus-editing="toggleFocusEditing"
+              @toggle-global-mode="toggleGlobalMode"
+              @open-entry-history-modal="openEntryHistoryModal"
+              @open-worldbook-history-modal="openWorldbookHistoryModal"
+              @toggle-find-panel="toggleFloatingPanel('find')"
+              @toggle-activation-panel="toggleFloatingPanel('activation')"
+              @toggle-ai-generator="aiToggleMode"
+              @extract-from-chat="extractFromChat"
+              @toggle-tag-editor="tagToggleMode"
+              @open-settings="showApiSettings = true"
+              @open-ai-config="openAiConfigModal"
+            />
             <GlobalModeDesktopPanel
               v-if="globalWorldbookMode"
               :bindings-global="bindings.global"
@@ -2038,7 +1779,9 @@ import AITagReviewModal from './components/AITagReviewModal.vue';
 import GlobalModeBrowsePanel from './components/GlobalModeBrowsePanel.vue';
 import AIGeneratorPanel from './components/AIGeneratorPanel.vue';
 import SettingsModal from './components/SettingsModal.vue';
+import WorldbookPicker from './components/WorldbookPicker.vue';
 import GlobalModeMobilePanel from './components/GlobalModeMobilePanel.vue';
+import DesktopToolbarBindings from './components/DesktopToolbarBindings.vue';
 import GlobalModeDesktopPanel from './components/GlobalModeDesktopPanel.vue';
 import TagEditorMobilePanel from './components/TagEditorMobilePanel.vue';
 import TagEditorDesktopPanel from './components/TagEditorDesktopPanel.vue';
@@ -2047,6 +1790,7 @@ import './components/globalModeDesktopShared.css';
 import './components/tagEditorShared.css';
 import './components/aiChatShared.css';
 import './components/settingsModalShared.css';
+import './components/worldbookPickerShared.css';
 import {
   createId,
   asRecord,
@@ -2728,6 +2472,16 @@ const {
   loadWorldbook,
   pushSnapshotForWorldbook,
 });
+
+function setWorldbookPickerElement(element: HTMLElement | null): void {
+  worldbookPickerRef.value = element;
+}
+
+function openAiConfigModal(): void {
+  aiConfigPreview.value = false;
+  aiConfigChanges.value = [];
+  aiConfigTargetWorldbook.value = selectedWorldbookName.value || '';
+}
 
 function setRolePickerElement(element: HTMLElement | null): void {
   rolePickerRef.value = element;
@@ -5407,10 +5161,6 @@ watch(hasUnsavedChanges, (val) => {
   gap: 6px;
 }
 
-.mobile-browse-toolbar .worldbook-picker {
-  max-width: 160px;
-}
-
 .mobile-browse-toolbar .browse-search {
   max-width: none;
   min-width: 80px;
@@ -5914,98 +5664,6 @@ watch(hasUnsavedChanges, (val) => {
   min-width: 160px;
 }
 
-.worldbook-picker {
-  position: relative;
-  flex: 1 1 auto;
-  min-width: 240px;
-}
-
-.worldbook-picker-trigger {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: var(--wb-input-bg);
-  color: var(--wb-text-main);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.worldbook-picker-trigger:hover {
-  border-color: var(--wb-primary-light);
-}
-
-.worldbook-picker-trigger-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-}
-
-.worldbook-picker-trigger-arrow {
-  flex-shrink: 0;
-  color: var(--wb-text-muted);
-}
-
-.wb-assistant-root .worldbook-picker-dropdown {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 10120;
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 8px;
-  background: var(--wb-dropdown-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.4);
-  padding: 8px;
-  display: grid;
-  gap: 8px;
-}
-
-.worldbook-picker-search {
-  width: 100%;
-}
-
-.worldbook-picker-list {
-  max-height: 260px;
-  overflow: auto;
-  border: none;
-  border-radius: 8px;
-  background: var(--wb-bg-panel);
-  display: flex;
-  flex-direction: column;
-}
-
-.worldbook-picker-item {
-  width: 100%;
-  border: none;
-  border-bottom: 1px solid var(--wb-border-subtle);
-  background: transparent;
-  color: var(--wb-text-main);
-  padding: 8px 10px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.worldbook-picker-item:last-child {
-  border-bottom: none;
-}
-
-.worldbook-picker-item:hover {
-  background: var(--wb-primary-soft);
-}
-
-.worldbook-picker-item.active {
-  background: var(--wb-primary-soft);
-  color: var(--wb-primary-light);
-}
-
 .wb-bindings {
   border-radius: 12px;
   padding: 12px;
@@ -6024,72 +5682,6 @@ watch(hasUnsavedChanges, (val) => {
   background: transparent;
 }
 
-.wb-copy-workspace-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.wb-copy-workspace-title {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.wb-copy-workspace-title strong {
-  font-size: 14px;
-  line-height: 1.2;
-}
-
-.wb-copy-workspace-title span {
-  font-size: 12px;
-  color: var(--wb-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.wb-copy-workspace-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.wb-copy-workspace-tool-anchor {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.wb-copy-workspace-meta {
-  font-size: 12px;
-  color: var(--wb-text-muted);
-}
-
-.wb-history-shortcuts {
-  display: flex;
-  justify-content: flex-start;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.wb-history-shortcuts.copy-workspace-tools {
-  padding-top: 2px;
-}
-
-.copy-workspace-tools-enter-active,
-.copy-workspace-tools-leave-active {
-  transition: opacity 180ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.copy-workspace-tools-enter-from,
-.copy-workspace-tools-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
 
 /* View Transitions */
 .mobile-tab-enter-active,
@@ -7482,9 +7074,6 @@ watch(hasUnsavedChanges, (val) => {
     width: 100%;
   }
 
-  .worldbook-picker-trigger {
-    white-space: normal;
-  }
 
   .wb-main-layout {
     display: block !important;
@@ -7674,187 +7263,6 @@ watch(hasUnsavedChanges, (val) => {
 
   .editor-grid.two-cols {
     grid-template-columns: 1fr;
-  }
-}
-</style>
-<style scoped>
-/* ── Tag System ── */
-.worldbook-picker-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 6px 8px 2px;
-}
-.worldbook-picker-tags.tree-mode {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid var(--wb-border-subtle);
-  background: rgba(12, 24, 52, 0.72);
-}
-
-.tag-filter-toolbar {
-  display: grid;
-  grid-template-columns: auto minmax(120px, 1fr) auto auto auto;
-  align-items: center;
-  gap: 6px;
-}
-
-.tag-filter-open {
-  white-space: nowrap;
-}
-
-.tag-filter-summary {
-  font-size: 12px;
-  color: var(--wb-text-dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tag-filter-select {
-  height: 28px;
-  min-width: 66px;
-  font-size: 12px;
-  padding: 3px 8px;
-}
-
-.tag-filter-panel-enter-active,
-.tag-filter-panel-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.tag-filter-panel-enter-from,
-.tag-filter-panel-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-
-.tag-filter-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-radius: 8px;
-  border: 1px solid var(--wb-border-subtle);
-  background: rgba(7, 18, 40, 0.86);
-  padding: 8px;
-}
-
-.tag-filter-search {
-  height: 30px;
-  font-size: 12px;
-}
-
-.tag-filter-selected-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-height: 74px;
-  overflow: auto;
-}
-
-.tag-filter-selected-chip {
-  border: 1px solid rgba(96, 165, 250, 0.45);
-  background: rgba(37, 99, 235, 0.2);
-  color: #bfdbfe;
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.tag-tree-list,
-.tag-flat-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 220px;
-  overflow: auto;
-  padding-right: 2px;
-}
-
-.tag-tree-row {
-  display: grid;
-  grid-template-columns: 16px 16px minmax(0, 1fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 6px;
-  padding: 5px 6px;
-  padding-left: calc(6px + var(--depth, 0) * 12px);
-  border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.tag-tree-toggle {
-  border: none;
-  background: transparent;
-  color: var(--wb-text-dim);
-  cursor: pointer;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  line-height: 1;
-}
-
-.tag-tree-toggle.placeholder {
-  display: inline-block;
-}
-
-.tag-tree-name {
-  color: var(--tag-color, #60a5fa);
-  font-size: 12px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tag-tree-path {
-  color: var(--wb-text-dim);
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tag-flat-item {
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--tag-color, #60a5fa);
-  font-size: 12px;
-}
-
-@media (max-width: 1360px) {
-  .tag-filter-toolbar {
-    grid-template-columns: auto minmax(100px, 1fr) auto;
-    grid-auto-rows: auto;
-  }
-  .tag-filter-summary {
-    grid-column: 2 / 4;
-  }
-}
-
-@media (max-width: 760px) {
-  .tag-filter-toolbar {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-  .tag-filter-select {
-    min-width: 58px;
-  }
-  .tag-tree-row {
-    grid-template-columns: 14px 14px minmax(0, 1fr);
-  }
-  .tag-tree-path {
-    grid-column: 3 / 4;
   }
 }
 </style>
