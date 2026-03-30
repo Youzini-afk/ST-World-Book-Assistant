@@ -1342,91 +1342,22 @@
           </section>
 
           <!-- ═══ AI Generator Panel ═══ -->
-          <section v-if="aiGeneratorMode" class="ai-generator-panel">
-            <div class="ai-sidebar">
-              <div class="ai-sidebar-head">
-                <span class="ai-sidebar-title">对话列表</span>
-                <button class="btn mini" type="button" @click="aiCreateSession">+ 新建</button>
-              </div>
-              <div class="ai-session-list">
-                <div
-                  v-for="session in aiSessions"
-                  :key="session.id"
-                  class="ai-session-item"
-                  :class="{ active: session.id === aiActiveSession?.id }"
-                  role="button"
-                  tabindex="0"
-                  @click="aiSwitchSession(session.id)"
-                  @keydown.enter.prevent="aiSwitchSession(session.id)"
-                  @keydown.space.prevent="aiSwitchSession(session.id)"
-                >
-                  <span class="ai-session-title">{{ session.title }}</span>
-                  <span class="ai-session-meta">{{ session.messages.length }} 条消息</span>
-                  <button
-                    class="ai-session-delete"
-                    type="button"
-                    title="删除对话"
-                    @click.stop="aiDeleteSession(session.id)"
-                  >×</button>
-                </div>
-                <div v-if="!aiSessions.length" class="empty-note">暂无对话，点击上方新建</div>
-              </div>
-            </div>
-            <div class="ai-chat-area">
-              <div v-if="!aiActiveSession" class="ai-chat-empty">
-                <div class="ai-chat-empty-icon">🤖</div>
-                <div class="ai-chat-empty-text">选择或新建一个对话开始生成</div>
-              </div>
-              <template v-else>
-                <div class="ai-chat-messages" ref="aiChatMessagesRef">
-                  <div
-                    v-for="(msg, idx) in aiActiveMessages"
-                    :key="`msg-${idx}`"
-                    class="ai-chat-bubble"
-                    :class="msg.role"
-                  >
-                    <div class="ai-chat-bubble-role">{{ msg.role === 'user' ? '👤 你' : '🤖 AI' }}</div>
-                    <div class="ai-chat-bubble-content">{{ msg.content }}</div>
-                  </div>
-                  <div v-if="aiIsGenerating && aiStreamingText" class="ai-chat-bubble assistant streaming">
-                    <div class="ai-chat-bubble-role">🤖 AI</div>
-                    <div class="ai-chat-bubble-content">{{ aiStreamingText }}<span class="ai-cursor">▌</span></div>
-                  </div>
-                  <div v-if="aiIsGenerating && !aiStreamingText" class="ai-chat-bubble assistant streaming">
-                    <div class="ai-chat-bubble-role">🤖 AI</div>
-                    <div class="ai-chat-bubble-content"><span class="ai-thinking">思考中...</span></div>
-                  </div>
-                </div>
-                <div class="ai-chat-input-bar">
-                  <label class="ai-context-toggle" title="开启后，AI 将能看到酒馆的预设、世界书和正则上下文">
-                    <input v-model="aiUseContext" type="checkbox" />
-                    <span>{{ aiUseContext ? '📖 附带上下文' : '🔒 纯净模式' }}</span>
-                  </label>
-                  <textarea
-                    v-model="aiChatInputText"
-                    class="text-input ai-chat-input"
-                    placeholder="输入提示词，让 AI 生成世界书条目..."
-                    rows="2"
-                    :disabled="aiIsGenerating"
-                    @keydown.enter.exact.prevent="aiSendMessage"
-                  ></textarea>
-                  <button
-                    v-if="!aiIsGenerating"
-                    class="btn ai-send-btn"
-                    type="button"
-                    :disabled="!aiChatInputText.trim()"
-                    @click="aiSendMessage"
-                  >发送</button>
-                  <button
-                    v-else
-                    class="btn danger ai-stop-btn"
-                    type="button"
-                    @click="aiStopGeneration"
-                  >停止</button>
-                </div>
-              </template>
-            </div>
-          </section>
+          <AIGeneratorPanel
+            v-if="aiGeneratorMode"
+            :sessions="aiSessions"
+            :active-session="aiActiveSession"
+            :active-messages="aiActiveMessages"
+            :is-generating="aiIsGenerating"
+            :streaming-text="aiStreamingText"
+            v-model:chat-input-text="aiChatInputText"
+            v-model:use-context="aiUseContext"
+            :set-chat-messages-element="setAiChatMessagesElement"
+            @create-session="aiCreateSession"
+            @delete-session="aiDeleteSession"
+            @switch-session="aiSwitchSession"
+            @send-message="aiSendMessage"
+            @stop-generation="aiStopGeneration"
+          />
 
           <!-- 标签编辑模式 -->
           <TagEditorDesktopPanel
@@ -1926,139 +1857,24 @@
     ></div>
 
     <!-- ═══ Shared Modals (both mobile & desktop) ═══ -->
-    <!-- 设置弹窗 -->
-    <div v-if="showApiSettings" class="ai-tag-review-overlay" @click.self="showApiSettings = false">
-      <div class="ai-tag-review-modal" style="max-width:520px;">
-        <div class="ai-tag-review-head">
-          <span class="ai-tag-review-title">⚙️ 设置中心</span>
-          <button class="ai-tag-review-close" type="button" @click="showApiSettings = false">×</button>
-        </div>
-        <div style="padding:16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;max-height:60vh;">
-          <div style="border:1px solid var(--wb-border-subtle,#334155);border-radius:8px;padding:10px;">
-            <div style="font-size:13px;font-weight:600;margin-bottom:8px;">体验设置</div>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:6px;">
-              <input type="checkbox" :checked="fabVisible" @change="setFabVisible(($event.target as HTMLInputElement).checked)" />
-              <span>显示悬浮按钮（📖）</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:6px;">
-              <input type="checkbox" :checked="floorBtnVisible" @change="toggleFloorBtns(($event.target as HTMLInputElement).checked)" />
-              <span>显示楼层提取按钮</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-              <input type="checkbox" :checked="persistedState.show_ai_chat" @change="updatePersistedState(s => s.show_ai_chat = ($event.target as HTMLInputElement).checked)" />
-              <span>显示 AI 对话模块</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px;">
-              <input
-                type="checkbox"
-                :checked="persistedState.multi_edit.enabled"
-                @change="updatePersistedState(s => s.multi_edit.enabled = ($event.target as HTMLInputElement).checked)"
-              />
-              <span>启用多选配置联动</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-              <input
-                type="checkbox"
-                :checked="persistedState.multi_edit.sync_extra_json"
-                @change="updatePersistedState(s => s.multi_edit.sync_extra_json = ($event.target as HTMLInputElement).checked)"
-                :disabled="!persistedState.multi_edit.enabled"
-              />
-              <span>多选联动时同步高级字段 / extra JSON</span>
-            </label>
-            <label class="field" style="margin-top:8px;">
-              <span>父标签删除策略</span>
-              <select class="text-input" :value="persistedState.tag_editor.delete_parent_mode" @change="setTagDeleteParentMode(($event.target as HTMLSelectElement).value)">
-                <option value="promote">删除父标签并上提子标签</option>
-                <option value="cascade">级联删除整棵标签树</option>
-              </select>
-            </label>
-            <div style="font-size:11px;color:var(--wb-text-muted,#64748b);margin-top:4px;">开启后将在工具栏和移动端 Tab 中显示 AI 对话入口</div>
-            <label class="field" style="margin-top:8px;">
-              <span>排序模式</span>
-              <select class="text-input" :value="persistedState.sort.mode" @change="updatePersistedState(s => s.sort.mode = ($event.target as HTMLSelectElement).value as 'mutate' | 'view')">
-                <option value="mutate">直接排序（修改条目顺序）</option>
-                <option value="view">仅显示排序（不修改数据）</option>
-              </select>
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px;">
-              <input
-                type="checkbox"
-                :checked="persistedState.sort.reassign_uid"
-                @change="updatePersistedState(s => s.sort.reassign_uid = ($event.target as HTMLInputElement).checked)"
-              />
-              <span>排序后重新分配 UID（仅直接排序模式）</span>
-            </label>
-            <label class="field" style="margin-top:8px;">
-              <span>主题</span>
-              <select class="text-input" :value="currentTheme" @change="setTheme(($event.target as HTMLSelectElement).value as ThemeKey)">
-                <option v-for="item in themeOptions" :key="`setting-theme-${item.key}`" :value="item.key">{{ item.label }}</option>
-              </select>
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px;">
-              <input type="checkbox" :checked="persistedState.glass_mode" @change="updatePersistedState(s => s.glass_mode = ($event.target as HTMLInputElement).checked)" />
-              <span>启用毛玻璃特效 (Glassmorphism)</span>
-            </label>
-          </div>
-          <div style="border-top:1px solid var(--wb-border-subtle,#334155);padding-top:10px;">
-            <div style="font-size:13px;font-weight:600;margin-bottom:8px;">API 设置</div>
-          </div>
-          <div style="display:flex;gap:12px;align-items:center;">
-            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-              <input type="radio" value="custom" :checked="persistedState.ai_api_config.mode === 'custom'" @change="updateApiConfig({ mode: 'custom', use_main_api: false })" />
-              <span>自定义API</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-              <input type="radio" value="tavern" :checked="persistedState.ai_api_config.mode === 'tavern'" @change="updateApiConfig({ mode: 'tavern' })" />
-              <span>使用酒馆连接预设</span>
-            </label>
-          </div>
-          <template v-if="persistedState.ai_api_config.mode === 'custom'">
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-              <input type="checkbox" :checked="persistedState.ai_api_config.use_main_api" @change="updateApiConfig({ use_main_api: ($event.target as HTMLInputElement).checked })" />
-              <span>使用主API（直接使用酒馆当前API和模型）</span>
-            </label>
-            <template v-if="!persistedState.ai_api_config.use_main_api">
-              <div style="font-size:11px;color:#f59e0b;">⚠️ API密钥将保存在脚本本地存储中。</div>
-              <label class="field">
-                <span>API基础URL</span>
-                <input class="text-input" type="text" :value="persistedState.ai_api_config.apiurl" @change="updateApiConfig({ apiurl: ($event.target as HTMLInputElement).value })" placeholder="https://api.openai.com/v1" />
-              </label>
-              <label class="field">
-                <span>API密钥（可选）</span>
-                <input class="text-input" type="password" :value="persistedState.ai_api_config.key" @change="updateApiConfig({ key: ($event.target as HTMLInputElement).value })" placeholder="sk-..." />
-              </label>
-              <div style="display:flex;gap:10px;">
-                <label class="field" style="flex:1;">
-                  <span>最大Tokens</span>
-                  <input class="text-input" type="number" :value="persistedState.ai_api_config.max_tokens" @change="updateApiConfig({ max_tokens: Number(($event.target as HTMLInputElement).value) || 4096 })" />
-                </label>
-                <label class="field" style="flex:1;">
-                  <span>温度</span>
-                  <input class="text-input" type="number" step="0.1" min="0" max="2" :value="persistedState.ai_api_config.temperature" @change="updateApiConfig({ temperature: Number(($event.target as HTMLInputElement).value) || 1 })" />
-                </label>
-              </div>
-              <button class="btn" type="button" :disabled="apiModelLoading || !persistedState.ai_api_config.apiurl" @click="loadModelList" style="width:100%;">
-                {{ apiModelLoading ? '加载中...' : '加载模型列表' }}
-              </button>
-              <label class="field" v-if="apiModelList.length > 0">
-                <span>选择模型</span>
-                <select class="text-input" :value="persistedState.ai_api_config.model" @change="updateApiConfig({ model: ($event.target as HTMLSelectElement).value })">
-                  <option value="">请选择模型</option>
-                  <option v-for="m in apiModelList" :key="m" :value="m">{{ m }}</option>
-                </select>
-              </label>
-              <label class="field" v-else>
-                <span>模型名称（手动输入）</span>
-                <input class="text-input" type="text" :value="persistedState.ai_api_config.model" @change="updateApiConfig({ model: ($event.target as HTMLInputElement).value })" placeholder="gpt-4o" />
-              </label>
-            </template>
-          </template>
-          <div v-if="persistedState.ai_api_config.mode === 'tavern'" style="font-size:12px;color:var(--wb-text-muted);padding:8px 0;">
-            将直接使用酒馆当前启用的预设和API配置进行生成。
-          </div>
-        </div>
-      </div>
-    </div>
+    <SettingsModal
+      v-if="showApiSettings"
+      :persisted-state="persistedState"
+      :fab-visible="fabVisible"
+      :floor-btn-visible="floorBtnVisible"
+      :current-theme="currentTheme"
+      :theme-options="themeOptions"
+      :api-model-list="apiModelList"
+      :api-model-loading="apiModelLoading"
+      @close="showApiSettings = false"
+      @set-fab-visible="setFabVisible"
+      @toggle-floor-btns="toggleFloorBtns"
+      @update-field="onSettingsUpdateField"
+      @set-tag-delete-parent-mode="setTagDeleteParentMode"
+      @set-theme="setTheme($event as ThemeKey)"
+      @update-api-config="updateApiConfig"
+      @load-model-list="loadModelList"
+    />
 
     <AIConfigModals
       :worldbook-names="worldbookNames"
@@ -2220,6 +2036,8 @@ import CrossCopyDiffModal from './components/CrossCopyDiffModal.vue';
 import AIConfigModals from './components/AIConfigModals.vue';
 import AITagReviewModal from './components/AITagReviewModal.vue';
 import GlobalModeBrowsePanel from './components/GlobalModeBrowsePanel.vue';
+import AIGeneratorPanel from './components/AIGeneratorPanel.vue';
+import SettingsModal from './components/SettingsModal.vue';
 import GlobalModeMobilePanel from './components/GlobalModeMobilePanel.vue';
 import GlobalModeDesktopPanel from './components/GlobalModeDesktopPanel.vue';
 import TagEditorMobilePanel from './components/TagEditorMobilePanel.vue';
@@ -2911,6 +2729,28 @@ const {
 
 function setRolePickerElement(element: HTMLElement | null): void {
   rolePickerRef.value = element;
+}
+
+function setAiChatMessagesElement(element: HTMLElement | null): void {
+  aiChatMessagesRef.value = element as HTMLDivElement | null;
+}
+
+function onSettingsUpdateField(path: string, value: unknown): void {
+  updatePersistedState(state => {
+    if (path === 'show_ai_chat') {
+      state.show_ai_chat = value as boolean;
+    } else if (path === 'multi_edit.enabled') {
+      state.multi_edit.enabled = value as boolean;
+    } else if (path === 'multi_edit.sync_extra_json') {
+      state.multi_edit.sync_extra_json = value as boolean;
+    } else if (path === 'sort.mode') {
+      state.sort.mode = value as 'mutate' | 'view';
+    } else if (path === 'sort.reassign_uid') {
+      state.sort.reassign_uid = value as boolean;
+    } else if (path === 'glass_mode') {
+      state.glass_mode = value as boolean;
+    }
+  });
 }
 
 function setRolePickerSearchInputElement(element: HTMLInputElement | null): void {
