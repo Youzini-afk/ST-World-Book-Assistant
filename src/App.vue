@@ -215,7 +215,7 @@
                 <button class="btn" type="button" @click="toggleGlobalMode" :style="{ padding:'8px 14px', fontSize:'13px', background: globalWorldbookMode ? 'var(--wb-primary)' : '', color: globalWorldbookMode ? '#fff' : '' }">🌐 全局</button>
                 <button class="btn" type="button" @click="extractFromChat" style="padding:8px 14px;font-size:13px;">📥 提取</button>
                 <button class="btn" type="button" @click="showApiSettings = true" style="padding:8px 14px;font-size:13px;">⚙️ 设置</button>
-                <button class="btn" type="button" @click="aiConfigPreview = false; aiConfigChanges = []; aiConfigTargetWorldbook = selectedWorldbookName || ''" style="padding:8px 14px;font-size:13px;">🔧 AI配置</button>
+                <button class="btn" type="button" @click="openAiConfigModal" style="padding:8px 14px;font-size:13px;">🔧 AI配置</button>
                 <button class="btn" type="button" :disabled="!draftEntries.length" @click="sortEntries" :class="{ active: viewSortActive }" style="padding:8px 14px;font-size:13px;">🔢 排序</button>
                 <button class="btn" type="button" :disabled="!selectedEntry" @click="openEntryHistoryModal" style="padding:8px 14px;font-size:13px;">🕰️ 条目时光机</button>
                 <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="openWorldbookHistoryModal" style="padding:8px 14px;font-size:13px;">⏪ 整本时光机</button>
@@ -991,7 +991,7 @@
                 <button class="btn history-btn utility-btn" data-focus-hero="tool_tag" data-copy-hero="tool_tag" type="button" :class="{ active: tagEditorMode }" @click="tagToggleMode">🏷️ 标签管理</button>
                 <button class="btn history-btn utility-btn" data-focus-hero="tool_copy" data-copy-hero="tool_copy" type="button" :class="{ active: crossCopyMode }" :disabled="isAnyCineLocked" @click="toggleCrossCopyMode">📚 跨书复制</button>
                 <button class="btn history-btn utility-btn" data-focus-hero="tool_settings" data-copy-hero="tool_settings" type="button" @click="showApiSettings = true">⚙️ 设置</button>
-                <button class="btn history-btn utility-btn" data-focus-hero="tool_ai_config" data-copy-hero="tool_ai_config" type="button" @click="aiConfigPreview = false; aiConfigChanges = []; aiConfigTargetWorldbook = selectedWorldbookName || ''">🔧 AI配置</button>
+                <button class="btn history-btn utility-btn" data-focus-hero="tool_ai_config" data-copy-hero="tool_ai_config" type="button" @click="openAiConfigModal">🔧 AI配置</button>
                 <button class="btn history-btn utility-btn focus-tools-collapse" type="button" @click="closeFocusToolsBand">收起工具</button>
               </div>
             </Transition>
