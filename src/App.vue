@@ -284,75 +284,36 @@
               <span v-for="name in bindings.charAdditional" :key="`bca-m-${name}`" class="binding-chip char" :title="name">{{ name }}</span>
               <span v-if="bindings.chat" :key="`bch-m-${bindings.chat}`" class="binding-chip chat" :title="bindings.chat">{{ bindings.chat }}</span>
             </div>
-            <!-- Global Mode Panel (mobile) -->
-            <div v-if="globalWorldbookMode" style="border:1px solid var(--wb-border-subtle);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--wb-bg-card);">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-weight:600;font-size:13px;">🌐 全局世界书（{{ bindings.global.length }}）</span>
-                <button class="btn mini danger" type="button" :disabled="!bindings.global.length" @click="clearGlobalWorldbooks" style="font-size:11px;">清空</button>
-              </div>
-              <label class="field" style="margin-bottom:6px;">
-                <span style="font-size:12px;">预设（切换即应用）</span>
-                <select v-model="selectedGlobalPresetId" class="text-input" @change="onGlobalPresetSelectionChanged" style="font-size:12px;">
-                  <option value="">默认预设（清空全局世界书）</option>
-                  <option v-for="preset in globalWorldbookPresets" :key="preset.id" :value="preset.id">
-                    {{ preset.name }}（{{ preset.worldbooks.length }}）
-                  </option>
-                </select>
-              </label>
-              <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">
-                <button class="btn mini" type="button" :disabled="!bindings.global.length" @click="saveCurrentAsGlobalPreset" style="font-size:11px;">保存组合</button>
-                <button class="btn mini" type="button" :disabled="!selectedGlobalPreset" @click="overwriteSelectedGlobalPreset" style="font-size:11px;">覆盖预设</button>
-                <button class="btn mini danger" type="button" :disabled="!selectedGlobalPreset" @click="deleteSelectedGlobalPreset" style="font-size:11px;">删除预设</button>
-              </div>
-              <label class="field" style="margin-bottom:6px;">
-                <span style="font-size:12px;">搜索并添加</span>
-                <input v-model="globalAddSearchText" type="text" class="text-input" placeholder="搜索世界书..." @keydown.enter.prevent="addFirstGlobalCandidate" style="font-size:12px;" />
-              </label>
-              <div v-if="globalAddCandidates.length" style="max-height:120px;overflow-y:auto;margin-bottom:6px;">
-                <button v-for="name in globalAddCandidates" :key="`m-add-${name}`" type="button" style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:6px 8px;border:none;background:var(--wb-input-bg);border-radius:4px;color:var(--wb-text-main);font-size:12px;margin-bottom:2px;cursor:pointer;" @click="addGlobalWorldbook(name)">
-                  <span>{{ name }}</span><span style="color:#22c55e;">+ 添加</span>
-                </button>
-              </div>
-              <div v-if="filteredGlobalWorldbooks.length" style="font-size:12px;margin-bottom:4px;opacity:0.7;">已启用：</div>
-              <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:8px;">
-                <button v-for="name in filteredGlobalWorldbooks" :key="`m-gl-${name}`" type="button" style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:6px 8px;border:none;background:var(--wb-input-bg);border-radius:4px;color:var(--wb-text-main);font-size:12px;cursor:pointer;" @click="removeGlobalWorldbook(name)">
-                  <span>{{ name }}</span><span style="color:#ef4444;">移除</span>
-                </button>
-              </div>
-              <!-- Role Binding Section -->
-              <div style="border-top:1px solid var(--wb-border-subtle);padding-top:8px;margin-top:4px;">
-                <div style="font-size:12px;font-weight:600;margin-bottom:6px;">角色绑定</div>
-                <div style="font-size:11px;margin-bottom:6px;opacity:0.8;" :style="{ color: currentRoleContext ? '#60a5fa' : '#94a3b8' }">
-                  {{ currentRoleContext ? `当前角色: ${currentRoleContext.name}` : '当前未进入角色聊天' }}
-                </div>
-                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
-                  <button class="btn mini" type="button" :disabled="!selectedGlobalPreset || !currentRoleContext" @click="bindCurrentRoleToSelectedPreset" style="font-size:11px;">绑定当前角色</button>
-                  <button class="btn mini" type="button" :disabled="!selectedGlobalPreset || !isCurrentRoleBoundToSelectedPreset" @click="unbindCurrentRoleFromSelectedPreset" style="font-size:11px;">解绑当前角色</button>
-                </div>
-                <div style="margin-bottom:6px;">
-                  <button type="button" :disabled="!selectedGlobalPreset" @click="toggleRolePicker" style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:6px 8px;border:1px solid var(--wb-border-subtle);border-radius:4px;background:var(--wb-input-bg);color:var(--wb-text-main);font-size:12px;cursor:pointer;">
-                    <span>{{ selectedGlobalPreset ? '从角色卡列表选择绑定' : '请先选择预设' }}</span>
-                    <span>{{ rolePickerOpen ? '▴' : '▾' }}</span>
-                  </button>
-                  <div v-if="rolePickerOpen" style="margin-top:4px;">
-                    <input v-model="roleBindSearchText" type="text" class="text-input" placeholder="搜索角色名..." style="font-size:12px;margin-bottom:4px;" @keydown.enter.prevent="bindFirstRoleCandidate" />
-                    <div style="max-height:120px;overflow-y:auto;">
-                      <button v-for="candidate in roleBindingCandidates" :key="`m-role-${candidate.key}`" type="button" :disabled="candidate.bound" style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:6px 8px;border:none;background:var(--wb-input-bg);border-radius:4px;color:var(--wb-text-main);font-size:12px;margin-bottom:2px;cursor:pointer;opacity: 1;" :style="{ opacity: candidate.bound ? '0.5' : '1' }" @click="bindRoleCandidateToSelectedPreset(candidate)">
-                        <span>{{ candidate.name }}</span><span :style="{ color: candidate.bound ? '#94a3b8' : '#22c55e' }">{{ candidate.bound ? '已绑定' : '绑定' }}</span>
-                      </button>
-                      <div v-if="!roleBindingCandidates.length" style="font-size:11px;opacity:0.5;padding:4px;">没有匹配角色</div>
-                    </div>
-                  </div>
-                </div>
-                <div v-if="selectedGlobalPreset" style="display:flex;flex-wrap:wrap;gap:4px;">
-                  <button v-for="binding in selectedGlobalPresetRoleBindings" :key="`m-rb-${selectedGlobalPreset?.id}-${binding.key}`" type="button" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid var(--wb-border-subtle);border-radius:4px;background:var(--wb-input-bg);color:var(--wb-text-main);font-size:11px;cursor:pointer;" @click="removeRoleBindingFromSelectedPreset(binding.key)">
-                    {{ binding.name }} <span style="color:#ef4444;">×</span>
-                  </button>
-                  <div v-if="!selectedGlobalPresetRoleBindings.length" style="font-size:11px;opacity:0.5;">当前预设尚未绑定角色</div>
-                </div>
-                <div v-else style="font-size:11px;opacity:0.5;">选择预设后可配置角色绑定</div>
-              </div>
-            </div>
+            <GlobalModeMobilePanel
+              v-if="globalWorldbookMode"
+              :bindings-global="bindings.global"
+              v-model:selected-global-preset-id="selectedGlobalPresetId"
+              :global-worldbook-presets="globalWorldbookPresets"
+              :selected-global-preset="selectedGlobalPreset"
+              v-model:global-add-search-text="globalAddSearchText"
+              :global-add-candidates="globalAddCandidates"
+              :filtered-global-worldbooks="filteredGlobalWorldbooks"
+              :current-role-context="currentRoleContext"
+              :is-current-role-bound-to-selected-preset="isCurrentRoleBoundToSelectedPreset"
+              :role-picker-open="rolePickerOpen"
+              v-model:role-bind-search-text="roleBindSearchText"
+              :role-binding-candidates="roleBindingCandidates"
+              :selected-global-preset-role-bindings="selectedGlobalPresetRoleBindings"
+              @clear-global-worldbooks="clearGlobalWorldbooks"
+              @global-preset-selection-changed="onGlobalPresetSelectionChanged"
+              @save-current-as-global-preset="saveCurrentAsGlobalPreset"
+              @overwrite-selected-global-preset="overwriteSelectedGlobalPreset"
+              @delete-selected-global-preset="deleteSelectedGlobalPreset"
+              @add-first-global-candidate="addFirstGlobalCandidate"
+              @add-global-worldbook="addGlobalWorldbook"
+              @remove-global-worldbook="removeGlobalWorldbook"
+              @bind-current-role-to-selected-preset="bindCurrentRoleToSelectedPreset"
+              @unbind-current-role-from-selected-preset="unbindCurrentRoleFromSelectedPreset"
+              @toggle-role-picker="toggleRolePicker"
+              @bind-first-role-candidate="bindFirstRoleCandidate"
+              @bind-role-candidate-to-selected-preset="bindRoleCandidateToSelectedPreset"
+              @remove-role-binding-from-selected-preset="removeRoleBindingFromSelectedPreset"
+            />
             <div class="mobile-entry-list">
               <div v-if="mobileMultiSelectMode" class="mobile-multi-toolbar">
                 <span class="mobile-multi-title">多选模式 · 已选 {{ selectedEntryCount }}</span>
@@ -647,108 +608,28 @@
           <!-- Tab: 标签 -->
           <Transition name="mobile-tab">
           <div v-show="mobileTab === 'tags'" class="mobile-pane">
-            <section class="tag-editor-panel mobile-tag-editor">
-              <div class="tag-editor-title">🏷️ 标签管理</div>
-              <div class="tag-create-panel">
-                <div class="tag-create-row">
-                  <input
-                    v-model="tagNewName"
-                    type="text"
-                    class="text-input"
-                    placeholder="新标签名称"
-                    @keydown.enter.prevent="tagCreate"
-                  />
-                  <button class="btn" type="button" @click="tagCreate">创建</button>
-                  <button class="btn danger" type="button" @click="tagResetAll" :disabled="!tagDefinitions.length">清除全部</button>
-                </div>
-                <label class="field tag-parent-field">
-                  <span>父标签（可选）</span>
-                  <select v-model="tagNewParentId" class="text-input">
-                    <option value="">根级</option>
-                    <option v-for="option in tagAssignOptions" :key="`new-parent-mobile-${option.id}`" :value="option.id">
-                      {{ option.path }}
-                    </option>
-                  </select>
-                </label>
-              </div>
-
-              <div v-if="tagDefinitions.length" class="tag-editor-tree-wrap">
-                <div class="tag-editor-subtitle">标签树</div>
-                <div class="tag-editor-tree-list">
-                  <div v-for="row in tagManagementRows" :key="`tag-mobile-row-${row.id}`" class="tag-editor-tree-item" :style="{ '--tag-color': row.color, '--depth': row.depth }">
-                    <span class="tag-editor-indent"></span>
-                    <span class="tag-editor-dot" :style="{ background: row.color }"></span>
-                    <input
-                      :value="tagDefinitionMap.get(row.id)?.name ?? ''"
-                      class="tag-editor-name-input"
-                      @blur="tagRename(row.id, ($event.target as HTMLInputElement).value)"
-                      @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
-                    />
-                    <select
-                      class="text-input tag-parent-select"
-                      :value="tagDefinitionMap.get(row.id)?.parent_id ?? ''"
-                      @change="tagSetParent(row.id, ($event.target as HTMLSelectElement).value || null)"
-                    >
-                      <option value="">根级</option>
-                      <option
-                        v-for="option in tagAssignOptions"
-                        :key="`tag-parent-mobile-${row.id}-${option.id}`"
-                        :value="option.id"
-                        :disabled="isTagParentOptionDisabled(row.id, option.id)"
-                      >
-                        {{ option.path }}
-                      </option>
-                    </select>
-                    <div class="tag-color-picker">
-                      <button
-                        v-for="c in TAG_COLORS"
-                        :key="`mobile-color-${row.id}-${c}`"
-                        class="tag-color-dot"
-                        :class="{ active: row.color === c }"
-                        :style="{ background: c }"
-                        type="button"
-                        @click="tagSetColor(row.id, c)"
-                      ></button>
-                    </div>
-                    <button class="tag-delete-btn" type="button" @click="tagDelete(row.id)">×</button>
-                  </div>
-                </div>
-              </div>
-
-              <div v-if="tagDefinitions.length" class="tag-assign-panel">
-                <div class="tag-editor-subtitle">世界书分配</div>
-                <div class="tag-assign-controls">
-                  <label class="field">
-                    <span>当前分配标签</span>
-                    <select v-model="tagAssignTargetId" class="text-input">
-                      <option value="">请选择标签</option>
-                      <option v-for="option in tagAssignOptions" :key="`assign-mobile-${option.id}`" :value="option.id">
-                        {{ option.path }}
-                      </option>
-                    </select>
-                  </label>
-                  <input v-model="tagAssignSearch" type="text" class="text-input" placeholder="搜索世界书..." />
-                </div>
-                <div class="tag-assign-list compact">
-                  <button
-                    v-for="name in tagAssignWorldbooks"
-                    :key="`assign-mobile-wb-${name}`"
-                    class="tag-assign-row toggle"
-                    :class="{ active: tagAssignTargetId ? (tagAssignments[name] ?? []).includes(tagAssignTargetId) : false }"
-                    type="button"
-                    :disabled="!tagAssignTargetId"
-                    @click="tagToggleAssignmentForSelectedTag(name)"
-                  >
-                    <span class="tag-assign-name" :title="name">{{ name }}</span>
-                    <span class="tag-assign-state">{{ tagAssignTargetId && (tagAssignments[name] ?? []).includes(tagAssignTargetId) ? '已分配' : '未分配' }}</span>
-                    <span class="tag-assign-paths">{{ getWorldbookTagPathSummary(name) }}</span>
-                  </button>
-                  <div v-if="!tagAssignWorldbooks.length" class="empty-note">没有匹配的世界书</div>
-                </div>
-              </div>
-
-              <div v-else class="empty-note" style="margin-top:16px;">暂无标签，请先创建</div>
-            </section>
+            <TagEditorMobilePanel
+              :tag-definitions="tagDefinitions"
+              v-model:tag-new-name="tagNewName"
+              v-model:tag-new-parent-id="tagNewParentId"
+              :tag-assign-options="tagAssignOptions"
+              :tag-management-rows="tagManagementRows"
+              :tag-definition-map="tagDefinitionMap"
+              :tag-colors="TAG_COLORS"
+              :is-tag-parent-option-disabled="isTagParentOptionDisabled"
+              v-model:tag-assign-target-id="tagAssignTargetId"
+              v-model:tag-assign-search="tagAssignSearch"
+              :tag-assign-worldbooks="tagAssignWorldbooks"
+              :tag-assignments="tagAssignments"
+              :get-worldbook-tag-path-summary="getWorldbookTagPathSummary"
+              @tag-create="tagCreate"
+              @tag-reset-all="tagResetAll"
+              @tag-rename="tagRename"
+              @tag-set-parent="tagSetParent"
+              @tag-set-color="tagSetColor"
+              @tag-delete="tagDelete"
+              @tag-toggle-assignment-for-selected-tag="tagToggleAssignmentForSelectedTag"
+            />
           </div>
           </Transition>
 
@@ -853,63 +734,16 @@
         <button class="btn mini utility-btn" :class="{ active: globalWorldbookMode }" type="button" @click="toggleGlobalMode">🌐 全局模式</button>
       </section>
 
-      <!-- Global Mode Panel (reuse existing) -->
-      <section v-if="globalWorldbookMode" class="wb-bindings browse-global-mode">
-        <!-- Intentionally showing the same global mode panel -->
-        <div class="global-mode-panel">
-          <div class="global-mode-grid">
-            <div class="global-mode-column">
-              <label class="field">
-                <span>搜索并添加常驻世界书</span>
-                <input
-                  v-model="globalAddSearchText"
-                  type="text"
-                  class="text-input"
-                  placeholder="搜索并添加..."
-                  @keydown.enter.prevent="addFirstGlobalCandidate"
-                />
-              </label>
-              <TransitionGroup name="list" tag="div" class="global-mode-list">
-                <button
-                  v-for="name in globalAddCandidates"
-                  :key="`browse-add-${name}`"
-                  class="global-mode-item add"
-                  type="button"
-                  @click="addGlobalWorldbook(name)"
-                >
-                  <span class="global-mode-item-name">{{ name }}</span>
-                  <span class="global-mode-item-action">添加</span>
-                </button>
-                <div v-if="!globalAddCandidates.length" key="empty" class="empty-note">没有可添加的世界书</div>
-              </TransitionGroup>
-            </div>
-            <div class="global-mode-column">
-              <label class="field">
-                <span>筛选常驻世界书</span>
-                <input
-                  v-model="globalFilterText"
-                  type="text"
-                  class="text-input"
-                  placeholder="筛选..."
-                />
-              </label>
-              <TransitionGroup name="list" tag="div" class="global-mode-list">
-                <button
-                  v-for="name in filteredGlobalWorldbooks"
-                  :key="`browse-global-${name}`"
-                  class="global-mode-item active"
-                  type="button"
-                  @click="removeGlobalWorldbook(name)"
-                >
-                  <span class="global-mode-item-name">{{ name }}</span>
-                  <span class="global-mode-item-action">移除</span>
-                </button>
-                <div v-if="!filteredGlobalWorldbooks.length" key="empty" class="empty-note">暂无常驻世界书</div>
-              </TransitionGroup>
-            </div>
-          </div>
-        </div>
-      </section>
+      <GlobalModeBrowsePanel
+        v-if="globalWorldbookMode"
+        v-model:global-add-search-text="globalAddSearchText"
+        v-model:global-filter-text="globalFilterText"
+        :global-add-candidates="globalAddCandidates"
+        :filtered-global-worldbooks="filteredGlobalWorldbooks"
+        @add-first-global-candidate="addFirstGlobalCandidate"
+        @add-global-worldbook="addGlobalWorldbook"
+        @remove-global-worldbook="removeGlobalWorldbook"
+      />
 
       <!-- Card Grid -->
       <div class="browse-scroll-area">
@@ -1469,187 +1303,42 @@
               </button>
             </div>
             </Transition>
-            <div v-if="globalWorldbookMode" class="global-mode-panel">
-              <div class="global-mode-head">
-                <span class="global-mode-title">全局世界书（{{ bindings.global.length }}）</span>
-                <button class="btn mini danger" type="button" :disabled="!bindings.global.length" @click="clearGlobalWorldbooks">
-                  清空全局
-                </button>
-              </div>
-              <div class="global-mode-sections">
-                <details class="global-mode-section" open>
-                  <summary class="global-mode-section-summary">
-                    <span class="global-mode-section-title">世界书预设（切换即应用）</span>
-                    <span class="global-mode-section-meta">
-                      {{ selectedGlobalPreset ? selectedGlobalPreset.name : '默认预设（清空全局）' }}
-                    </span>
-                  </summary>
-                  <div class="global-mode-section-body global-preset-panel">
-                    <label class="field">
-                      <span>选择预设</span>
-                      <select v-model="selectedGlobalPresetId" class="text-input" @change="onGlobalPresetSelectionChanged">
-                        <option value="">默认预设（清空全局世界书）</option>
-                        <option v-for="preset in globalWorldbookPresets" :key="preset.id" :value="preset.id">
-                          {{ preset.name }}（{{ preset.worldbooks.length }}）
-                        </option>
-                      </select>
-                    </label>
-                    <div class="global-mode-actions">
-                      <button class="btn" type="button" :disabled="!bindings.global.length" @click="saveCurrentAsGlobalPreset">
-                        保存当前组合
-                      </button>
-                      <button class="btn" type="button" :disabled="!selectedGlobalPreset" @click="overwriteSelectedGlobalPreset">
-                        覆盖当前预设
-                      </button>
-                      <button class="btn danger" type="button" :disabled="!selectedGlobalPreset" @click="deleteSelectedGlobalPreset">
-                        删除预设
-                      </button>
-                    </div>
-                  </div>
-                </details>
-
-                <details class="global-mode-section" open>
-                  <summary class="global-mode-section-summary">
-                    <span class="global-mode-section-title">角色绑定（一个预设可绑定多个角色）</span>
-                    <span class="preset-role-current" :class="{ empty: !currentRoleContext }">
-                      {{ currentRoleContext ? `当前角色: ${currentRoleContext.name}` : '当前未进入角色聊天' }}
-                    </span>
-                  </summary>
-                  <div class="global-mode-section-body preset-role-panel">
-                    <div class="preset-role-actions">
-                      <button
-                        class="btn mini"
-                        type="button"
-                        :disabled="!selectedGlobalPreset || !currentRoleContext"
-                        @click="bindCurrentRoleToSelectedPreset"
-                      >
-                        绑定当前角色
-                      </button>
-                      <button
-                        class="btn mini"
-                        type="button"
-                        :disabled="!selectedGlobalPreset || !isCurrentRoleBoundToSelectedPreset"
-                        @click="unbindCurrentRoleFromSelectedPreset"
-                      >
-                        解绑当前角色
-                      </button>
-                    </div>
-                    <div ref="rolePickerRef" class="role-picker">
-                      <button
-                        class="role-picker-trigger"
-                        type="button"
-                        :disabled="!selectedGlobalPreset"
-                        @click="toggleRolePicker"
-                      >
-                        <span class="role-picker-trigger-text">
-                          {{ selectedGlobalPreset ? '从角色卡列表选择绑定' : '请先选择预设' }}
-                        </span>
-                        <span class="role-picker-trigger-arrow">{{ rolePickerOpen ? '▴' : '▾' }}</span>
-                      </button>
-                      <div v-if="rolePickerOpen" class="role-picker-dropdown">
-                        <input
-                          ref="rolePickerSearchInputRef"
-                          v-model="roleBindSearchText"
-                          type="text"
-                          class="text-input role-picker-search"
-                          placeholder="搜索角色名 / avatar..."
-                          @keydown.enter.prevent="bindFirstRoleCandidate"
-                        />
-                        <div class="role-picker-list">
-                          <button
-                            v-for="candidate in roleBindingCandidates"
-                            :key="`role-candidate-${candidate.key}`"
-                            class="role-picker-item"
-                            type="button"
-                            :disabled="candidate.bound"
-                            @click="bindRoleCandidateToSelectedPreset(candidate)"
-                          >
-                            <span class="name">{{ candidate.name }}</span>
-                            <span class="meta">{{ candidate.bound ? '已绑定' : '绑定' }}</span>
-                          </button>
-                          <div v-if="!roleBindingCandidates.length" class="empty-note">没有匹配角色</div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="preset-role-tags">
-                      <button
-                        v-for="binding in selectedGlobalPresetRoleBindings"
-                        :key="`binding-${selectedGlobalPreset?.id}-${binding.key}`"
-                        class="preset-role-tag"
-                        type="button"
-                        :title="`点击移除绑定: ${binding.name}`"
-                        @click="removeRoleBindingFromSelectedPreset(binding.key)"
-                      >
-                        <span>{{ binding.name }}</span>
-                        <span class="remove">×</span>
-                      </button>
-                      <div v-if="selectedGlobalPreset && !selectedGlobalPresetRoleBindings.length" class="empty-note">
-                        当前预设尚未绑定角色
-                      </div>
-                      <div v-if="!selectedGlobalPreset" class="empty-note">选择预设后可配置角色绑定</div>
-                    </div>
-                  </div>
-                </details>
-              </div>
-              <div class="global-mode-grid">
-                <div class="global-mode-column">
-                  <label class="field">
-                    <span>搜索并添加常驻世界书</span>
-                    <input
-                      v-model="globalAddSearchText"
-                      type="text"
-                      class="text-input"
-                      placeholder="搜索并添加常驻世界书..."
-                      @keydown.enter.prevent="addFirstGlobalCandidate"
-                    />
-                  </label>
-                  <TransitionGroup name="list" tag="div" class="global-mode-list">
-                    <button
-                      v-for="name in globalAddCandidates"
-                      :key="`add-${name}`"
-                      class="global-mode-item add"
-                      type="button"
-                      @click="addGlobalWorldbook(name)"
-                    >
-                      <span class="global-mode-item-name">{{ name }}</span>
-                      <span class="global-mode-item-action">添加</span>
-                    </button>
-                    <div v-if="!globalAddCandidates.length" key="empty" class="empty-note">没有可添加的世界书</div>
-                  </TransitionGroup>
-                </div>
-                <div class="global-mode-column">
-                  <label class="field">
-                    <span>筛选常驻世界书</span>
-                    <input
-                      v-model="globalFilterText"
-                      type="text"
-                      class="text-input"
-                      placeholder="筛选常驻世界书..."
-                    />
-                  </label>
-                  <TransitionGroup name="list" tag="div" class="global-mode-list">
-                    <button
-                      v-for="name in filteredGlobalWorldbooks"
-                      :key="`global-${name}`"
-                      class="global-mode-item active"
-                      type="button"
-                      @click="removeGlobalWorldbook(name)"
-                    >
-                      <span class="global-mode-item-name">{{ name }}</span>
-                      <span class="global-mode-item-action">移除</span>
-                    </button>
-                    <div v-if="!filteredGlobalWorldbooks.length" key="empty" class="empty-note">
-                      {{ bindings.global.length ? '没有匹配结果' : '暂无常驻世界书' }}
-                    </div>
-                  </TransitionGroup>
-                </div>
-              </div>
-              <div class="global-mode-actions">
-                <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="toggleGlobalBinding">
-                  {{ isGlobalBound ? '移出全局' : '加入全局' }}
-                </button>
-              </div>
-            </div>
+            <GlobalModeDesktopPanel
+              v-if="globalWorldbookMode"
+              :bindings-global="bindings.global"
+              :selected-worldbook-name="selectedWorldbookName"
+              v-model:selected-global-preset-id="selectedGlobalPresetId"
+              :global-worldbook-presets="globalWorldbookPresets"
+              :selected-global-preset="selectedGlobalPreset"
+              :current-role-context="currentRoleContext"
+              :is-current-role-bound-to-selected-preset="isCurrentRoleBoundToSelectedPreset"
+              :role-picker-open="rolePickerOpen"
+              v-model:role-bind-search-text="roleBindSearchText"
+              :role-binding-candidates="roleBindingCandidates"
+              :selected-global-preset-role-bindings="selectedGlobalPresetRoleBindings"
+              :is-global-bound="isGlobalBound"
+              :set-role-picker-element="setRolePickerElement"
+              :set-role-picker-search-input-element="setRolePickerSearchInputElement"
+              v-model:global-add-search-text="globalAddSearchText"
+              :global-add-candidates="globalAddCandidates"
+              v-model:global-filter-text="globalFilterText"
+              :filtered-global-worldbooks="filteredGlobalWorldbooks"
+              @clear-global-worldbooks="clearGlobalWorldbooks"
+              @global-preset-selection-changed="onGlobalPresetSelectionChanged"
+              @save-current-as-global-preset="saveCurrentAsGlobalPreset"
+              @overwrite-selected-global-preset="overwriteSelectedGlobalPreset"
+              @delete-selected-global-preset="deleteSelectedGlobalPreset"
+              @bind-current-role-to-selected-preset="bindCurrentRoleToSelectedPreset"
+              @unbind-current-role-from-selected-preset="unbindCurrentRoleFromSelectedPreset"
+              @toggle-role-picker="toggleRolePicker"
+              @bind-first-role-candidate="bindFirstRoleCandidate"
+              @bind-role-candidate-to-selected-preset="bindRoleCandidateToSelectedPreset"
+              @remove-role-binding-from-selected-preset="removeRoleBindingFromSelectedPreset"
+              @add-first-global-candidate="addFirstGlobalCandidate"
+              @add-global-worldbook="addGlobalWorldbook"
+              @remove-global-worldbook="removeGlobalWorldbook"
+              @toggle-global-binding="toggleGlobalBinding"
+            />
           </section>
 
           <!-- ═══ AI Generator Panel ═══ -->
@@ -1740,107 +1429,29 @@
           </section>
 
           <!-- 标签编辑模式 -->
-          <section v-if="tagEditorMode" class="tag-editor-panel" style="padding:16px;">
-            <div class="tag-editor-title">🏷️ 标签管理</div>
-            <div class="tag-create-panel desktop">
-              <div class="tag-create-row">
-                <input
-                  v-model="tagNewName"
-                  type="text"
-                  class="text-input"
-                  placeholder="新标签名称"
-                  @keydown.enter.prevent="tagCreate"
-                />
-                <select v-model="tagNewParentId" class="text-input tag-parent-select">
-                  <option value="">根级</option>
-                  <option v-for="option in tagAssignOptions" :key="`new-parent-desktop-${option.id}`" :value="option.id">
-                    {{ option.path }}
-                  </option>
-                </select>
-                <button class="btn" type="button" @click="tagCreate">创建</button>
-                <button class="btn danger" type="button" @click="tagResetAll" :disabled="!tagDefinitions.length">清除全部</button>
-              </div>
-            </div>
-            <div v-if="tagDefinitions.length" class="tag-editor-layout">
-              <div class="tag-editor-tree-wrap">
-                <div class="tag-editor-subtitle">标签树</div>
-                <TransitionGroup name="list" tag="div" class="tag-editor-tree-list">
-                  <div v-for="row in tagManagementRows" :key="`tag-desktop-row-${row.id}`" class="tag-editor-tree-item" :style="{ '--tag-color': row.color, '--depth': row.depth }">
-                    <span class="tag-editor-indent"></span>
-                    <span class="tag-editor-dot" :style="{ background: row.color }"></span>
-                    <input
-                      :value="tagDefinitionMap.get(row.id)?.name ?? ''"
-                      class="tag-editor-name-input"
-                      @blur="tagRename(row.id, ($event.target as HTMLInputElement).value)"
-                      @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
-                    />
-                    <select
-                      class="text-input tag-parent-select"
-                      :value="tagDefinitionMap.get(row.id)?.parent_id ?? ''"
-                      @change="tagSetParent(row.id, ($event.target as HTMLSelectElement).value || null)"
-                    >
-                      <option value="">根级</option>
-                      <option
-                        v-for="option in tagAssignOptions"
-                        :key="`tag-parent-desktop-${row.id}-${option.id}`"
-                        :value="option.id"
-                        :disabled="isTagParentOptionDisabled(row.id, option.id)"
-                      >
-                        {{ option.path }}
-                      </option>
-                    </select>
-                    <div class="tag-color-picker">
-                      <button
-                        v-for="c in TAG_COLORS"
-                        :key="`desktop-color-${row.id}-${c}`"
-                        class="tag-color-dot"
-                        :class="{ active: row.color === c }"
-                        :style="{ background: c }"
-                        type="button"
-                        @click="tagSetColor(row.id, c)"
-                      ></button>
-                    </div>
-                    <button class="tag-delete-btn" type="button" @click="tagDelete(row.id)">×</button>
-                  </div>
-                </TransitionGroup>
-              </div>
-              <div class="tag-assign-panel">
-                <div class="tag-editor-subtitle">世界书分配</div>
-                <div class="tag-assign-controls">
-                  <label class="field">
-                    <span>当前分配标签</span>
-                    <select v-model="tagAssignTargetId" class="text-input">
-                      <option value="">请选择标签</option>
-                      <option v-for="option in tagAssignOptions" :key="`assign-desktop-${option.id}`" :value="option.id">
-                        {{ option.path }}
-                      </option>
-                    </select>
-                  </label>
-                  <label class="field">
-                    <span>搜索世界书</span>
-                    <input v-model="tagAssignSearch" type="text" class="text-input" placeholder="搜索世界书..." />
-                  </label>
-                </div>
-                <div class="tag-assign-list">
-                  <button
-                    v-for="name in tagAssignWorldbooks"
-                    :key="`assign-desktop-wb-${name}`"
-                    class="tag-assign-row toggle"
-                    :class="{ active: tagAssignTargetId ? (tagAssignments[name] ?? []).includes(tagAssignTargetId) : false }"
-                    type="button"
-                    :disabled="!tagAssignTargetId"
-                    @click="tagToggleAssignmentForSelectedTag(name)"
-                  >
-                    <span class="tag-assign-name" :title="name">{{ name }}</span>
-                    <span class="tag-assign-state">{{ tagAssignTargetId && (tagAssignments[name] ?? []).includes(tagAssignTargetId) ? '已分配' : '未分配' }}</span>
-                    <span class="tag-assign-paths">{{ getWorldbookTagPathSummary(name) }}</span>
-                  </button>
-                  <div v-if="!tagAssignWorldbooks.length" class="empty-note">没有匹配的世界书</div>
-                </div>
-              </div>
-            </div>
-            <div v-else class="empty-note" style="margin-top:20px;">暂无标签，请先创建</div>
-          </section>
+          <TagEditorDesktopPanel
+            v-if="tagEditorMode"
+            :tag-definitions="tagDefinitions"
+            v-model:tag-new-name="tagNewName"
+            v-model:tag-new-parent-id="tagNewParentId"
+            :tag-assign-options="tagAssignOptions"
+            :tag-management-rows="tagManagementRows"
+            :tag-definition-map="tagDefinitionMap"
+            :tag-colors="TAG_COLORS"
+            :is-tag-parent-option-disabled="isTagParentOptionDisabled"
+            v-model:tag-assign-target-id="tagAssignTargetId"
+            v-model:tag-assign-search="tagAssignSearch"
+            :tag-assign-worldbooks="tagAssignWorldbooks"
+            :tag-assignments="tagAssignments"
+            :get-worldbook-tag-path-summary="getWorldbookTagPathSummary"
+            @tag-create="tagCreate"
+            @tag-reset-all="tagResetAll"
+            @tag-rename="tagRename"
+            @tag-set-parent="tagSetParent"
+            @tag-set-color="tagSetColor"
+            @tag-delete="tagDelete"
+            @tag-toggle-assignment-for-selected-tag="tagToggleAssignmentForSelectedTag"
+          />
 
           <CrossCopyDesktopPanel
             v-if="crossCopyMode"
@@ -2608,7 +2219,14 @@ import CrossCopyDesktopPanel from './components/CrossCopyDesktopPanel.vue';
 import CrossCopyDiffModal from './components/CrossCopyDiffModal.vue';
 import AIConfigModals from './components/AIConfigModals.vue';
 import AITagReviewModal from './components/AITagReviewModal.vue';
+import GlobalModeBrowsePanel from './components/GlobalModeBrowsePanel.vue';
+import GlobalModeMobilePanel from './components/GlobalModeMobilePanel.vue';
+import GlobalModeDesktopPanel from './components/GlobalModeDesktopPanel.vue';
+import TagEditorMobilePanel from './components/TagEditorMobilePanel.vue';
+import TagEditorDesktopPanel from './components/TagEditorDesktopPanel.vue';
 import './components/crossCopyShared.css';
+import './components/globalModeDesktopShared.css';
+import './components/tagEditorShared.css';
 import {
   createId,
   asRecord,
@@ -3290,6 +2908,14 @@ const {
   loadWorldbook,
   pushSnapshotForWorldbook,
 });
+
+function setRolePickerElement(element: HTMLElement | null): void {
+  rolePickerRef.value = element;
+}
+
+function setRolePickerSearchInputElement(element: HTMLInputElement | null): void {
+  rolePickerSearchInputRef.value = element;
+}
 
 function setCrossCopyGridElement(element: HTMLElement | null): void {
   crossCopyGridRef.value = element;
@@ -6623,327 +6249,6 @@ watch(hasUnsavedChanges, (val) => {
   transform: translateY(-6px);
 }
 
-.global-mode-panel {
-  border-radius: 12px;
-  background: var(--wb-bg-panel);
-  padding: 12px;
-  display: grid;
-  gap: 12px;
-}
-
-.global-mode-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-
-.global-mode-title {
-  color: var(--wb-primary-light);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.global-mode-sections {
-  display: grid;
-  gap: 10px;
-}
-
-.global-mode-section {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 10px;
-  background: var(--wb-bg-panel);
-  overflow: hidden;
-}
-
-.global-mode-section-summary {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  cursor: pointer;
-  user-select: none;
-  transition: background 180ms ease;
-}
-
-.global-mode-section-summary:hover {
-  background: color-mix(in srgb, var(--wb-primary-soft) 45%, transparent);
-}
-
-.global-mode-section-summary::-webkit-details-marker {
-  display: none;
-}
-
-.global-mode-section-summary::after {
-  content: '▾';
-  margin-left: auto;
-  color: var(--wb-text-muted);
-  transition: transform 180ms ease;
-}
-
-.global-mode-section:not([open]) .global-mode-section-summary::after {
-  transform: rotate(-90deg);
-}
-
-.global-mode-section-title {
-  color: var(--wb-primary-light);
-  font-weight: 600;
-}
-
-.global-mode-section-meta {
-  color: var(--wb-text-muted);
-  font-size: 12px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.global-mode-section-body {
-  border-top: 1px solid var(--wb-border-subtle);
-  padding: 10px;
-  display: grid;
-  gap: 8px;
-}
-
-.global-preset-panel {
-  display: grid;
-  gap: 8px;
-}
-
-.preset-role-panel {
-  display: grid;
-  gap: 6px;
-}
-
-.preset-role-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.preset-role-current {
-  color: var(--wb-primary);
-  font-size: 12px;
-}
-
-.preset-role-current.empty {
-  color: var(--wb-text-muted);
-}
-
-.preset-role-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.role-picker {
-  position: relative;
-}
-
-.role-picker-trigger {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: var(--wb-input-bg);
-  color: var(--wb-text-main);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.role-picker-trigger:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.role-picker-trigger:hover:not(:disabled) {
-  border-color: var(--wb-primary-light);
-}
-
-.role-picker-trigger-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-}
-
-.role-picker-trigger-arrow {
-  flex-shrink: 0;
-  color: var(--wb-text-muted);
-}
-
-.wb-assistant-root .role-picker-dropdown {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 10130;
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 8px;
-  background: var(--wb-dropdown-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.4);
-  padding: 8px;
-  display: grid;
-  gap: 8px;
-}
-
-.role-picker-search {
-  width: 100%;
-}
-
-.role-picker-list {
-  border: none;
-  border-radius: 8px;
-  background: var(--wb-bg-panel);
-  max-height: 220px;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.role-picker-item {
-  width: 100%;
-  border: none;
-  border-bottom: 1px solid var(--wb-border-subtle);
-  background: transparent;
-  color: var(--wb-text-main);
-  padding: 8px 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.role-picker-item:last-child {
-  border-bottom: none;
-}
-
-.role-picker-item:hover:not(:disabled) {
-  background: var(--wb-primary-soft);
-}
-
-.role-picker-item:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.role-picker-item .name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.role-picker-item .meta {
-  color: var(--wb-primary-light);
-  flex-shrink: 0;
-  font-size: 11px;
-}
-
-.preset-role-tags {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.preset-role-tag {
-  border: 1px solid var(--wb-border-subtle);
-  border-radius: 999px;
-  background: var(--wb-bg-panel);
-  color: var(--wb-text-main);
-  padding: 2px 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.preset-role-tag:hover {
-  border-color: #f43f5e;
-}
-
-.preset-role-tag .remove {
-  color: #fca5a5;
-}
-
-.global-mode-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.global-mode-column {
-  border-radius: 8px;
-  padding: 10px;
-  background: var(--wb-bg-panel);
-  display: grid;
-  gap: 6px;
-  min-height: 168px;
-}
-
-.global-mode-list {
-  border-radius: 8px;
-  background: var(--wb-input-bg);
-  max-height: 176px;
-  min-height: 88px;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.global-mode-item {
-  width: 100%;
-  border: none;
-  border-bottom: 1px solid var(--wb-border-subtle);
-  background: transparent;
-  color: var(--wb-text-main);
-  padding: 7px 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.global-mode-item:last-child {
-  border-bottom: none;
-}
-
-.global-mode-item:hover {
-  background: var(--wb-primary-soft);
-}
-
-.global-mode-item.add .global-mode-item-action {
-  color: #86efac;
-}
-
-.global-mode-item.active .global-mode-item-action {
-  color: #fca5a5;
-}
-
-.global-mode-item-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.global-mode-item-action {
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
 /* View Transitions */
 .mobile-tab-enter-active,
 .mobile-tab-leave-active {
@@ -7000,12 +6305,6 @@ watch(hasUnsavedChanges, (val) => {
 
 .list-leave-active {
   position: absolute;
-}
-
-.global-mode-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
 }
 
 .history-btn {
@@ -8133,10 +7432,6 @@ watch(hasUnsavedChanges, (val) => {
 }
 
 @media (max-width: 1100px) {
-  .global-mode-grid {
-    grid-template-columns: 1fr;
-  }
-
   .wb-resize-handle {
     display: none;
   }
@@ -8345,7 +7640,6 @@ watch(hasUnsavedChanges, (val) => {
 
   .wb-header,
   .wb-bindings,
-  .global-mode-panel,
   .wb-toolbar {
     padding: 6px;
     gap: 6px;
@@ -9247,258 +8541,6 @@ watch(hasUnsavedChanges, (val) => {
   font-size: 12px;
 }
 
-.tag-editor-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow-y: auto;
-  max-height: 100%;
-}
-
-.tag-editor-title {
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.tag-create-panel {
-  border-radius: 10px;
-  border: 1px solid var(--wb-border-subtle);
-  background: rgba(255, 255, 255, 0.03);
-  padding: 10px;
-}
-
-.tag-create-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.tag-create-row .text-input {
-  min-width: 180px;
-  flex: 1 1 220px;
-}
-
-.tag-parent-field {
-  margin-top: 8px;
-}
-
-.tag-editor-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(340px, 1.2fr);
-  gap: 16px;
-  min-height: 0;
-}
-
-.tag-editor-subtitle {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--wb-text-main);
-}
-
-.tag-editor-tree-wrap,
-.tag-assign-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-radius: 10px;
-  border: 1px solid var(--wb-border-subtle);
-  background: rgba(255, 255, 255, 0.03);
-  padding: 10px;
-  min-height: 0;
-}
-
-.tag-editor-tree-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 55vh;
-  overflow-y: auto;
-}
-
-.tag-editor-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border-radius: 8px;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.08);
-}
-
-.tag-editor-tree-item {
-  display: grid;
-  grid-template-columns: auto 12px minmax(120px, 1fr) minmax(160px, 1fr) auto auto;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.tag-editor-indent {
-  width: calc(var(--depth, 0) * 14px);
-  height: 1px;
-}
-
-.tag-editor-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.tag-editor-name-input {
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid rgba(255,255,255,.15);
-  color: inherit;
-  font-size: 13px;
-  padding: 2px 4px;
-  width: 80px;
-  outline: none;
-}
-.tag-editor-name-input:focus {
-  border-bottom-color: #60a5fa;
-}
-
-.tag-parent-select {
-  min-width: 140px;
-  font-size: 12px;
-  height: 30px;
-}
-
-.tag-color-picker {
-  display: flex;
-  gap: 3px;
-  flex-wrap: wrap;
-}
-.tag-color-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  transition: border-color .15s;
-}
-.tag-color-dot.active {
-  border-color: #fff;
-  box-shadow: 0 0 4px rgba(255,255,255,.3);
-}
-.tag-delete-btn {
-  background: none;
-  border: none;
-  color: #f87171;
-  font-size: 16px;
-  cursor: pointer;
-  padding: 0 2px;
-  line-height: 1;
-  opacity: .6;
-  transition: opacity .15s;
-}
-.tag-delete-btn:hover {
-  opacity: 1;
-}
-
-.tag-assign-controls {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.tag-assign-list {
-  max-height: 55vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.tag-assign-list.compact {
-  max-height: 42vh;
-}
-
-.tag-assign-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  align-items: center;
-  gap: 4px 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-  text-align: left;
-}
-
-.tag-assign-row.toggle {
-  cursor: pointer;
-}
-
-.tag-assign-row.toggle.active {
-  border-color: rgba(59, 130, 246, 0.6);
-  background: rgba(37, 99, 235, 0.18);
-}
-
-.tag-assign-name {
-  font-size: 13px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.tag-assign-state {
-  font-size: 11px;
-  color: #93c5fd;
-  border: 1px solid rgba(147, 197, 253, 0.45);
-  border-radius: 999px;
-  padding: 1px 8px;
-}
-
-.tag-assign-paths {
-  grid-column: 1 / -1;
-  font-size: 11px;
-  color: var(--wb-text-dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mobile-tag-editor .tag-editor-title {
-  font-size: 16px;
-}
-
-.mobile-tag-editor .tag-create-row .text-input {
-  flex: 1 1 100%;
-}
-
-.mobile-tag-editor .tag-editor-tree-list {
-  max-height: 42vh;
-}
-
-.mobile-tag-editor .tag-editor-tree-item {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.mobile-tag-editor .tag-editor-indent {
-  width: calc(var(--depth, 0) * 10px);
-}
-
-.mobile-tag-editor .tag-editor-name-input {
-  flex: 1 1 120px;
-  min-width: 100px;
-}
-
-.mobile-tag-editor .tag-parent-select {
-  width: 100%;
-  min-width: 0;
-}
-
 @media (max-width: 1360px) {
   .tag-filter-toolbar {
     grid-template-columns: auto minmax(100px, 1fr) auto;
@@ -9506,28 +8548,6 @@ watch(hasUnsavedChanges, (val) => {
   }
   .tag-filter-summary {
     grid-column: 2 / 4;
-  }
-}
-
-@media (max-width: 1200px) {
-  .tag-editor-layout {
-    grid-template-columns: 1fr;
-  }
-  .tag-assign-controls {
-    grid-template-columns: 1fr;
-  }
-  .tag-editor-tree-item {
-    grid-template-columns: auto 12px minmax(0, 1fr);
-  }
-  .tag-editor-tree-item .tag-parent-select {
-    grid-column: 3 / 4;
-  }
-  .tag-editor-tree-item .tag-color-picker {
-    grid-column: 2 / 4;
-  }
-  .tag-editor-tree-item .tag-delete-btn {
-    grid-column: 1 / 2;
-    justify-self: end;
   }
 }
 
@@ -9543,10 +8563,6 @@ watch(hasUnsavedChanges, (val) => {
   }
   .tag-tree-path {
     grid-column: 3 / 4;
-  }
-  .tag-assign-list,
-  .tag-assign-list.compact {
-    max-height: 38vh;
   }
 }
 </style>
