@@ -1455,7 +1455,7 @@
 
 <script setup lang="ts">
 import { klona } from 'klona';
-import { useFindReplace, useMultiEdit, useAIChat, useAIConfig, useTagSystem, useGlobalWorldbooks, useHistorySnapshots, useFocusMode, useEditorLayout, useCrossCopy, useUIPickerThemeHandlers, useWorldbookModeActions, useWorldbookFileOps } from './composables';
+import { useFindReplace, useMultiEdit, useAIChat, useAIConfig, useTagSystem, useGlobalWorldbooks, useHistorySnapshots, useFocusMode, useEditorLayout, useCrossCopy, useUIPickerThemeHandlers, useWorldbookModeActions, useWorldbookFileOps, useWorldbookDataFlow } from './composables';
 import FloatingFindWindow from './components/FloatingFindWindow.vue';
 import FloatingActivationWindow from './components/FloatingActivationWindow.vue';
 import EntryHistoryModal from './components/EntryHistoryModal.vue';
@@ -1654,8 +1654,11 @@ const selectedSecondaryKeysRaw = ref('');
 let keysDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let secondaryKeysDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let entriesDigestTimer: ReturnType<typeof setTimeout> | null = null;
-let worldbookLoadRequestId = 0;
-let pendingWorldbookLoadCount = 0;
+
+let _loadWorldbook: (name: string) => Promise<void> = async () => {};
+let _reloadWorldbookNames: (preferred?: string, switchOptions?: WorldbookSwitchOptions) => Promise<boolean> = async () => true;
+let _hardRefresh: (options?: HardRefreshOptions) => Promise<void> = async () => {};
+let _saveCurrentWorldbook: () => Promise<void> = async () => {};
 
 const statusMessage = ref('就绪');
 const isBusy = ref(false);
@@ -3764,169 +3767,67 @@ const {
   setStatus,
 });
 
-async function loadWorldbook(name: string): Promise<void> {
-  if (!name) {
-    return;
-  }
-  const requestId = ++worldbookLoadRequestId;
-  pendingWorldbookLoadCount += 1;
-  isBusy.value = true;
-  const isStaleRequest = () => requestId !== worldbookLoadRequestId || selectedWorldbookName.value !== name;
-  try {
-    let rawEntries: WorldbookEntry[];
-    try {
-      rawEntries = await getWorldbook(name);
-    } catch {
-      // Fallback: try trimmed name in case of whitespace mismatch
-      rawEntries = await getWorldbook(name.trim());
-    }
-    if (isStaleRequest()) {
-      return;
-    }
-    const normalized = normalizeEntryList(rawEntries);
-    draftEntries.value = klona(normalized);
-    originalEntries.value = klona(normalized);
-    syncEntriesDigestNow();
-    ensureSelectedEntryExists();
-    setStatus(`已加载 "${name}"，条目 ${normalized.length}`);
-  } catch (error) {
-    if (isStaleRequest()) {
-      return;
-    }
-    const message = error instanceof Error ? error.message : String(error);
-    if (name !== name.trim()) {
-      toastr.error(`读取世界书失败: 世界书名称「${name.trim()}」首尾含有空格，请在酒馆中重命名该世界书以去除空格`);
-      setStatus(`读取失败: 世界书名称含首尾空格，请重命名`);
-    } else {
-      toastr.error(`读取世界书失败: ${message}`);
-      setStatus(`读取失败: ${message}`);
-    }
-  } finally {
-    pendingWorldbookLoadCount = Math.max(0, pendingWorldbookLoadCount - 1);
-    if (pendingWorldbookLoadCount === 0) {
-      isBusy.value = false;
-    }
-  }
+function loadWorldbook(name: string): Promise<void> {
+  return _loadWorldbook(name);
 }
 
-async function reloadWorldbookNames(preferred?: string, switchOptions: WorldbookSwitchOptions = {}): Promise<boolean> {
-  const names = [...getWorldbookNames()].sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
-  worldbookNames.value = names;
-  normalizeCrossCopyWorldbookSelection();
-  persistCrossCopyState();
-
-  if (!names.length) {
-    const switched = switchWorldbookSelection('', {
-      source: switchOptions.source ?? 'auto',
-      reason: switchOptions.reason ?? '世界书列表已为空',
-      allowDirty: switchOptions.allowDirty,
-      silentOnCancel: true,
-    });
-    if (!switched) {
-      setStatus('世界书列表已变化，但已保留未保存草稿');
-      return false;
-    }
-    draftEntries.value = [];
-    originalEntries.value = [];
-    selectedEntryUid.value = null;
-    return true;
-  }
-
-  const fallbackName = persistedState.value.last_worldbook;
-  const candidate =
-    (preferred && names.includes(preferred) && preferred) ||
-    (fallbackName && names.includes(fallbackName) && fallbackName) ||
-    selectedWorldbookName.value ||
-    names[0];
-
-  if (candidate && selectedWorldbookName.value !== candidate) {
-    return switchWorldbookSelection(candidate, {
-      source: switchOptions.source ?? 'auto',
-      reason: switchOptions.reason ?? '同步世界书选择',
-      allowDirty: switchOptions.allowDirty,
-      silentOnCancel: true,
-    });
-  }
-
-  if (selectedWorldbookName.value && !draftEntries.value.length) {
-    await loadWorldbook(selectedWorldbookName.value);
-  }
-  return true;
+function reloadWorldbookNames(preferred?: string, switchOptions: WorldbookSwitchOptions = {}): Promise<boolean> {
+  return _reloadWorldbookNames(preferred, switchOptions);
 }
 
-async function hardRefresh(options: HardRefreshOptions = {}): Promise<void> {
-  if (!ensureRefreshAllowed(options)) {
-    return;
-  }
-  const allowDirty = hasUnsavedChanges.value;
-  persistedState.value = readPersistedState();
-  syncSelectedGlobalPresetFromState();
-  applyCrossCopyStateFromPersisted();
-  const reloaded = await reloadWorldbookNames(selectedWorldbookName.value || undefined, {
-    source: options.source ?? 'auto',
-    reason: options.reason ?? '刷新后同步世界书',
-    allowDirty,
-    silentOnCancel: true,
-  });
-  if (!reloaded) {
-    return;
-  }
-  // Always re-fetch current worldbook data so external changes are synced
-  if (selectedWorldbookName.value) {
-    await loadWorldbook(selectedWorldbookName.value);
-    // Sync raw keyword refs after reload
-    selectedKeysRaw.value = selectedKeysText.value;
-    selectedSecondaryKeysRaw.value = selectedSecondaryKeysText.value;
-  }
-  await refreshBindings();
-  refreshRoleBindingCandidates();
-  refreshCurrentRoleContext();
-  await autoApplyRoleBoundPreset();
-  if (globalWorldbookMode.value) {
-    ensureSelectionForGlobalMode({
-      source: options.source ?? 'auto',
-      reason: '刷新后同步全局模式选择',
-      allowDirty,
-      silentOnCancel: true,
-    });
-  } else {
-    trySelectWorldbookByContext({
-      preferWhenEmptyOnly: options.preferContextSelection !== true,
-      source: options.source ?? 'auto',
-    });
-  }
-  setStatus('已刷新世界书和绑定信息');
+function hardRefresh(options: HardRefreshOptions = {}): Promise<void> {
+  return _hardRefresh(options);
 }
 
-async function saveCurrentWorldbook(): Promise<void> {
-  if (!selectedWorldbookName.value) {
-    toastr.warning('请先选择世界书');
-    return;
-  }
-  if (!hasUnsavedChanges.value) {
-    setStatus('当前没有需要保存的修改');
-    return;
-  }
-  isSaving.value = true;
-  try {
-    draftEntries.value = normalizeEntryList(draftEntries.value.map(entry => klona(entry)));
-    const pendingEntrySnapshots = collectEntrySnapshotsBeforeSave();
-    const savedEntrySnapshotCount = pushEntrySnapshotsBulk(pendingEntrySnapshots);
-    await replaceWorldbook(selectedWorldbookName.value, klona(draftEntries.value), { render: 'immediate' });
-    originalEntries.value = klona(draftEntries.value);
-    syncEntriesDigestNow();
-    pushSnapshot('保存后快照');
-    await refreshBindings();
-    toastr.success(`已保存: ${selectedWorldbookName.value}`);
-    setStatus(`保存成功: ${selectedWorldbookName.value}（条目历史 +${savedEntrySnapshotCount}）`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    toastr.error(`保存失败: ${message}`);
-    setStatus(`保存失败: ${message}`);
-  } finally {
-    isSaving.value = false;
-  }
+function saveCurrentWorldbook(): Promise<void> {
+  return _saveCurrentWorldbook();
 }
+
+const {
+  loadWorldbook: loadWorldbookImpl,
+  reloadWorldbookNames: reloadWorldbookNamesImpl,
+  hardRefresh: hardRefreshImpl,
+  saveCurrentWorldbook: saveCurrentWorldbookImpl,
+} = useWorldbookDataFlow({
+  selectedWorldbookName,
+  worldbookNames,
+  draftEntries,
+  originalEntries,
+  selectedEntryUid,
+  selectedKeysRaw,
+  selectedSecondaryKeysRaw,
+  selectedKeysText,
+  selectedSecondaryKeysText,
+  persistedState,
+  hasUnsavedChanges,
+  isBusy,
+  isSaving,
+  setStatus,
+  syncEntriesDigestNow,
+  ensureSelectedEntryExists,
+  normalizeCrossCopyWorldbookSelection,
+  persistCrossCopyState,
+  switchWorldbookSelection,
+  ensureRefreshAllowed,
+  readPersistedState,
+  syncSelectedGlobalPresetFromState,
+  applyCrossCopyStateFromPersisted,
+  refreshBindings,
+  refreshRoleBindingCandidates,
+  refreshCurrentRoleContext,
+  autoApplyRoleBoundPreset,
+  globalWorldbookMode,
+  ensureSelectionForGlobalMode,
+  trySelectWorldbookByContext,
+  collectEntrySnapshotsBeforeSave,
+  pushEntrySnapshotsBulk,
+  pushSnapshot,
+});
+
+_loadWorldbook = loadWorldbookImpl;
+_reloadWorldbookNames = reloadWorldbookNamesImpl;
+_hardRefresh = hardRefreshImpl;
+_saveCurrentWorldbook = saveCurrentWorldbookImpl;
 
 function pushActivationLogs(entries: Array<{ world: string } & Record<string, unknown>>): void {
   const logs = entries.map(item => {

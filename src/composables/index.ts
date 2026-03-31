@@ -41,3 +41,6 @@ export type { UseWorldbookModeActionsOptions, UseWorldbookModeActionsReturn, Foc
 
 export { useWorldbookFileOps } from './useWorldbookFileOps';
 export type { UseWorldbookFileOpsOptions, UseWorldbookFileOpsReturn } from './useWorldbookFileOps';
+
+export { useWorldbookDataFlow } from './useWorldbookDataFlow';
+export type { UseWorldbookDataFlowOptions, UseWorldbookDataFlowReturn } from './useWorldbookDataFlow';
