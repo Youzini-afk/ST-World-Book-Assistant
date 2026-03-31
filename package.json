@@ -2,9 +2,12 @@
   "name": "st-world-book-assistant",
   "private": true,
   "scripts": {
+    "typecheck": "npx vue-tsc --noEmit --skipLibCheck -p tsconfig.vue-tsc.json",
     "build": "webpack --mode production",
     "build:dev": "webpack --mode development",
-    "watch": "webpack --mode development --watch --progress"
+    "watch": "webpack --mode development --watch --progress",
+    "smoke:phase5": "npx tsx scripts/auto-smoke-phase5.ts",
+    "check:full": "npm run typecheck && npm run build && npm run smoke:phase5"
   },
   "browserslist": [
     "defaults and partially supports es6-module"
