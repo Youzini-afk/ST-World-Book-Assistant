@@ -35,3 +35,6 @@ export type { UseFocusModeOptions, UseFocusModeReturn } from './useFocusMode';
 
 export { useUIPickerThemeHandlers } from './useUIPickerThemeHandlers';
 export type { UseUIPickerThemeHandlersOptions, UseUIPickerThemeHandlersReturn } from './useUIPickerThemeHandlers';
+
+export { useWorldbookModeActions } from './useWorldbookModeActions';
+export type { UseWorldbookModeActionsOptions, UseWorldbookModeActionsReturn, FocusWorldbookAction } from './useWorldbookModeActions';

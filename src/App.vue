@@ -1455,7 +1455,7 @@
 
 <script setup lang="ts">
 import { klona } from 'klona';
-import { useFindReplace, useMultiEdit, useAIChat, useAIConfig, useTagSystem, useGlobalWorldbooks, useHistorySnapshots, useFocusMode, useEditorLayout, useCrossCopy, useUIPickerThemeHandlers } from './composables';
+import { useFindReplace, useMultiEdit, useAIChat, useAIConfig, useTagSystem, useGlobalWorldbooks, useHistorySnapshots, useFocusMode, useEditorLayout, useCrossCopy, useUIPickerThemeHandlers, useWorldbookModeActions } from './composables';
 import FloatingFindWindow from './components/FloatingFindWindow.vue';
 import FloatingActivationWindow from './components/FloatingActivationWindow.vue';
 import EntryHistoryModal from './components/EntryHistoryModal.vue';
@@ -1788,6 +1788,8 @@ const {
 // ── end useTagSystem ─────────────────────────────────────────────────
 
 // ── useGlobalWorldbooks composable ───────────────────────────────────
+let _ensureSelectionForGlobalMode: (options?: WorldbookSwitchOptions) => boolean = () => true;
+
 const {
   globalWorldbookMode, selectedGlobalPresetId,
   currentRoleContext, roleBindingSourceCandidates,
@@ -1806,7 +1808,7 @@ const {
   autoApplyRoleBoundPreset, toggleRolePicker, closeRolePicker,
 } = useGlobalWorldbooks({
   persistedState, updatePersistedState, setStatus,
-  worldbookNames, bindings, refreshBindings, ensureSelectionForGlobalMode,
+  worldbookNames, bindings, refreshBindings, ensureSelectionForGlobalMode: options => _ensureSelectionForGlobalMode(options),
 });
 // ── end useGlobalWorldbooks ──────────────────────────────────────────
 
@@ -2338,6 +2340,32 @@ const selectableWorldbookNames = computed(() => {
   }
   return bindings.global.filter(name => worldbookNames.value.includes(name));
 });
+
+const {
+  ensureSelectionForGlobalMode,
+  trySelectWorldbookByContext,
+  toggleGlobalMode,
+  runFocusWorldbookAction,
+} = useWorldbookModeActions({
+  worldbookNames,
+  bindings,
+  globalWorldbookMode,
+  selectedWorldbookName,
+  selectableWorldbookNames,
+  isAnyCineLocked,
+  aiGeneratorMode,
+  tagEditorMode,
+  switchWorldbookSelection,
+  setCrossCopyModeActive,
+  setStatus,
+  closeFocusWorldbookMenu,
+  createNewWorldbook,
+  duplicateWorldbook,
+  deleteCurrentWorldbook,
+  exportCurrentWorldbook,
+  triggerImport,
+});
+_ensureSelectionForGlobalMode = ensureSelectionForGlobalMode;
 
 function isWorldbookMatchedByTagFilter(worldbookName: string): boolean {
   const selected = selectedTagFilterIds.value.filter(id => tagDefinitionMap.value.has(id));
@@ -3812,117 +3840,6 @@ async function refreshBindings(): Promise<void> {
       silentOnCancel: true,
     });
   }
-}
-
-function resolveContextWorldbookCandidate(): string | null {
-  const available = worldbookNames.value;
-  if (!available.length) {
-    return null;
-  }
-  const chatBound = toStringSafe(bindings.chat).trim();
-  if (chatBound && available.includes(chatBound)) {
-    return chatBound;
-  }
-  const charPrimary = toStringSafe(bindings.charPrimary).trim();
-  if (charPrimary && available.includes(charPrimary)) {
-    return charPrimary;
-  }
-  const charAdditional = bindings.charAdditional.find(name => available.includes(name));
-  return charAdditional ?? null;
-}
-
-function ensureSelectionForGlobalMode(options: WorldbookSwitchOptions = {}): boolean {
-  if (!globalWorldbookMode.value) {
-    return true;
-  }
-  const globals = selectableWorldbookNames.value;
-  if (!globals.length) {
-    return switchWorldbookSelection('', {
-      source: options.source ?? 'auto',
-      reason: options.reason ?? '全局模式下无可用世界书',
-      allowDirty: options.allowDirty,
-      silentOnCancel: options.silentOnCancel,
-    });
-  }
-  if (!globals.includes(selectedWorldbookName.value)) {
-    return switchWorldbookSelection(globals[0], {
-      source: options.source ?? 'auto',
-      reason: options.reason ?? '全局模式同步当前选择',
-      allowDirty: options.allowDirty,
-      silentOnCancel: options.silentOnCancel,
-    });
-  }
-  return true;
-}
-
-function trySelectWorldbookByContext(
-  options: { preferWhenEmptyOnly?: boolean; source?: SelectionSource } = {},
-): boolean {
-  if (globalWorldbookMode.value) {
-    return false;
-  }
-  if (options.preferWhenEmptyOnly && selectedWorldbookName.value) {
-    return false;
-  }
-  const candidate = resolveContextWorldbookCandidate();
-  if (!candidate || candidate === selectedWorldbookName.value) {
-    return false;
-  }
-  const switched = switchWorldbookSelection(candidate, {
-    source: options.source ?? 'auto',
-    reason: '自动定位上下文世界书',
-    silentOnCancel: true,
-  });
-  if (!switched) {
-    setStatus('检测到上下文世界书变更，但当前有未保存修改，已取消自动切换');
-    return false;
-  }
-  setStatus(`已自动定位到上下文世界书: ${candidate}`);
-  return true;
-}
-
-function toggleGlobalMode(): void {
-  if (isAnyCineLocked.value) {
-    return;
-  }
-  globalWorldbookMode.value = !globalWorldbookMode.value;
-  if (globalWorldbookMode.value) {
-    aiGeneratorMode.value = false;
-    tagEditorMode.value = false;
-    setCrossCopyModeActive(false);
-    const synced = ensureSelectionForGlobalMode({
-      source: 'manual',
-      reason: '切换到全局模式',
-      silentOnCancel: true,
-    });
-    if (!synced) {
-      globalWorldbookMode.value = false;
-      setStatus('已取消切换到全局世界书模式');
-      return;
-    }
-    setStatus('已切换到全局世界书模式');
-    return;
-  }
-  if (!selectedWorldbookName.value) {
-    trySelectWorldbookByContext({ source: 'manual' });
-  }
-  setStatus('已切换到上下文世界书模式');
-}
-
-
-type FocusWorldbookAction = 'create' | 'duplicate' | 'delete' | 'export' | 'import';
-
-const focusWorldbookActionHandlers: Record<FocusWorldbookAction, () => void> = {
-  create: () => { void createNewWorldbook(); },
-  duplicate: () => { void duplicateWorldbook(); },
-  delete: () => { void deleteCurrentWorldbook(); },
-  export: () => { exportCurrentWorldbook(); },
-  import: () => { triggerImport(); },
-};
-
-function runFocusWorldbookAction(action: FocusWorldbookAction): void {
-  closeFocusWorldbookMenu();
-  focusWorldbookActionHandlers[action]();
 }
 
 const {
