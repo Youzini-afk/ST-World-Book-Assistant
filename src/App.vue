@@ -1180,8 +1180,8 @@
             <EntryListSidebar
               :show-mobile-editor="showMobileEditor"
               :is-desktop-focus-mode="isDesktopFocusMode"
-              :search-text="searchText"
-              :only-enabled="onlyEnabled"
+              v-model:search-text="searchText"
+              v-model:only-enabled="onlyEnabled"
               :filtered-entries="filteredEntries"
               :draft-entries-count="draftEntries.length"
               :enabled-entry-count="enabledEntryCount"
@@ -1200,8 +1200,6 @@
               :get-entry-visual-status="getEntryVisualStatus"
               :get-entry-status-label="getEntryStatusLabel"
               :get-entry-key-preview="getEntryKeyPreview"
-              @update:search-text="searchText = $event"
-              @update:only-enabled="onlyEnabled = $event"
               @sort-entries="sortEntries"
               @select-entry="selectEntry"
               @entry-drag-start="handleEntryDragStart"
@@ -1233,9 +1231,9 @@
               :selected-token-estimate="selectedTokenEstimate"
               :get-entry-visual-status="getEntryVisualStatus"
               :get-entry-status-label="getEntryStatusLabel"
-              :selected-keys-raw="selectedKeysRaw"
-              :selected-secondary-keys-raw="selectedSecondaryKeysRaw"
-              :selected-extra-text="selectedExtraText"
+              v-model:selected-keys-raw="selectedKeysRaw"
+              v-model:selected-secondary-keys-raw="selectedSecondaryKeysRaw"
+              v-model:selected-extra-text="selectedExtraText"
               :pane-resize-state="paneResizeState"
               :focus-side-panel-state="focusSidePanelState"
               :focus-strategy-summary="focusStrategySummary"
@@ -1243,33 +1241,24 @@
               :focus-recursion-summary="focusRecursionSummary"
               :secondary-logic-options="secondaryLogicOptions"
               :get-secondary-logic-label="getSecondaryLogicLabel"
-              :selected-scan-depth-text="selectedScanDepthText"
+              v-model:selected-scan-depth-text="selectedScanDepthText"
               :position-select-options="positionSelectOptions"
-              :selected-position-select-value="selectedPositionSelectValue"
-              :selected-recursion-delay-text="selectedRecursionDelayText"
-              :selected-sticky-text="selectedStickyText"
-              :selected-cooldown-text="selectedCooldownText"
-              :selected-effect-delay-text="selectedEffectDelayText"
+              v-model:selected-position-select-value="selectedPositionSelectValue"
+              v-model:selected-recursion-delay-text="selectedRecursionDelayText"
+              v-model:selected-sticky-text="selectedStickyText"
+              v-model:selected-cooldown-text="selectedCooldownText"
+              v-model:selected-effect-delay-text="selectedEffectDelayText"
               :set-editor-shell-element="setEditorShellElement"
               :set-content-textarea-element="setContentTextareaElement"
               @go-back-to-list="goBackToList"
               @toggle-focus-meta-panel="toggleFocusMetaPanel"
-              @update:selected-keys-raw="selectedKeysRaw = $event"
               @commit-keys-from-raw="commitKeysFromRaw"
-              @update:selected-secondary-keys-raw="selectedSecondaryKeysRaw = $event"
               @commit-secondary-keys-from-raw="commitSecondaryKeysFromRaw"
               @start-content-resize="startContentResize"
               @apply-extra-json="applyExtraJson"
               @clear-extra="clearExtra"
-              @update:selected-extra-text="selectedExtraText = $event"
               @start-editor-pane-resize="startPaneResize('editor', $event)"
               @toggle-focus-side-panel="toggleFocusSidePanel"
-              @update:selected-scan-depth-text="selectedScanDepthText = $event"
-              @update:selected-position-select-value="selectedPositionSelectValue = ($event as PositionSelectValue)"
-              @update:selected-recursion-delay-text="selectedRecursionDelayText = $event"
-              @update:selected-sticky-text="selectedStickyText = $event"
-              @update:selected-cooldown-text="selectedCooldownText = $event"
-              @update:selected-effect-delay-text="selectedEffectDelayText = $event"
             />
           </section>
           </div>
@@ -2177,9 +2166,13 @@ const {
   pushSnapshotForWorldbook,
 });
 
-function setWorldbookPickerElement(element: HTMLElement | null): void {
-  worldbookPickerRef.value = element;
+function createRefSetter<T>(target: { value: T }): (value: T) => void {
+  return (value: T) => {
+    target.value = value;
+  };
 }
+
+const setWorldbookPickerElement = createRefSetter(worldbookPickerRef);
 
 function openAiConfigModal(): void {
   aiConfigPreview.value = false;
@@ -2187,55 +2180,39 @@ function openAiConfigModal(): void {
   aiConfigTargetWorldbook.value = selectedWorldbookName.value || '';
 }
 
-function setRolePickerElement(element: HTMLElement | null): void {
-  rolePickerRef.value = element;
-}
+const setRolePickerElement = createRefSetter(rolePickerRef);
 
-function setAiChatMessagesElement(element: HTMLElement | null): void {
+const setAiChatMessagesElement = (element: HTMLElement | null): void => {
   aiChatMessagesRef.value = element as HTMLDivElement | null;
-}
+};
 
-function setEditorShellElement(element: HTMLElement | null): void {
-  editorShellRef.value = element;
-}
+const setEditorShellElement = createRefSetter(editorShellRef);
 
-function setContentTextareaElement(element: HTMLTextAreaElement | null): void {
-  contentTextareaRef.value = element;
-}
+const setContentTextareaElement = createRefSetter(contentTextareaRef);
+
+const settingsFieldUpdaters: Record<string, (state: PersistedState, value: unknown) => void> = {
+  show_ai_chat: (state, value) => { state.show_ai_chat = value as boolean; },
+  'multi_edit.enabled': (state, value) => { state.multi_edit.enabled = value as boolean; },
+  'multi_edit.sync_extra_json': (state, value) => { state.multi_edit.sync_extra_json = value as boolean; },
+  'sort.mode': (state, value) => { state.sort.mode = value as 'mutate' | 'view'; },
+  'sort.reassign_uid': (state, value) => { state.sort.reassign_uid = value as boolean; },
+  glass_mode: (state, value) => { state.glass_mode = value as boolean; },
+};
+
 
 function onSettingsUpdateField(path: string, value: unknown): void {
-  updatePersistedState(state => {
-    if (path === 'show_ai_chat') {
-      state.show_ai_chat = value as boolean;
-    } else if (path === 'multi_edit.enabled') {
-      state.multi_edit.enabled = value as boolean;
-    } else if (path === 'multi_edit.sync_extra_json') {
-      state.multi_edit.sync_extra_json = value as boolean;
-    } else if (path === 'sort.mode') {
-      state.sort.mode = value as 'mutate' | 'view';
-    } else if (path === 'sort.reassign_uid') {
-      state.sort.reassign_uid = value as boolean;
-    } else if (path === 'glass_mode') {
-      state.glass_mode = value as boolean;
-    }
-  });
+  const updater = settingsFieldUpdaters[path];
+  if (!updater) return;
+  updatePersistedState(state => { updater(state, value); });
 }
 
-function setRolePickerSearchInputElement(element: HTMLInputElement | null): void {
-  rolePickerSearchInputRef.value = element;
-}
+const setRolePickerSearchInputElement = createRefSetter(rolePickerSearchInputRef);
 
-function setCrossCopyGridElement(element: HTMLElement | null): void {
-  crossCopyGridRef.value = element;
-}
+const setCrossCopyGridElement = createRefSetter(crossCopyGridRef);
 
-function setEntryHistoryLayoutElement(element: HTMLElement | null): void {
-  entryHistoryLayoutRef.value = element;
-}
+const setEntryHistoryLayoutElement = createRefSetter(entryHistoryLayoutRef);
 
-function setWorldbookHistoryLayoutElement(element: HTMLElement | null): void {
-  worldbookHistoryLayoutRef.value = element;
-}
+const setWorldbookHistoryLayoutElement = createRefSetter(worldbookHistoryLayoutRef);
 
 function setCrossCopyModeActive(next: boolean): void {
   if (!next) {
@@ -3933,25 +3910,19 @@ function toggleGlobalMode(): void {
 }
 
 
-function runFocusWorldbookAction(action: 'create' | 'duplicate' | 'delete' | 'export' | 'import'): void {
+type FocusWorldbookAction = 'create' | 'duplicate' | 'delete' | 'export' | 'import';
+
+const focusWorldbookActionHandlers: Record<FocusWorldbookAction, () => void> = {
+  create: () => { void createNewWorldbook(); },
+  duplicate: () => { void duplicateWorldbook(); },
+  delete: () => { void deleteCurrentWorldbook(); },
+  export: () => { exportCurrentWorldbook(); },
+  import: () => { triggerImport(); },
+};
+
+function runFocusWorldbookAction(action: FocusWorldbookAction): void {
   closeFocusWorldbookMenu();
-  if (action === 'create') {
-    void createNewWorldbook();
-    return;
-  }
-  if (action === 'duplicate') {
-    void duplicateWorldbook();
-    return;
-  }
-  if (action === 'delete') {
-    void deleteCurrentWorldbook();
-    return;
-  }
-  if (action === 'export') {
-    exportCurrentWorldbook();
-    return;
-  }
-  triggerImport();
+  focusWorldbookActionHandlers[action]();
 }
 
 const {
