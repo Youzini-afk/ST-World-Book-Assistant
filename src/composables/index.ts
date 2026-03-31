@@ -38,3 +38,6 @@ export type { UseUIPickerThemeHandlersOptions, UseUIPickerThemeHandlersReturn } 
 
 export { useWorldbookModeActions } from './useWorldbookModeActions';
 export type { UseWorldbookModeActionsOptions, UseWorldbookModeActionsReturn, FocusWorldbookAction } from './useWorldbookModeActions';
+
+export { useWorldbookFileOps } from './useWorldbookFileOps';
+export type { UseWorldbookFileOpsOptions, UseWorldbookFileOpsReturn } from './useWorldbookFileOps';
