@@ -1489,6 +1489,14 @@ import './components/worldbookPickerShared.css';
 import './components/mobileTabShared.css';
 import './components/mobileRootOverride.css';
 import {
+  createOrReplaceWorldbook,
+  deleteWorldbook,
+  getCharWorldbookNames,
+  getChatWorldbookName,
+  getGlobalWorldbookNames,
+  importRawWorldbook,
+} from './hostApi';
+import {
   createId,
   asRecord,
   toStringSafe,

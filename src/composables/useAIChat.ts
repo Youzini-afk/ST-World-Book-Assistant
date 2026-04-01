@@ -7,6 +7,17 @@
  */
 
 import { ref, computed, type Ref, type ComputedRef } from 'vue';
+import {
+  createWorldbookEntries,
+  eventOn,
+  generate,
+  getChatMessages,
+  getIframeEvents,
+  getLastMessageId,
+  getModelList,
+  getWorldbook,
+  stopGenerationById,
+} from '../hostApi';
 import { createId } from '../utils';
 import { AI_CHAT_MESSAGE_LIMIT } from '../store/persistedState';
 import type {
@@ -248,8 +259,9 @@ export function useAIChat(options: UseAIChatOptions): UseAIChatReturn {
     aiIsGenerating.value = true;
     aiStreamingText.value = '';
 
+    const iframeEvents = getIframeEvents();
     aiStreamSubscription = eventOn(
-      iframe_events.STREAM_TOKEN_RECEIVED_FULLY,
+      iframeEvents.STREAM_TOKEN_RECEIVED_FULLY,
       (fullText: string, genId: string) => {
         if (genId === generationId) {
           aiStreamingText.value = fullText;

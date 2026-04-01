@@ -6,6 +6,7 @@
  */
 
 import { ref, type Ref } from 'vue';
+import { generateRaw, getWorldbook, updateWorldbookWith } from '../hostApi';
 import type { PersistedState } from '../types';
 
 // ── ConfigChange type (local to this composable) ────────────────────

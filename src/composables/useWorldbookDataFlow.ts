@@ -6,6 +6,7 @@
 
 import { klona } from 'klona';
 import type { ComputedRef, Ref } from 'vue';
+import { getWorldbook, getWorldbookNames, replaceWorldbook } from '../hostApi';
 import { normalizeEntryList } from '../utils';
 import type { HardRefreshOptions, PersistedState, SelectionSource, WorldbookSwitchOptions } from '../types';
 
