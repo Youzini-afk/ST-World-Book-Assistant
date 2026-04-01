@@ -199,14 +199,22 @@ function resolveHostElement(element: Element | ComponentPublicInstance | null): 
     return null;
   }
 
-  const hostElement = ('$el' in element ? element.$el : element) as unknown;
+  const candidate = element as ComponentPublicInstance | Element;
+  const hostElement = ('$el' in candidate ? candidate.$el : candidate) as unknown;
   if (!hostElement || typeof hostElement !== 'object') {
     return null;
   }
 
-  return 'nodeType' in hostElement && hostElement.nodeType === Node.ELEMENT_NODE
-    ? hostElement as HTMLElement
-    : null;
+  const record = hostElement as {
+    nodeType?: unknown;
+    contains?: unknown;
+  };
+
+  if (record.nodeType !== 1 || typeof record.contains !== 'function') {
+    return null;
+  }
+
+  return hostElement as HTMLElement;
 }
 
 function onSearchEnter(): void {
