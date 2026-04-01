@@ -1,5 +1,5 @@
 <template>
-  <div class="worldbook-picker" :ref="setPickerRef">
+  <div class="worldbook-picker" data-worldbook-picker-root="true" :ref="setPickerRef">
     <button class="worldbook-picker-trigger" type="button" @click="emit('toggle')">
       <span class="worldbook-picker-trigger-text" :title="selectedWorldbookName || titlePlaceholder">
         {{ selectedWorldbookName || triggerPlaceholder }}
@@ -191,30 +191,7 @@ const filteredTagAssignOptions = computed(() => {
 });
 
 function setPickerRef(element: Element | ComponentPublicInstance | null): void {
-  props.setPickerElement(resolveHostElement(element));
-}
-
-function resolveHostElement(element: Element | ComponentPublicInstance | null): HTMLElement | null {
-  if (!element) {
-    return null;
-  }
-
-  const candidate = element as ComponentPublicInstance | Element;
-  const hostElement = ('$el' in candidate ? candidate.$el : candidate) as unknown;
-  if (!hostElement || typeof hostElement !== 'object') {
-    return null;
-  }
-
-  const record = hostElement as {
-    nodeType?: unknown;
-    contains?: unknown;
-  };
-
-  if (record.nodeType !== 1 || typeof record.contains !== 'function') {
-    return null;
-  }
-
-  return hostElement as HTMLElement;
+  props.setPickerElement(element instanceof HTMLElement ? element : null);
 }
 
 function onSearchEnter(): void {

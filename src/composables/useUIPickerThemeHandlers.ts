@@ -118,6 +118,32 @@ export function useUIPickerThemeHandlers(options: UseUIPickerThemeHandlersOption
     bindRoleCandidateToSelectedPreset(first);
   }
 
+  function isWorldbookPickerMarker(target: EventTarget | null): boolean {
+    if (!target || typeof target !== 'object') {
+      return false;
+    }
+
+    const record = target as {
+      getAttribute?: (name: string) => string | null;
+    };
+
+    return record.getAttribute?.('data-worldbook-picker-root') === 'true';
+  }
+
+  function isEventWithinWorldbookPicker(event: PointerEvent, target: Node | null): boolean {
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+    if (path.some(isWorldbookPickerMarker)) {
+      return true;
+    }
+
+    const worldbookRoot = worldbookPickerRef.value;
+    if (worldbookRoot && target && worldbookRoot.contains(target)) {
+      return true;
+    }
+
+    return false;
+  }
+
   function onHostPointerDownForWorldbookPicker(event: PointerEvent): void {
     if (!worldbookPickerOpen.value && !rolePickerOpen.value && !themePickerOpen.value && !focusWorldbookMenuOpen.value) {
       return;
@@ -132,8 +158,7 @@ export function useUIPickerThemeHandlers(options: UseUIPickerThemeHandlersOption
     }
 
     if (worldbookPickerOpen.value) {
-      const worldbookRoot = worldbookPickerRef.value;
-      if (!worldbookRoot || !worldbookRoot.contains(target)) {
+      if (!isEventWithinWorldbookPicker(event, target)) {
         closeWorldbookPicker();
       }
     }
