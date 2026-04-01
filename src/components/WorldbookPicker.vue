@@ -191,7 +191,22 @@ const filteredTagAssignOptions = computed(() => {
 });
 
 function setPickerRef(element: Element | ComponentPublicInstance | null): void {
-  props.setPickerElement(element instanceof HTMLElement ? element : null);
+  props.setPickerElement(resolveHostElement(element));
+}
+
+function resolveHostElement(element: Element | ComponentPublicInstance | null): HTMLElement | null {
+  if (!element) {
+    return null;
+  }
+
+  const hostElement = ('$el' in element ? element.$el : element) as unknown;
+  if (!hostElement || typeof hostElement !== 'object') {
+    return null;
+  }
+
+  return 'nodeType' in hostElement && hostElement.nodeType === Node.ELEMENT_NODE
+    ? hostElement as HTMLElement
+    : null;
 }
 
 function onSearchEnter(): void {
