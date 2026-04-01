@@ -15,7 +15,7 @@ import {
   normalizeEntry,
   normalizeEntryList,
 } from '../utils';
-import type { ThemeKey } from '../themes';
+import { DEFAULT_THEME_KEY, isThemeKey } from '../themes';
 import type {
   PersistedState,
   WorldbookSnapshot,
@@ -196,7 +196,7 @@ export function createDefaultPersistedState(): PersistedState {
     global_presets: [],
     last_global_preset_id: '',
     role_override_baseline: null,
-    theme: 'ocean',
+    theme: DEFAULT_THEME_KEY,
     ai_chat: { sessions: [], activeSessionId: null },
     worldbook_tags: { definitions: [], assignments: {} },
     tag_filter: createDefaultTagFilterState(),
@@ -408,7 +408,10 @@ export function normalizePersistedState(input: unknown): PersistedState {
     global_presets: globalPresets,
     last_global_preset_id: toStringSafe(root.last_global_preset_id),
     role_override_baseline: roleOverrideBaseline,
-    theme: (toStringSafe(root.theme) as ThemeKey) || 'ocean',
+    theme: (() => {
+      const theme = toStringSafe(root.theme).trim();
+      return isThemeKey(theme) ? theme : DEFAULT_THEME_KEY;
+    })(),
     ai_chat: aiChat,
     worldbook_tags: { definitions: tagDefs.slice(0, TAG_LIMIT), assignments: tagAssignmentsNorm },
     tag_filter: normalizedTagFilter,

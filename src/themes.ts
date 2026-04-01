@@ -3,6 +3,7 @@
  */
 
 export type ThemeKey = 'ocean' | 'nebula' | 'forest' | 'sunset' | 'coffee' | 'paper' | 'snow' | 'midnight';
+export const DEFAULT_THEME_KEY: ThemeKey = 'ocean';
 
 export const THEMES: Record<ThemeKey, { name: string; label: string; colors: Record<string, string> }> = {
   ocean: {
@@ -214,3 +215,7 @@ export const THEMES: Record<ThemeKey, { name: string; label: string; colors: Rec
     },
   },
 };
+
+export function isThemeKey(value: unknown): value is ThemeKey {
+  return typeof value === 'string' && value in THEMES;
+}

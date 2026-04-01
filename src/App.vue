@@ -1512,7 +1512,7 @@ import {
   type PositionType,
   type RoleType,
 } from './utils';
-import { THEMES, type ThemeKey } from './themes';
+import { DEFAULT_THEME_KEY, THEMES, isThemeKey, type ThemeKey } from './themes';
 import {
   getWorldbookHistoryVersionPreview,
   getWorldbookHistoryStatusLabel,
@@ -2317,7 +2317,8 @@ const editorShellStyle = computed(() => {
 });
 
 const themeStyles = computed(() => {
-  const baseColors = THEMES[currentTheme.value].colors;
+  const themeKey = isThemeKey(currentTheme.value) ? currentTheme.value : DEFAULT_THEME_KEY;
+  const baseColors = THEMES[themeKey].colors;
   if (!persistedState.value.glass_mode) {
     return baseColors;
   }
@@ -3914,7 +3915,7 @@ onMounted(() => {
   applyLayoutStateFromPersisted();
   applyCrossCopyStateFromPersisted();
   applyPanelModeFromPersisted();
-  currentTheme.value = persistedState.value.theme || 'ocean';
+  currentTheme.value = isThemeKey(persistedState.value.theme) ? persistedState.value.theme : DEFAULT_THEME_KEY;
   if (isFocusEditing.value) {
     resetFocusPanels();
   }
@@ -4029,7 +4030,8 @@ function updateHostPanelTheme() {
     try { panel = window.parent?.document?.getElementById('wb-assistant-panel') ?? null; } catch { /* cross-origin */ }
   }
   if (!panel) return;
-  const theme = THEMES[currentTheme.value];
+  const themeKey = isThemeKey(currentTheme.value) ? currentTheme.value : DEFAULT_THEME_KEY;
+  const theme = THEMES[themeKey];
   const colors = theme.colors;
 
   panel.style.setProperty('--wb-host-bg', colors['--wb-bg-root']);

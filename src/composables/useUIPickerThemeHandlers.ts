@@ -7,7 +7,7 @@
  */
 
 import type { Ref, ComputedRef } from 'vue';
-import { THEMES, type ThemeKey } from '../themes';
+import { DEFAULT_THEME_KEY, THEMES, isThemeKey, type ThemeKey } from '../themes';
 import type { RoleBindingCandidate, WorldbookSwitchOptions } from '../types';
 
 export interface UseUIPickerThemeHandlersOptions {
@@ -78,22 +78,23 @@ export function useUIPickerThemeHandlers(options: UseUIPickerThemeHandlersOption
 
   function toggleTheme(): void {
     const keys = Object.keys(THEMES) as ThemeKey[];
-    const index = keys.indexOf(currentTheme.value);
+    const activeKey = isThemeKey(currentTheme.value) ? currentTheme.value : DEFAULT_THEME_KEY;
+    const index = keys.indexOf(activeKey);
     const nextIndex = (index + 1) % keys.length;
     currentTheme.value = keys[nextIndex];
     setStatus(`已切换主题: ${THEMES[currentTheme.value].name}`);
   }
 
   function setTheme(key: ThemeKey): void {
-    currentTheme.value = key;
+    currentTheme.value = isThemeKey(key) ? key : DEFAULT_THEME_KEY;
     themePickerOpen.value = false;
-    setStatus(`已切换主题: ${THEMES[key].label}`);
+    setStatus(`已切换主题: ${THEMES[currentTheme.value].label}`);
   }
 
   function onSetThemeEvent(event: Event): void {
     const key = (event as CustomEvent<string>).detail;
-    if (key && key in THEMES) {
-      setTheme(key as ThemeKey);
+    if (isThemeKey(key)) {
+      setTheme(key);
     }
   }
 

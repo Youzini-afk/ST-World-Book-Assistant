@@ -42,6 +42,7 @@ let fabViewportSyncScrollHandler: (() => void) | null = null;
 let fabViewportSyncResizeHandler: (() => void) | null = null;
 let fabViewportSyncRaf: number | null = null;
 let fabVisibilitySetHandler: ((event: Event) => void) | null = null;
+let fatalAppErrorScheduled = false;
 
 function getHostWindow(): Window {
   return window;
@@ -264,6 +265,40 @@ function ensurePanelStyle(): void {
   flex-direction: column;
 }
 
+#${PANEL_ID} .wb-assistant-error {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow: auto;
+}
+
+#${PANEL_ID} .wb-assistant-error-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+#${PANEL_ID} .wb-assistant-error-text {
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+#${PANEL_ID} .wb-assistant-error-stack {
+  margin: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #f8fafc;
+  font: 12px/1.5 Consolas, 'Courier New', monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 #${MENU_ID}.active {
   background-color: rgba(56, 189, 248, 0.18) !important;
 }
@@ -421,6 +456,57 @@ function ensurePanelStyle(): void {
   doc.head.append(style);
 }
 
+function formatErrorMessage(error: unknown, info?: string): string {
+  const summary = error instanceof Error
+    ? `${error.name}: ${error.message}`
+    : String(error);
+  const stack = error instanceof Error && error.stack ? `\n\n${error.stack}` : '';
+  const context = info ? `[${info}] ` : '';
+  return `${context}${summary}${stack}`.trim();
+}
+
+function renderPanelFatalError(error: unknown, info?: string): void {
+  const body = document.getElementById(PANEL_BODY_ID);
+  if (!body) {
+    return;
+  }
+
+  const message = formatErrorMessage(error, info);
+  const escapedMessage = message
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  body.innerHTML = `
+<div class="wb-assistant-error">
+  <div class="wb-assistant-error-title">世界书助手启动失败</div>
+  <div class="wb-assistant-error-text">面板内容区出现运行期异常。可以把下面的错误信息发给我继续定位。</div>
+  <pre class="wb-assistant-error-stack">${escapedMessage}</pre>
+</div>
+`;
+}
+
+function scheduleFatalAppError(error: unknown, info?: string): void {
+  console.error('[WorldbookAssistant] fatal app error:', error, info);
+  if (fatalAppErrorScheduled) {
+    return;
+  }
+
+  fatalAppErrorScheduled = true;
+  window.setTimeout(() => {
+    fatalAppErrorScheduled = false;
+    try {
+      app?.unmount();
+    } catch (unmountError) {
+      console.error('[WorldbookAssistant] unmount after fatal error failed:', unmountError);
+    }
+    app = null;
+    panelRoot?.remove();
+    panelRoot = null;
+    renderPanelFatalError(error, info);
+  }, 0);
+}
+
 function mountAppIntoPanel(): void {
   if (panelRoot) {
     return;
@@ -433,8 +519,19 @@ function mountAppIntoPanel(): void {
   panelRoot = document.createElement('div');
   panelRoot.id = 'wb-assistant-vue-root';
   body.appendChild(panelRoot);
-  app = createApp(WorldbookAssistantApp);
-  app.mount(panelRoot);
+  const nextApp = createApp(WorldbookAssistantApp);
+  nextApp.config.errorHandler = (error, _instance, info) => {
+    scheduleFatalAppError(error, info);
+  };
+
+  try {
+    nextApp.mount(panelRoot);
+    app = nextApp;
+  } catch (error) {
+    panelRoot.remove();
+    panelRoot = null;
+    renderPanelFatalError(error, 'app.mount');
+  }
 }
 
 function ensurePanelElement(): JQuery {
