@@ -42,46 +42,188 @@ type HostGlobals = typeof globalThis & {
   getModelList?: (options: { apiurl: string; key?: string }) => Promise<string[]>;
   eventOn?: (event: string, handler: (...args: any[]) => void) => EventSubscription;
   iframe_events?: { STREAM_TOKEN_RECEIVED_FULLY: string; [key: string]: string };
+  TavernHelper?: Partial<HostGlobals>;
 };
 
-function getHostGlobals(): HostGlobals {
-  return globalThis as HostGlobals;
+type HostOwner = {
+  id: string;
+  target: Record<string, unknown>;
+};
+
+let preferredHostOwnerId: string | null = null;
+
+function rememberPreferredHostOwner(owner: HostOwner, reason: string): void {
+  if (preferredHostOwnerId === owner.id) {
+    return;
+  }
+  preferredHostOwnerId = owner.id;
+  console.info('[WorldbookAssistant] using host API owner:', owner.id, reason);
 }
 
-function requireHostFunction<T extends (...args: any[]) => any>(name: string, value: T | undefined): T {
-  if (typeof value !== 'function') {
-    throw new ReferenceError(`${name} is not defined`);
+function pushHostOwner(
+  owners: HostOwner[],
+  seen: Set<unknown>,
+  target: unknown,
+  id: string,
+): void {
+  if (!target || (typeof target !== 'object' && typeof target !== 'function') || seen.has(target)) {
+    return;
   }
-  return value;
+  seen.add(target);
+  owners.push({ id, target: target as Record<string, unknown> });
 }
 
-function requireHostObject<T>(name: string, value: T | undefined | null): T {
-  if (!value) {
+function collectHostOwners(): HostOwner[] {
+  const owners: HostOwner[] = [];
+  const seen = new Set<unknown>();
+
+  const addWindowOwners = (host: HostGlobals | null | undefined, label: string): void => {
+    if (!host) {
+      return;
+    }
+    pushHostOwner(owners, seen, host, `${label}:window`);
+    pushHostOwner(owners, seen, host.TavernHelper, `${label}:TavernHelper`);
+  };
+
+  try {
+    addWindowOwners(globalThis as HostGlobals, 'globalThis');
+  } catch {
+    /* ignore */
+  }
+  try {
+    if (typeof window !== 'undefined') {
+      addWindowOwners(window as unknown as HostGlobals, 'window');
+      if (window.parent && window.parent !== window) {
+        addWindowOwners(window.parent as unknown as HostGlobals, 'window.parent');
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return owners;
+}
+
+function prioritizeHostOwners(owners: HostOwner[]): HostOwner[] {
+  if (!preferredHostOwnerId) {
+    return owners;
+  }
+  const preferred = owners.find(owner => owner.id === preferredHostOwnerId);
+  if (!preferred) {
+    return owners;
+  }
+  return [preferred, ...owners.filter(owner => owner.id !== preferredHostOwnerId)];
+}
+
+function getHostFunctionOwners<T extends (...args: any[]) => any>(name: string): Array<{ owner: HostOwner; fn: T }> {
+  return prioritizeHostOwners(collectHostOwners()).flatMap(owner => {
+    const value = owner.target[name];
+    return typeof value === 'function' ? [{ owner, fn: value as T }] : [];
+  });
+}
+
+function callHostFunctionSync<T extends (...args: any[]) => any, TResult = ReturnType<T>>(
+  name: string,
+  args: Parameters<T>,
+  acceptResult?: (value: TResult) => boolean,
+): TResult {
+  const candidates = getHostFunctionOwners<T>(name);
+  if (!candidates.length) {
     throw new ReferenceError(`${name} is not defined`);
   }
-  return value;
+
+  let firstResult: TResult | undefined;
+  let hasFirstResult = false;
+  let lastError: unknown;
+
+  for (const candidate of candidates) {
+    try {
+      const result = candidate.fn.apply(candidate.owner.target, args) as TResult;
+      if (!hasFirstResult) {
+        firstResult = result;
+        hasFirstResult = true;
+      }
+      if (!acceptResult || acceptResult(result)) {
+        rememberPreferredHostOwner(candidate.owner, `selected by ${name}`);
+        return result;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (hasFirstResult) {
+    return firstResult as TResult;
+  }
+  if (lastError !== undefined) {
+    throw lastError;
+  }
+  throw new ReferenceError(`${name} is not defined`);
+}
+
+async function callHostFunctionAsync<T extends (...args: any[]) => Promise<any>, TResult = Awaited<ReturnType<T>>>(
+  name: string,
+  args: Parameters<T>,
+): Promise<TResult> {
+  const candidates = getHostFunctionOwners<T>(name);
+  if (!candidates.length) {
+    throw new ReferenceError(`${name} is not defined`);
+  }
+
+  let lastError: unknown;
+  for (const candidate of candidates) {
+    try {
+      const result = await candidate.fn.apply(candidate.owner.target, args) as TResult;
+      rememberPreferredHostOwner(candidate.owner, `selected by ${name}`);
+      return result;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError ?? new ReferenceError(`${name} is not defined`);
+}
+
+function resolveHostObject<T>(name: string): T {
+  const owners = prioritizeHostOwners(collectHostOwners());
+  for (const owner of owners) {
+    const value = owner.target[name];
+    if (value !== undefined && value !== null) {
+      rememberPreferredHostOwner(owner, `selected object ${name}`);
+      return value as T;
+    }
+  }
+  throw new ReferenceError(`${name} is not defined`);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isNonEmptyArray(value: unknown): value is unknown[] {
+  return Array.isArray(value) && value.length > 0;
 }
 
 export function getWorldbook(name: string): Promise<WorldbookEntry[]> {
-  return requireHostFunction('getWorldbook', getHostGlobals().getWorldbook)(name);
+  return callHostFunctionAsync('getWorldbook', [name]);
 }
 
 export function getWorldbookNames(): string[] {
-  return requireHostFunction('getWorldbookNames', getHostGlobals().getWorldbookNames)();
+  return callHostFunctionSync('getWorldbookNames', [], isNonEmptyArray) as string[];
 }
 
 export function createWorldbookEntries(
   name: string,
   entries: Array<{ name: string; content: string }>,
 ): Promise<void> {
-  return requireHostFunction('createWorldbookEntries', getHostGlobals().createWorldbookEntries)(name, entries);
+  return callHostFunctionAsync('createWorldbookEntries', [name, entries]);
 }
 
 export function updateWorldbookWith(
   name: string,
   updater: (entries: WorldbookEntry[]) => WorldbookEntry[],
 ): Promise<void> {
-  return requireHostFunction('updateWorldbookWith', getHostGlobals().updateWorldbookWith)(name, updater);
+  return callHostFunctionAsync('updateWorldbookWith', [name, updater]);
 }
 
 export function createOrReplaceWorldbook(
@@ -89,7 +231,7 @@ export function createOrReplaceWorldbook(
   entries: WorldbookEntry[],
   options?: WorldbookWriteOptions,
 ): Promise<void> {
-  return requireHostFunction('createOrReplaceWorldbook', getHostGlobals().createOrReplaceWorldbook)(name, entries, options);
+  return callHostFunctionAsync('createOrReplaceWorldbook', [name, entries, options]);
 }
 
 export function replaceWorldbook(
@@ -97,69 +239,75 @@ export function replaceWorldbook(
   entries: WorldbookEntry[],
   options?: WorldbookWriteOptions,
 ): Promise<void> {
-  return requireHostFunction('replaceWorldbook', getHostGlobals().replaceWorldbook)(name, entries, options);
+  return callHostFunctionAsync('replaceWorldbook', [name, entries, options]);
 }
 
 export function deleteWorldbook(name: string): Promise<boolean> {
-  return requireHostFunction('deleteWorldbook', getHostGlobals().deleteWorldbook)(name);
+  return callHostFunctionAsync('deleteWorldbook', [name]);
 }
 
 export function importRawWorldbook(data: unknown, payload?: unknown): Promise<ImportRawWorldbookResponse> {
-  return requireHostFunction('importRawWorldbook', getHostGlobals().importRawWorldbook)(data, payload);
+  return callHostFunctionAsync('importRawWorldbook', [data, payload]);
 }
 
 export function getGlobalWorldbookNames(): string[] {
-  return requireHostFunction('getGlobalWorldbookNames', getHostGlobals().getGlobalWorldbookNames)();
+  return callHostFunctionSync('getGlobalWorldbookNames', [], isNonEmptyArray) as string[];
 }
 
 export function getCharWorldbookNames(target?: string): { primary: string | null; additional: string[] } {
-  return requireHostFunction('getCharWorldbookNames', getHostGlobals().getCharWorldbookNames)(target);
+  return callHostFunctionSync('getCharWorldbookNames', [target], value => {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+    const result = value as { primary?: unknown; additional?: unknown };
+    return isNonEmptyString(result.primary) || isNonEmptyArray(result.additional);
+  }) as { primary: string | null; additional: string[] };
 }
 
 export function getChatWorldbookName(target?: string): string | null {
-  return requireHostFunction('getChatWorldbookName', getHostGlobals().getChatWorldbookName)(target);
+  return callHostFunctionSync('getChatWorldbookName', [target], isNonEmptyString) as string | null;
 }
 
 export function rebindGlobalWorldbooks(names: string[]): Promise<void> {
-  return requireHostFunction('rebindGlobalWorldbooks', getHostGlobals().rebindGlobalWorldbooks)(names);
+  return callHostFunctionAsync('rebindGlobalWorldbooks', [names]);
 }
 
 export function getCharacterNames(): string[] {
-  return requireHostFunction('getCharacterNames', getHostGlobals().getCharacterNames)();
+  return callHostFunctionSync('getCharacterNames', [], isNonEmptyArray) as string[];
 }
 
 export function getCurrentCharacterName(): string | null {
-  return requireHostFunction('getCurrentCharacterName', getHostGlobals().getCurrentCharacterName)();
+  return callHostFunctionSync('getCurrentCharacterName', [], isNonEmptyString) as string | null;
 }
 
 export function getChatMessages(mesId: number | string): Array<{ message: string; [key: string]: unknown }> {
-  return requireHostFunction('getChatMessages', getHostGlobals().getChatMessages)(mesId);
+  return callHostFunctionSync('getChatMessages', [mesId]) as Array<{ message: string; [key: string]: unknown }>;
 }
 
 export function getLastMessageId(): number {
-  return requireHostFunction('getLastMessageId', getHostGlobals().getLastMessageId)();
+  return callHostFunctionSync('getLastMessageId', []) as number;
 }
 
 export function generate(options: GenerateOptions): Promise<string> {
-  return requireHostFunction('generate', getHostGlobals().generate)(options);
+  return callHostFunctionAsync('generate', [options]);
 }
 
 export function generateRaw(options: GenerateRawOptions): Promise<string> {
-  return requireHostFunction('generateRaw', getHostGlobals().generateRaw)(options);
+  return callHostFunctionAsync('generateRaw', [options]);
 }
 
 export function stopGenerationById(generationId: string): void {
-  requireHostFunction('stopGenerationById', getHostGlobals().stopGenerationById)(generationId);
+  callHostFunctionSync('stopGenerationById', [generationId]);
 }
 
 export function getModelList(options: { apiurl: string; key?: string }): Promise<string[]> {
-  return requireHostFunction('getModelList', getHostGlobals().getModelList)(options);
+  return callHostFunctionAsync('getModelList', [options]);
 }
 
 export function eventOn(event: string, handler: (...args: any[]) => void): EventSubscription {
-  return requireHostFunction('eventOn', getHostGlobals().eventOn)(event, handler);
+  return callHostFunctionSync('eventOn', [event, handler]) as EventSubscription;
 }
 
 export function getIframeEvents(): { STREAM_TOKEN_RECEIVED_FULLY: string; [key: string]: string } {
-  return requireHostObject('iframe_events', getHostGlobals().iframe_events);
+  return resolveHostObject('iframe_events');
 }
