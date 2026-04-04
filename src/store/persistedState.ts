@@ -36,6 +36,7 @@ import type {
 // ── Constants ──────────────────────────────────────────────────────
 
 export const STORAGE_KEY = 'worldbook_assistant_state_v1';
+const AI_API_KEY_STORAGE_KEY = 'worldbook_assistant_ai_api_key_v1';
 export const HISTORY_LIMIT = 12;
 export const ENTRY_HISTORY_LIMIT = 7;
 export const GLOBAL_PRESET_LIMIT = 64;
@@ -105,6 +106,33 @@ export function createDefaultTagFilterState(): TagFilterState {
     logic: 'or',
     match_mode: 'descendants',
   };
+}
+
+function readAiApiKeySecret(): string {
+  try {
+    if (typeof localStorage === 'undefined') {
+      return '';
+    }
+    return toStringSafe(localStorage.getItem(AI_API_KEY_STORAGE_KEY)).trim();
+  } catch {
+    return '';
+  }
+}
+
+function writeAiApiKeySecret(value: string): void {
+  try {
+    if (typeof localStorage === 'undefined') {
+      return;
+    }
+    const normalized = toStringSafe(value).trim();
+    if (normalized) {
+      localStorage.setItem(AI_API_KEY_STORAGE_KEY, normalized);
+    } else {
+      localStorage.removeItem(AI_API_KEY_STORAGE_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 // ── Normalize helpers ──────────────────────────────────────────────
@@ -208,7 +236,7 @@ export function createDefaultPersistedState(): PersistedState {
       mode: 'tavern',
       use_main_api: true,
       apiurl: '',
-      key: '',
+      key: readAiApiKeySecret(),
       model: '',
       max_tokens: 4096,
       temperature: 1,
@@ -424,11 +452,12 @@ export function normalizePersistedState(input: unknown): PersistedState {
     ai_api_config: (() => {
       const raw = asRecord(root.ai_api_config);
       if (!raw) return createDefaultPersistedState().ai_api_config;
+      const storedKey = toStringSafe(raw.key).trim();
       return {
         mode: raw.mode === 'custom' ? 'custom' : 'tavern',
         use_main_api: raw.use_main_api !== false,
         apiurl: toStringSafe(raw.apiurl),
-        key: toStringSafe(raw.key),
+        key: readAiApiKeySecret() || storedKey,
         model: toStringSafe(raw.model),
         max_tokens: toNumberSafe(raw.max_tokens, 4096),
         temperature: toNumberSafe(raw.temperature, 1),
@@ -470,12 +499,19 @@ export function createPersistedStateStore(): PersistedStateStore {
   }
 
   function writePersistedState(state: PersistedState, onAfterWrite?: () => void): void {
+    writeAiApiKeySecret(state.ai_api_config.key);
     const ctx = (window as any).SillyTavern?.getContext?.();
     if (ctx) {
       if (!ctx.extensionSettings.worldbookAssistant) {
         ctx.extensionSettings.worldbookAssistant = {};
       }
-      ctx.extensionSettings.worldbookAssistant[STORAGE_KEY] = state;
+      ctx.extensionSettings.worldbookAssistant[STORAGE_KEY] = {
+        ...state,
+        ai_api_config: {
+          ...state.ai_api_config,
+          key: '',
+        },
+      };
       ctx.saveSettingsDebounced?.();
     }
     persistedState.value = state;

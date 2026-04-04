@@ -2666,7 +2666,7 @@ watch([draftEntries, originalEntries], () => {
   scheduleEntriesDigestSync();
 }, { deep: true, immediate: true, flush: 'post' });
 
-watch(selectedWorldbookName, name => {
+watch(selectedWorldbookName, (name, previousName) => {
   closeWorldbookPicker();
   mobileMultiSelectMode.value = false;
   clearMobileLongPressState();
@@ -2680,6 +2680,12 @@ watch(selectedWorldbookName, name => {
   updatePersistedState(state => {
     state.last_worldbook = name;
   });
+  if (name !== previousName) {
+    draftEntries.value = [];
+    originalEntries.value = [];
+    selectedEntryUid.value = null;
+    syncEntriesDigestNow();
+  }
   normalizeCrossCopyWorldbookSelection();
   if (crossCopyHasCompared.value) {
     if (crossCopySourceWorldbook.value === name && crossCopyUseDraftSourceWhenCurrent.value) {
@@ -2791,6 +2797,19 @@ watch(
     }
   },
 );
+
+watch(draftEntriesDigest, (nextDigest, previousDigest) => {
+  if (!previousDigest || nextDigest === previousDigest || !crossCopyHasCompared.value) {
+    return;
+  }
+  if (crossCopySourceWorldbook.value === selectedWorldbookName.value && crossCopyUseDraftSourceWhenCurrent.value) {
+    resetCrossCopyCompare('当前来源草稿已修改，请刷新比较');
+    return;
+  }
+  if (crossCopyTargetWorldbook.value === selectedWorldbookName.value) {
+    resetCrossCopyCompare('当前目标草稿已修改，请刷新比较');
+  }
+});
 
 watch(crossCopySnapshotBeforeApply, () => {
   persistCrossCopyState();

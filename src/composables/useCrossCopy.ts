@@ -427,12 +427,14 @@ export function useCrossCopy(options: UseCrossCopyOptions): UseCrossCopyReturn {
         sourceEntries = await getWorldbook(crossCopySourceWorldbook.value);
       }
       const targetEntries = await getWorldbook(crossCopyTargetWorldbook.value);
+      const sourceSnapshot = klona(sourceEntries) as WorldbookEntry[];
+      const targetSnapshot = klona(targetEntries) as WorldbookEntry[];
 
-      crossCopySourceBaselineEntries.value = sourceEntries;
-      crossCopyTargetBaselineEntries.value = targetEntries;
-      const rows = buildCrossCopyRows(sourceEntries, targetEntries);
+      crossCopySourceBaselineEntries.value = sourceSnapshot;
+      crossCopyTargetBaselineEntries.value = targetSnapshot;
+      const rows = buildCrossCopyRows(sourceSnapshot, targetSnapshot);
       crossCopyRows.value = rows;
-      crossCopyCompareSummary.value = buildCrossCopyCompareSummaryText(rows, sourceEntries.length, targetEntries.length);
+      crossCopyCompareSummary.value = buildCrossCopyCompareSummaryText(rows, sourceSnapshot.length, targetSnapshot.length);
       crossCopyLastComparedAt.value = Date.now();
       crossCopySearchText.value = '';
       crossCopyStatusFilter.value = 'all';

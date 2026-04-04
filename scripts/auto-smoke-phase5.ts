@@ -3,7 +3,13 @@ import { THEMES, type ThemeKey } from '../src/themes';
 import { useUIPickerThemeHandlers } from '../src/composables/useUIPickerThemeHandlers';
 import { useWorldbookDataFlow } from '../src/composables/useWorldbookDataFlow';
 import { useWorldbookFileOps } from '../src/composables/useWorldbookFileOps';
+import { useGlobalWorldbooks } from '../src/composables/useGlobalWorldbooks';
 import { useWorldbookModeActions } from '../src/composables/useWorldbookModeActions';
+import {
+  createDefaultPersistedState,
+  createPersistedStateStore,
+  STORAGE_KEY,
+} from '../src/store/persistedState';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -41,9 +47,15 @@ const originalGlobals = {
   confirm: g.confirm,
   document: g.document,
   URL: g.URL,
+  window: g.window,
+  localStorage: g.localStorage,
   getWorldbook: g.getWorldbook,
   getWorldbookNames: g.getWorldbookNames,
   replaceWorldbook: g.replaceWorldbook,
+  rebindGlobalWorldbooks: g.rebindGlobalWorldbooks,
+  getGlobalWorldbookNames: g.getGlobalWorldbookNames,
+  getCharacterNames: g.getCharacterNames,
+  getCurrentCharacterName: g.getCurrentCharacterName,
 };
 
 function installToastrMock(): void {
@@ -412,6 +424,131 @@ test('useWorldbookDataFlow: load/reload/save/hardRefresh 主链路', async () =>
   globalMode.value = true;
   await api.hardRefresh({ source: 'auto' });
   assert(ensureGlobalSelectionCount > 0, 'hardRefresh 全局模式应确保全局选择');
+
+  const replaceCallCountBeforeGuard = replaceCalls.length;
+  selectedWorldbookName.value = 'BookB';
+  unsavedFlag.value = true;
+  await api.saveCurrentWorldbook();
+  assert(replaceCalls.length === replaceCallCountBeforeGuard, '未成功加载的世界书不应允许保存');
+
+  selectedWorldbookName.value = 'BookA';
+  persistedState.value.last_worldbook = 'GhostBook';
+  await api.reloadWorldbookNames(undefined, { source: 'manual' });
+  assert(selectedWorldbookName.value === 'BookA', 'reloadWorldbookNames 不应保留已失效的当前选择');
+
+  selectedWorldbookName.value = 'BookB';
+  draftEntries.value = [createSimpleEntry(1, 'Loaded-BookA', 'safe')];
+  originalEntries.value = [createSimpleEntry(1, 'Loaded-BookA', 'safe')];
+  const originalGetWorldbook = g.getWorldbook;
+  g.getWorldbook = async (name: string): Promise<Array<Record<string, unknown>>> => {
+    if (name === 'BookB') {
+      throw new Error('load failed');
+    }
+    return originalGetWorldbook(name);
+  };
+  await api.loadWorldbook('BookB');
+  g.getWorldbook = originalGetWorldbook;
+  assert(selectedWorldbookName.value === 'BookA', 'loadWorldbook 失败后应回退到最后成功加载的世界书');
+  assert(String(draftEntries.value[0]?.name) === 'Loaded-BookA', 'loadWorldbook 失败后不应把旧草稿写入失败选择');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// useGlobalWorldbooks
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('useGlobalWorldbooks: 全局重绑失败选择同步时给出显式提示', async () => {
+  let reboundNames: string[] = [];
+  g.rebindGlobalWorldbooks = async (names: string[]) => {
+    reboundNames = [...names];
+  };
+  g.getGlobalWorldbookNames = () => [];
+  g.getCharacterNames = () => [];
+  g.getCurrentCharacterName = () => null;
+
+  const persistedState = ref({
+    ...createDefaultPersistedState(),
+    last_worldbook: 'OutsideBook',
+  });
+  const worldbookNames = ref(['GlobalA', 'OutsideBook']);
+  const bindings = {
+    global: [] as string[],
+    charPrimary: null as string | null,
+    charAdditional: [] as string[],
+    chat: null as string | null,
+  };
+
+  const statusMessages: string[] = [];
+  let refreshBindingsCount = 0;
+
+  const api = useGlobalWorldbooks({
+    persistedState,
+    updatePersistedState: mutator => {
+      mutator(persistedState.value);
+    },
+    setStatus: message => {
+      statusMessages.push(message);
+    },
+    worldbookNames,
+    bindings,
+    refreshBindings: async () => {
+      refreshBindingsCount += 1;
+    },
+    ensureSelectionForGlobalMode: () => false,
+  });
+
+  const success = await api.applyGlobalWorldbooks(['GlobalA'], '测试更新全局世界书');
+  assert(success === true, '全局重绑成功时不应因为选择未同步而整体失败');
+  assert(reboundNames.length === 1 && reboundNames[0] === 'GlobalA', '全局世界书未写入宿主');
+  assert(refreshBindingsCount === 1, '全局重绑后应刷新绑定');
+  assert(statusMessages.some(message => message.includes('未同步当前选择')), '全局重绑选择未同步时应给出显式状态提示');
+  assert(toastLog.some(message => message.includes('warning:全局世界书已更新，但当前有未保存修改，未自动切换编辑目标')), '全局重绑选择未同步时应给出警告 toast');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// persistedState store
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('createPersistedStateStore: AI key 不写入扩展设置，读取时从本地密钥恢复', () => {
+  const localSecret = new Map<string, string>();
+  const extensionSettings: Record<string, any> = {};
+  let saveSettingsCount = 0;
+
+  g.localStorage = {
+    getItem: (key: string) => localSecret.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      localSecret.set(key, String(value));
+    },
+    removeItem: (key: string) => {
+      localSecret.delete(key);
+    },
+  };
+  g.window = {
+    SillyTavern: {
+      getContext: () => ({
+        extensionSettings: {
+          worldbookAssistant: extensionSettings,
+        },
+        saveSettingsDebounced: () => {
+          saveSettingsCount += 1;
+        },
+      }),
+    },
+  };
+
+  const store = createPersistedStateStore();
+  const nextState = createDefaultPersistedState();
+  nextState.ai_api_config.mode = 'custom';
+  nextState.ai_api_config.key = 'sk-test-secret';
+  nextState.ai_api_config.apiurl = 'https://api.example.com';
+
+  store.writePersistedState(nextState);
+
+  assert(saveSettingsCount === 1, '写入持久化状态后应调用 saveSettingsDebounced');
+  assert(localSecret.get('worldbook_assistant_ai_api_key_v1') === 'sk-test-secret', 'AI key 应写入本地密钥存储');
+  assert(extensionSettings[STORAGE_KEY].ai_api_config.key === '', 'AI key 不应继续写入扩展设置');
+
+  const reread = store.readPersistedState();
+  assert(reread.ai_api_config.key === 'sk-test-secret', '读取持久化状态时应恢复本地 AI key');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -605,9 +742,15 @@ async function main(): Promise<void> {
     g.confirm = originalGlobals.confirm;
     g.document = originalGlobals.document;
     g.URL = originalGlobals.URL;
+    g.window = originalGlobals.window;
+    g.localStorage = originalGlobals.localStorage;
     g.getWorldbook = originalGlobals.getWorldbook;
     g.getWorldbookNames = originalGlobals.getWorldbookNames;
     g.replaceWorldbook = originalGlobals.replaceWorldbook;
+    g.rebindGlobalWorldbooks = originalGlobals.rebindGlobalWorldbooks;
+    g.getGlobalWorldbookNames = originalGlobals.getGlobalWorldbookNames;
+    g.getCharacterNames = originalGlobals.getCharacterNames;
+    g.getCurrentCharacterName = originalGlobals.getCurrentCharacterName;
   }
 }
 

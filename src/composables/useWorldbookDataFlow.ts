@@ -97,6 +97,14 @@ export function useWorldbookDataFlow(options: UseWorldbookDataFlowOptions): UseW
 
   let worldbookLoadRequestId = 0;
   let pendingWorldbookLoadCount = 0;
+  let lastLoadedWorldbookName = '';
+
+  function clearLoadedWorldbookState(): void {
+    draftEntries.value = [];
+    originalEntries.value = [];
+    selectedEntryUid.value = null;
+    syncEntriesDigestNow();
+  }
 
   async function loadWorldbook(name: string): Promise<void> {
     if (!name) {
@@ -108,11 +116,13 @@ export function useWorldbookDataFlow(options: UseWorldbookDataFlowOptions): UseW
     const isStaleRequest = () => requestId !== worldbookLoadRequestId || selectedWorldbookName.value !== name;
     try {
       let rawEntries: WorldbookEntry[];
+      let loadedWorldbookName = name;
       try {
         rawEntries = await getWorldbook(name);
       } catch {
         // Fallback: try trimmed name in case of whitespace mismatch
-        rawEntries = await getWorldbook(name.trim());
+        loadedWorldbookName = name.trim();
+        rawEntries = await getWorldbook(loadedWorldbookName);
       }
       if (isStaleRequest()) {
         return;
@@ -120,9 +130,10 @@ export function useWorldbookDataFlow(options: UseWorldbookDataFlowOptions): UseW
       const normalized = normalizeEntryList(rawEntries);
       draftEntries.value = klona(normalized);
       originalEntries.value = klona(normalized);
+      lastLoadedWorldbookName = loadedWorldbookName;
       syncEntriesDigestNow();
       ensureSelectedEntryExists();
-      setStatus(`已加载 "${name}"，条目 ${normalized.length}`);
+      setStatus(`已加载 "${loadedWorldbookName}"，条目 ${normalized.length}`);
     } catch (error) {
       if (isStaleRequest()) {
         return;
@@ -134,6 +145,17 @@ export function useWorldbookDataFlow(options: UseWorldbookDataFlowOptions): UseW
       } else {
         toastr.error(`读取世界书失败: ${message}`);
         setStatus(`读取失败: ${message}`);
+      }
+      if (selectedWorldbookName.value === name && name !== lastLoadedWorldbookName) {
+        const fallbackName = lastLoadedWorldbookName;
+        if (fallbackName && worldbookNames.value.includes(fallbackName)) {
+          selectedWorldbookName.value = fallbackName;
+          setStatus(`读取失败: ${message}，已恢复到 "${fallbackName}"`);
+        } else {
+          clearLoadedWorldbookState();
+          lastLoadedWorldbookName = '';
+          selectedWorldbookName.value = '';
+        }
       }
     } finally {
       pendingWorldbookLoadCount = Math.max(0, pendingWorldbookLoadCount - 1);
@@ -170,7 +192,7 @@ export function useWorldbookDataFlow(options: UseWorldbookDataFlowOptions): UseW
     const candidate =
       (preferred && names.includes(preferred) && preferred)
       || (fallbackName && names.includes(fallbackName) && fallbackName)
-      || selectedWorldbookName.value
+      || (selectedWorldbookName.value && names.includes(selectedWorldbookName.value) && selectedWorldbookName.value)
       || names[0];
 
     if (candidate && selectedWorldbookName.value !== candidate) {
@@ -240,6 +262,11 @@ export function useWorldbookDataFlow(options: UseWorldbookDataFlowOptions): UseW
   async function saveCurrentWorldbook(): Promise<void> {
     if (!selectedWorldbookName.value) {
       toastr.warning('请先选择世界书');
+      return;
+    }
+    if (selectedWorldbookName.value !== lastLoadedWorldbookName) {
+      toastr.error('当前世界书尚未成功加载，无法保存');
+      setStatus('保存失败: 当前世界书尚未成功加载');
       return;
     }
     if (!hasUnsavedChanges.value) {

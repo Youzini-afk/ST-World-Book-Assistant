@@ -30,7 +30,7 @@ export interface UseGlobalWorldbooksOptions {
   worldbookNames: Ref<string[]>;
   bindings: { global: string[]; charPrimary: string | null; charAdditional: string[]; chat: string | null };
   refreshBindings: () => Promise<void>;
-  ensureSelectionForGlobalMode: (options: WorldbookSwitchOptions) => void;
+  ensureSelectionForGlobalMode: (options: WorldbookSwitchOptions) => boolean;
 }
 
 export interface UseGlobalWorldbooksReturn {
@@ -153,10 +153,15 @@ export function useGlobalWorldbooks(options: UseGlobalWorldbooksOptions): UseGlo
     try {
       await rebindGlobalWorldbooks(normalized);
       await refreshBindings();
-      ensureSelectionForGlobalMode({
+      const selectionSynced = ensureSelectionForGlobalMode({
         source: 'manual',
         reason: '更新全局世界书后同步当前选择',
       });
+      if (!selectionSynced) {
+        toastr.warning('全局世界书已更新，但当前有未保存修改，未自动切换编辑目标');
+        setStatus(`${statusLabel}（${normalized.length} 本，未同步当前选择）`);
+        return true;
+      }
       setStatus(`${statusLabel}（${normalized.length} 本）`);
       return true;
     } catch (error) {

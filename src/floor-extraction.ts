@@ -3,6 +3,12 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { subscribeEventSource } from './eventSourceCompat';
+import {
+  createWorldbookEntries,
+  getChatMessages,
+  getWorldbook,
+  getWorldbookNames,
+} from './hostApi';
 
 /** Panel element ID — needed for theme variable sync */
 const PANEL_ID = 'wb-assistant-panel';
@@ -453,7 +459,14 @@ function injectAllFloorButtons(): void {
 
 // ── Handle extraction for a single floor ───────────────────────────
 function handleFloorExtract(mesId: number): void {
-  const messages = getChatMessages(mesId);
+  let messages: Array<{ message: string; [key: string]: unknown }>;
+  try {
+    messages = getChatMessages(mesId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    toastr.error(`读取楼层消息失败: ${message}`);
+    return;
+  }
   if (!messages.length) {
     toastr.warning('无法读取该楼层消息');
     return;
@@ -537,7 +550,13 @@ function showExtractionModal(tags: ExtractedFloorTag[], mesId: number): void {
   // Remove any existing modal
   closeExtractionModal();
 
-  const wbNames = getWorldbookNames();
+  let wbNames: string[] = [];
+  try {
+    wbNames = getWorldbookNames();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    toastr.error(`读取世界书列表失败: ${message}`);
+  }
 
   // Build modal content (SillyTavern's Popup provides the overlay)
   const modal = doc.createElement('div');
