@@ -3,7 +3,6 @@
  * Pure functions with no Vue reactivity dependency.
  */
 
-declare function diffLines(oldStr: string, newStr: string): Array<{ value: string; added?: boolean; removed?: boolean }>;
 import {
   toStringSafe,
   stringifyKeyword,
@@ -21,6 +20,117 @@ import type {
   WorldbookVersionView,
   EntryVersionView,
 } from './types';
+
+interface DiffLinePart {
+  value: string;
+  added?: boolean;
+  removed?: boolean;
+}
+
+const MAX_EXACT_DIFF_MATRIX_CELLS = 400_000;
+
+function tokenizeDiffLines(text: string): string[] {
+  const normalized = text.replace(/\r\n/g, '\n');
+  return normalized.match(/[^\n]*\n|[^\n]+/g) ?? [];
+}
+
+function appendDiffPart(parts: DiffLinePart[], kind: 'same' | 'added' | 'removed', value: string): void {
+  if (!value) {
+    return;
+  }
+
+  const last = parts[parts.length - 1];
+  const matchesKind = kind === 'same'
+    ? last && !last.added && !last.removed
+    : kind === 'added'
+      ? last?.added === true
+      : last?.removed === true;
+
+  if (matchesKind && last) {
+    last.value += value;
+    return;
+  }
+
+  if (kind === 'added') {
+    parts.push({ value, added: true });
+    return;
+  }
+  if (kind === 'removed') {
+    parts.push({ value, removed: true });
+    return;
+  }
+  parts.push({ value });
+}
+
+function buildFallbackLineDiff(oldStr: string, newStr: string): DiffLinePart[] {
+  const parts: DiffLinePart[] = [];
+  if (oldStr) {
+    appendDiffPart(parts, 'removed', oldStr.replace(/\r\n/g, '\n'));
+  }
+  if (newStr) {
+    appendDiffPart(parts, 'added', newStr.replace(/\r\n/g, '\n'));
+  }
+  return parts;
+}
+
+function diffLinesLocal(oldStr: string, newStr: string): DiffLinePart[] {
+  if (oldStr === newStr) {
+    return oldStr ? [{ value: oldStr.replace(/\r\n/g, '\n') }] : [];
+  }
+
+  const oldLines = tokenizeDiffLines(oldStr);
+  const newLines = tokenizeDiffLines(newStr);
+  const matrixCells = (oldLines.length + 1) * (newLines.length + 1);
+  if (matrixCells > MAX_EXACT_DIFF_MATRIX_CELLS) {
+    return buildFallbackLineDiff(oldStr, newStr);
+  }
+
+  const widths = new Array<Int32Array>(oldLines.length + 1);
+  for (let i = 0; i <= oldLines.length; i += 1) {
+    widths[i] = new Int32Array(newLines.length + 1);
+  }
+
+  for (let i = oldLines.length - 1; i >= 0; i -= 1) {
+    for (let j = newLines.length - 1; j >= 0; j -= 1) {
+      widths[i][j] = oldLines[i] === newLines[j]
+        ? widths[i + 1][j + 1] + 1
+        : Math.max(widths[i + 1][j], widths[i][j + 1]);
+    }
+  }
+
+  const parts: DiffLinePart[] = [];
+  let oldIndex = 0;
+  let newIndex = 0;
+
+  while (oldIndex < oldLines.length && newIndex < newLines.length) {
+    if (oldLines[oldIndex] === newLines[newIndex]) {
+      appendDiffPart(parts, 'same', oldLines[oldIndex]);
+      oldIndex += 1;
+      newIndex += 1;
+      continue;
+    }
+
+    if (widths[oldIndex + 1][newIndex] >= widths[oldIndex][newIndex + 1]) {
+      appendDiffPart(parts, 'removed', oldLines[oldIndex]);
+      oldIndex += 1;
+      continue;
+    }
+
+    appendDiffPart(parts, 'added', newLines[newIndex]);
+    newIndex += 1;
+  }
+
+  while (oldIndex < oldLines.length) {
+    appendDiffPart(parts, 'removed', oldLines[oldIndex]);
+    oldIndex += 1;
+  }
+  while (newIndex < newLines.length) {
+    appendDiffPart(parts, 'added', newLines[newIndex]);
+    newIndex += 1;
+  }
+
+  return parts;
+}
 
 // ── Name / content normalization ────────────────────────────────────
 
@@ -99,9 +209,9 @@ export function buildCrossCopyTextDiff(leftText: string, rightText: string): Cro
   let rightLineNo = 1;
   let addLines = 0;
   let delLines = 0;
-  const parts = diffLines(leftText, rightText);
+  const parts = diffLinesLocal(leftText, rightText);
 
-  for (const part of parts as Array<{ value: string; added?: boolean; removed?: boolean }>) {
+  for (const part of parts) {
     const lines = part.value.split('\n');
     if (lines.length && lines[lines.length - 1] === '') lines.pop();
     if (!lines.length) continue;
