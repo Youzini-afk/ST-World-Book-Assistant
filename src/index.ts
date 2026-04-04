@@ -43,6 +43,7 @@ let fabViewportSyncResizeHandler: (() => void) | null = null;
 let fabViewportSyncRaf: number | null = null;
 let fabVisibilitySetHandler: ((event: Event) => void) | null = null;
 let fatalAppErrorScheduled = false;
+let fatalAppErrorHandling = false;
 
 function getHostWindow(): Window {
   return window;
@@ -488,22 +489,27 @@ function renderPanelFatalError(error: unknown, info?: string): void {
 
 function scheduleFatalAppError(error: unknown, info?: string): void {
   console.error('[WorldbookAssistant] fatal app error:', error, info);
-  if (fatalAppErrorScheduled) {
+  if (fatalAppErrorScheduled || fatalAppErrorHandling) {
     return;
   }
 
   fatalAppErrorScheduled = true;
   window.setTimeout(() => {
-    fatalAppErrorScheduled = false;
+    fatalAppErrorHandling = true;
     try {
-      app?.unmount();
-    } catch (unmountError) {
-      console.error('[WorldbookAssistant] unmount after fatal error failed:', unmountError);
+      try {
+        app?.unmount();
+      } catch (unmountError) {
+        console.error('[WorldbookAssistant] unmount after fatal error failed:', unmountError);
+      }
+      app = null;
+      panelRoot?.remove();
+      panelRoot = null;
+      renderPanelFatalError(error, info);
+    } finally {
+      fatalAppErrorScheduled = false;
+      fatalAppErrorHandling = false;
     }
-    app = null;
-    panelRoot?.remove();
-    panelRoot = null;
-    renderPanelFatalError(error, info);
   }, 0);
 }
 
@@ -521,6 +527,10 @@ function mountAppIntoPanel(): void {
   body.appendChild(panelRoot);
   const nextApp = createApp(WorldbookAssistantApp);
   nextApp.config.errorHandler = (error, _instance, info) => {
+    if (fatalAppErrorScheduled || fatalAppErrorHandling) {
+      console.error('[WorldbookAssistant] ignored nested app error during fatal handling:', error, info);
+      return;
+    }
     scheduleFatalAppError(error, info);
   };
 

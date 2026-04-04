@@ -1496,6 +1496,7 @@ import {
   getGlobalWorldbookNames,
   importRawWorldbook,
 } from './hostApi';
+import { subscribeEventSource } from './eventSourceCompat';
 import {
   createId,
   asRecord,
@@ -3934,14 +3935,18 @@ onMounted(() => {
     const handler1 = (entries: any) => {
       pushActivationLogs(entries as Array<{ world: string } & Record<string, unknown>>);
     };
-    ctx.eventSource.on(ctx.eventTypes.WORLD_INFO_ACTIVATED, handler1);
-    subscriptions.push({ stop: () => ctx.eventSource.off(ctx.eventTypes.WORLD_INFO_ACTIVATED, handler1) });
+    const activationSubscription = subscribeEventSource(ctx.eventSource, ctx.eventTypes.WORLD_INFO_ACTIVATED, handler1);
+    if (activationSubscription) {
+      subscriptions.push(activationSubscription);
+    }
 
     const handler2 = () => {
       void hardRefresh({ source: 'auto', reason: '世界书数据已更新' });
     };
-    ctx.eventSource.on(ctx.eventTypes.WORLDINFO_UPDATED, handler2);
-    subscriptions.push({ stop: () => ctx.eventSource.off(ctx.eventTypes.WORLDINFO_UPDATED, handler2) });
+    const worldInfoUpdatedSubscription = subscribeEventSource(ctx.eventSource, ctx.eventTypes.WORLDINFO_UPDATED, handler2);
+    if (worldInfoUpdatedSubscription) {
+      subscriptions.push(worldInfoUpdatedSubscription);
+    }
 
     const handler3 = () => {
       void (async () => {
@@ -3960,8 +3965,10 @@ onMounted(() => {
         trySelectWorldbookByContext({ source: 'auto' });
       })();
     };
-    ctx.eventSource.on(ctx.eventTypes.CHAT_CHANGED, handler3);
-    subscriptions.push({ stop: () => ctx.eventSource.off(ctx.eventTypes.CHAT_CHANGED, handler3) });
+    const chatChangedSubscription = subscribeEventSource(ctx.eventSource, ctx.eventTypes.CHAT_CHANGED, handler3);
+    if (chatChangedSubscription) {
+      subscriptions.push(chatChangedSubscription);
+    }
   }
 
   window.addEventListener('wb-helper:refresh', onPanelRefresh);
@@ -4012,6 +4019,7 @@ onUnmounted(() => {
   subscriptions.forEach(subscription => {
     subscription.stop();
   });
+  subscriptions.length = 0;
   clearMobileLongPressState();
   stopFloatingDrag();
   stopPaneResize();

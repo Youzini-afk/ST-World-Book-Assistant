@@ -2,6 +2,8 @@
 // ── Floor Extraction Button System (standalone, no Vue dependency) ──
 // ═══════════════════════════════════════════════════════════════════════
 
+import { subscribeEventSource } from './eventSourceCompat';
+
 /** Panel element ID — needed for theme variable sync */
 const PANEL_ID = 'wb-assistant-panel';
 
@@ -911,12 +913,18 @@ function startFloorButtonListeners(): void {
   // Subscribe via SillyTavern global context eventSource
   const ctx = (window as any).SillyTavern?.getContext?.();
   if (ctx?.eventSource && ctx?.eventTypes) {
-    ctx.eventSource.on(ctx.eventTypes.CHARACTER_MESSAGE_RENDERED, onCharRendered);
-    floorEventSubscriptions.push({ stop: () => ctx.eventSource.off(ctx.eventTypes.CHARACTER_MESSAGE_RENDERED, onCharRendered) });
-    ctx.eventSource.on(ctx.eventTypes.USER_MESSAGE_RENDERED, onUserRendered);
-    floorEventSubscriptions.push({ stop: () => ctx.eventSource.off(ctx.eventTypes.USER_MESSAGE_RENDERED, onUserRendered) });
-    ctx.eventSource.on(ctx.eventTypes.CHAT_CHANGED, onChatChanged);
-    floorEventSubscriptions.push({ stop: () => ctx.eventSource.off(ctx.eventTypes.CHAT_CHANGED, onChatChanged) });
+    const charRenderedSubscription = subscribeEventSource(ctx.eventSource, ctx.eventTypes.CHARACTER_MESSAGE_RENDERED, onCharRendered);
+    if (charRenderedSubscription) {
+      floorEventSubscriptions.push(charRenderedSubscription);
+    }
+    const userRenderedSubscription = subscribeEventSource(ctx.eventSource, ctx.eventTypes.USER_MESSAGE_RENDERED, onUserRendered);
+    if (userRenderedSubscription) {
+      floorEventSubscriptions.push(userRenderedSubscription);
+    }
+    const chatChangedSubscription = subscribeEventSource(ctx.eventSource, ctx.eventTypes.CHAT_CHANGED, onChatChanged);
+    if (chatChangedSubscription) {
+      floorEventSubscriptions.push(chatChangedSubscription);
+    }
   }
 
   // Listen for toggle event from App.vue
