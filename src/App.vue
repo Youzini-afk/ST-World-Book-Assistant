@@ -207,18 +207,15 @@
                   @toggle-tag-tree-expanded="toggleTagTreeExpanded"
                 />
               </label>
-              <div class="toolbar-btns" style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button class="btn" type="button" :class="{ 'glow-pulse': hasUnsavedChanges }" :disabled="!hasUnsavedChanges" @click="saveCurrentWorldbook" style="padding:8px 14px;font-size:13px;">💾 保存</button>
-                <button class="btn" type="button" @click="addEntry" style="padding:8px 14px;font-size:13px;">+ 新条目</button>
-                <button class="btn" type="button" @click="triggerImport" style="padding:8px 14px;font-size:13px;">📥 导入</button>
-                <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="exportCurrentWorldbook" style="padding:8px 14px;font-size:13px;">📤 导出</button>
-                <button class="btn" type="button" @click="toggleGlobalMode" :style="{ padding:'8px 14px', fontSize:'13px', background: globalWorldbookMode ? 'var(--wb-primary)' : '', color: globalWorldbookMode ? '#fff' : '' }">🌐 全局</button>
-                <button class="btn" type="button" @click="extractFromChat" style="padding:8px 14px;font-size:13px;">📥 提取</button>
-                <button class="btn" type="button" @click="showApiSettings = true" style="padding:8px 14px;font-size:13px;">⚙️ 设置</button>
-                <button class="btn" type="button" @click="openAiConfigModal" style="padding:8px 14px;font-size:13px;">🔧 AI配置</button>
-                <button class="btn" type="button" :disabled="!draftEntries.length" @click="sortEntries" :class="{ active: viewSortActive }" style="padding:8px 14px;font-size:13px;">🔢 排序</button>
-                <button class="btn" type="button" :disabled="!selectedEntry" @click="openEntryHistoryModal" style="padding:8px 14px;font-size:13px;">🕰️ 条目时光机</button>
-                <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="openWorldbookHistoryModal" style="padding:8px 14px;font-size:13px;">⏪ 整本时光机</button>
+              <div class="mobile-tool-scroller">
+                <button class="btn" type="button" :class="{ 'glow-pulse': hasUnsavedChanges }" :disabled="!hasUnsavedChanges" @click="saveCurrentWorldbook">💾 保存</button>
+                <button class="btn" type="button" @click="addEntry">+ 新条目</button>
+                <button class="btn" type="button" @click="triggerImport">📥 导入</button>
+                <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="exportCurrentWorldbook">📤 导出</button>
+                <button class="btn" type="button" @click="extractFromChat">📥 提取</button>
+                <button class="btn" type="button" :disabled="!draftEntries.length" @click="sortEntries" :class="{ active: viewSortActive }">🔢 排序</button>
+                <button class="btn" type="button" :disabled="!selectedEntry" @click="openEntryHistoryModal">🕰️ 时光机</button>
+                <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="openWorldbookHistoryModal">⏪ 整本</button>
               </div>
             </section>
             <div class="wb-bindings" v-if="bindings.global.length || bindings.charPrimary || bindings.charAdditional.length || bindings.chat">
@@ -576,31 +573,100 @@
           </div>
           </Transition>
 
+          <!-- Tab: 全局 (promoted to dedicated tab in V2) -->
+          <Transition name="mobile-tab">
+          <div v-show="mobileTab === 'global'" class="mobile-pane">
+            <GlobalModeMobilePanel
+              :bindings-global="bindings.global"
+              v-model:selected-global-preset-id="selectedGlobalPresetId"
+              :global-worldbook-presets="globalWorldbookPresets"
+              :selected-global-preset="selectedGlobalPreset"
+              v-model:global-add-search-text="globalAddSearchText"
+              :global-add-candidates="globalAddCandidates"
+              :filtered-global-worldbooks="filteredGlobalWorldbooks"
+              :current-role-context="currentRoleContext"
+              :is-current-role-bound-to-selected-preset="isCurrentRoleBoundToSelectedPreset"
+              :role-picker-open="rolePickerOpen"
+              v-model:role-bind-search-text="roleBindSearchText"
+              :role-binding-candidates="roleBindingCandidates"
+              :selected-global-preset-role-bindings="selectedGlobalPresetRoleBindings"
+              @clear-global-worldbooks="clearGlobalWorldbooks"
+              @global-preset-selection-changed="onGlobalPresetSelectionChanged"
+              @save-current-as-global-preset="saveCurrentAsGlobalPreset"
+              @overwrite-selected-global-preset="overwriteSelectedGlobalPreset"
+              @delete-selected-global-preset="deleteSelectedGlobalPreset"
+              @add-first-global-candidate="addFirstGlobalCandidate"
+              @add-global-worldbook="addGlobalWorldbook"
+              @remove-global-worldbook="removeGlobalWorldbook"
+              @bind-current-role-to-selected-preset="bindCurrentRoleToSelectedPreset"
+              @unbind-current-role-from-selected-preset="unbindCurrentRoleFromSelectedPreset"
+              @toggle-role-picker="toggleRolePicker"
+              @bind-first-role-candidate="bindFirstRoleCandidate"
+              @bind-role-candidate-to-selected-preset="bindRoleCandidateToSelectedPreset"
+              @remove-role-binding-from-selected-preset="removeRoleBindingFromSelectedPreset"
+            />
+          </div>
+          </Transition>
+
+          <!-- Tab: 更多 (consolidated tools menu) -->
+          <Transition name="mobile-tab">
+          <div v-show="mobileTab === 'more'" class="mobile-pane">
+            <div class="mobile-more-grid">
+              <button class="mobile-more-item" type="button" @click="mobileTab = 'copy'">
+                <span class="mobile-more-icon">📚</span>
+                <span class="mobile-more-label">跨书复制</span>
+              </button>
+              <button class="mobile-more-item" type="button" @click="mobileTab = 'tags'">
+                <span class="mobile-more-icon">🏷️</span>
+                <span class="mobile-more-label">标签管理</span>
+              </button>
+              <button class="mobile-more-item" type="button" @click="showApiSettings = true">
+                <span class="mobile-more-icon">⚙️</span>
+                <span class="mobile-more-label">设置</span>
+              </button>
+              <button class="mobile-more-item" type="button" :disabled="!selectedEntry" @click="openEntryHistoryModal">
+                <span class="mobile-more-icon">🕰️</span>
+                <span class="mobile-more-label">条目时光机</span>
+              </button>
+              <button class="mobile-more-item" type="button" :disabled="!selectedWorldbookName" @click="openWorldbookHistoryModal">
+                <span class="mobile-more-icon">⏪</span>
+                <span class="mobile-more-label">整本时光机</span>
+              </button>
+              <button class="mobile-more-item" type="button" @click="extractFromChat">
+                <span class="mobile-more-icon">📥</span>
+                <span class="mobile-more-label">聊天提取</span>
+              </button>
+              <button class="mobile-more-item" type="button" @click="openAiConfigModal">
+                <span class="mobile-more-icon">🔧</span>
+                <span class="mobile-more-label">AI配置</span>
+              </button>
+              <button class="mobile-more-item" type="button" :class="{ active: floatingPanels.activation.visible }" @click="toggleFloatingPanel('activation')">
+                <span class="mobile-more-icon">📡</span>
+                <span class="mobile-more-label">激活监控</span>
+              </button>
+            </div>
+          </div>
+          </Transition>
+
         </div>
       </div>
 
-      <!-- Tab Bar: bottom, direct child of wb-assistant-root via fragment -->
+      <!-- Tab Bar: bottom, 5 tabs per V2 design -->
       <div class="mobile-tab-bar" style="display:flex !important;flex-shrink:0;">
         <button @click="switchPanelMode('browse')">
           <span class="tab-icon">📖</span><span class="tab-label">浏览</span>
         </button>
-        <button @click="mobileTab = 'list'" :class="{ active: mobileTab === 'list' }">
-          <span class="tab-icon">📋</span><span class="tab-label">列表</span>
-        </button>
-        <button @click="mobileTab = 'edit'" :class="{ active: mobileTab === 'edit' }">
+        <button @click="mobileTab = 'list'" :class="{ active: mobileTab === 'list' || mobileTab === 'edit' || mobileTab === 'settings' }">
           <span class="tab-icon">✏️</span><span class="tab-label">编辑</span>
         </button>
-        <button @click="mobileTab = 'settings'" :class="{ active: mobileTab === 'settings' }">
-          <span class="tab-icon">⚙️</span><span class="tab-label">设置</span>
-        </button>
-        <button @click="mobileTab = 'copy'" :class="{ active: mobileTab === 'copy' }">
-          <span class="tab-icon">📚</span><span class="tab-label">复制</span>
+        <button @click="mobileTab = 'global'" :class="{ active: mobileTab === 'global' }">
+          <span class="tab-icon">🌐</span><span class="tab-label">全局</span>
         </button>
         <button v-if="persistedState.show_ai_chat" @click="mobileTab = 'ai'" :class="{ active: mobileTab === 'ai' }">
           <span class="tab-icon">🤖</span><span class="tab-label">AI</span>
         </button>
-        <button @click="mobileTab = 'tags'" :class="{ active: mobileTab === 'tags' }">
-          <span class="tab-icon">🏷️</span><span class="tab-label">标签</span>
+        <button @click="mobileTab = 'more'" :class="{ active: mobileTab === 'more' || mobileTab === 'copy' || mobileTab === 'tags' }">
+          <span class="tab-icon">⚙️</span><span class="tab-label">更多</span>
         </button>
       </div>
       </template><!-- end mobile editor mode -->
@@ -609,9 +675,81 @@
     <!-- ═══ Desktop Layout ═══ -->
     <template v-if="!isMobile">
 
+    <!-- ═══ Desktop Unified Header (shared across all views) ═══ -->
+    <header class="wb-unified-header">
+      <label class="toolbar-label">
+        <span>世界书</span>
+        <WorldbookPicker
+          :open="worldbookPickerOpen"
+          v-model:search-text="worldbookPickerSearchText"
+          :selected-worldbook-name="selectedWorldbookName"
+          :filtered-names="filteredSelectableWorldbookNames"
+          trigger-placeholder="请选择世界书"
+          title-placeholder="请选择世界书"
+          search-placeholder="搜索世界书..."
+          empty-text="没有匹配的世界书"
+          list-key-prefix="unified-wb"
+          :show-open-state-arrow="true"
+          :set-picker-element="setWorldbookPickerElement"
+          :show-tag-filter="tagDefinitions.length > 0"
+          :tag-filter-panel-open="tagFilterPanelOpen"
+          :tag-filter-summary="tagFilterSummary"
+          v-model:tag-filter-logic="tagFilterLogic"
+          v-model:tag-filter-match-mode="tagFilterMatchMode"
+          :selected-tag-filter-ids="selectedTagFilterIds"
+          :selected-tag-filter-id-set="selectedTagFilterIdSet"
+          v-model:tag-filter-search-text="tagFilterSearchText"
+          :tag-assign-options="tagAssignOptions"
+          :tag-tree-rows="tagTreeRows"
+          :tag-tree-expanded-ids="tagTreeExpandedIds"
+          :tag-path-map="tagPathMap"
+          :is-mobile="isMobile"
+          @toggle="toggleWorldbookPicker"
+          @select="selectWorldbookFromPicker"
+          @toggle-tag-filter-panel="tagFilterPanelOpen = !tagFilterPanelOpen"
+          @clear-tag-filter-selection="clearTagFilterSelection"
+          @toggle-tag-filter-selection="toggleTagFilterSelection"
+          @toggle-tag-tree-expanded="toggleTagTreeExpanded"
+        />
+      </label>
+      <div class="wb-mode-tabs">
+        <button type="button" :class="{ active: panelMode === 'browse' }" @click="switchPanelMode('browse')">📖 浏览</button>
+        <button type="button" :class="{ active: panelMode === 'editor' }" @click="switchPanelMode('editor')">✏️ 编辑</button>
+      </div>
+      <div class="wb-header-actions">
+        <button class="btn" type="button" @click="createNewWorldbook">新建</button>
+        <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="duplicateWorldbook">另存为</button>
+        <button class="btn danger" type="button" :disabled="!selectedWorldbookName" @click="deleteCurrentWorldbook">删除</button>
+        <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="exportCurrentWorldbook">导出</button>
+        <button class="btn" type="button" @click="triggerImport">导入</button>
+        <span class="wb-header-divider"></span>
+        <button class="btn" type="button" :class="{ 'glow-pulse': hasUnsavedChanges }" :disabled="!hasUnsavedChanges" @click="saveCurrentWorldbook">💾 保存</button>
+      </div>
+    </header>
+
+    <!-- ═══ Desktop Tool Strip (shared across all views) ═══ -->
+    <div class="wb-tool-strip">
+      <button class="btn" type="button" :class="{ active: globalWorldbookMode }" @click="toggleGlobalMode">🌐 全局模式</button>
+      <button class="btn" type="button" :class="{ active: isDesktopFocusMode }" @click="toggleFocusEditing">🎯 专注编辑</button>
+      <button class="btn" type="button" :class="{ active: floatingPanels.find.visible }" :disabled="!draftEntries.length" @click="toggleFloatingPanel('find')">🔎 查找替换</button>
+      <button class="btn" type="button" :class="{ active: crossCopyMode }" :disabled="isAnyCineLocked" @click="toggleCrossCopyMode">📚 跨书复制</button>
+      <button class="btn" type="button" :class="{ active: tagEditorMode }" @click="tagToggleMode">🏷️ 标签管理</button>
+      <button class="btn" type="button" :class="{ active: floatingPanels.activation.visible }" @click="toggleFloatingPanel('activation')">📡 激活监控</button>
+      <button class="btn" type="button" :disabled="!selectedEntry" @click="openEntryHistoryModal">🕰️ 条目时光机</button>
+      <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="openWorldbookHistoryModal">⏪ 整本时光机</button>
+      <button class="btn" type="button" @click="extractFromChat">📥 聊天提取</button>
+      <button v-if="persistedState.show_ai_chat" class="btn" type="button" :class="{ active: aiGeneratorMode }" @click="aiToggleMode">🤖 AI 生成</button>
+      <span class="tool-strip-spacer"></span>
+      <button class="btn" type="button" @click="openAiConfigModal">🔧 AI配置</button>
+      <button class="btn" type="button" @click="showApiSettings = true">⚙️ 设置</button>
+    </div>
+
+    <!-- ═══ Desktop View Content ═══ -->
+    <div class="wb-view-content">
+
     <!-- ═══ Desktop Browse Mode ═══ -->
     <template v-if="panelMode === 'browse'">
-      <section class="wb-toolbar browse-toolbar">
+      <section class="wb-toolbar browse-toolbar" style="padding: 6px 12px;">
         <label class="toolbar-label">
           <span>世界书</span>
           <WorldbookPicker
@@ -643,11 +781,6 @@
             @select="selectWorldbookFromPicker"
           />
         </label>
-        <button class="btn" type="button" @click="createNewWorldbook">新建</button>
-        <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="duplicateWorldbook">另存为</button>
-        <button class="btn danger" type="button" :disabled="!selectedWorldbookName" @click="deleteCurrentWorldbook">删除</button>
-        <button class="btn" type="button" :disabled="!selectedWorldbookName" @click="exportCurrentWorldbook">导出</button>
-        <button class="btn" type="button" @click="triggerImport">导入</button>
         <input
           ref="importFileInput"
           class="hidden-input"
@@ -655,11 +788,6 @@
           accept=".json,application/json"
           @change="onImportChange"
         />
-        <button class="btn" type="button" :class="{ 'glow-pulse': hasUnsavedChanges }" :disabled="!hasUnsavedChanges" @click="saveCurrentWorldbook">💾 保存</button>
-        <div class="browse-mode-switch">
-          <button class="btn browse-mode-btn active" type="button">📖 浏览</button>
-          <button class="btn browse-mode-btn" type="button" @click="switchPanelMode('editor')">✏️ 编辑</button>
-        </div>
       </section>
 
       <!-- Action bar: search + bindings + new entry + global mode -->
@@ -823,12 +951,6 @@
 
     <!-- ═══ Desktop Editor Mode ═══ -->
     <template v-if="panelMode === 'editor'">
-    <section class="wb-toolbar browse-toolbar" style="justify-content: flex-end; gap: 8px; padding: 6px 12px; min-height: 0;">
-      <div class="browse-mode-switch">
-        <button class="btn browse-mode-btn" type="button" @click="switchPanelMode('browse')">📖 浏览</button>
-        <button class="btn browse-mode-btn active" type="button">✏️ 编辑</button>
-      </div>
-    </section>
     <section v-if="!isDesktopFocusMode" class="wb-toolbar">
             <label class="toolbar-label">
               <span>世界书</span>
@@ -1272,6 +1394,7 @@
             </span>
           </footer>
     </template>
+    </div><!-- end wb-view-content -->
     <!-- ═══ End Desktop Layout ═══ -->
 
     <div
@@ -1497,6 +1620,7 @@ import './components/entryListSidebarShared.css';
 import './components/editorMainPanelShared.css';
 import './components/worldbookPickerShared.css';
 import './components/mobileTabShared.css';
+import './components/mobileToolScroller.css';
 import './components/mobileRootOverride.css';
 import {
   createOrReplaceWorldbook,
@@ -1708,7 +1832,7 @@ if (typeof window !== 'undefined') {
   };
 }
 const showMobileEditor = computed(() => isMobile.value && selectedEntryUid.value !== null);
-const mobileTab = ref<'list' | 'edit' | 'settings' | 'copy' | 'ai' | 'tags'>('list');
+const mobileTab = ref<'list' | 'edit' | 'settings' | 'copy' | 'ai' | 'tags' | 'global' | 'more'>('list');
 
 const bindings = reactive({
   global: [] as string[],

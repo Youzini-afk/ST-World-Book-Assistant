@@ -98,32 +98,34 @@
 
 .browse-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 10px;
   align-items: stretch;
 }
 
 .browse-card {
-  background: var(--wb-bg-panel);
+  background: var(--wb-surface-low);
   border-radius: 10px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   cursor: pointer;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
 
 .browse-card:hover {
-  background: var(--wb-surface-high, rgba(255, 255, 255, 0.06));
+  background: var(--wb-surface-high);
   box-shadow: var(--wb-shadow-ambient);
+  transform: translateY(-1px);
 }
 
 .browse-card.expanded {
   cursor: default;
   grid-column: 1 / -1;
-  background: var(--wb-surface-high, rgba(255, 255, 255, 0.06));
+  background: var(--wb-surface-high);
   box-shadow: var(--wb-shadow-ambient);
+  transform: none;
 }
 
 .browse-card.disabled {

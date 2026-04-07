@@ -1,0 +1,27 @@
+/* Mobile horizontal tool scroller */
+
+.mobile-tool-scroller {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 6px 2px;
+  flex-shrink: 0;
+  /* fade edges */
+  mask-image: linear-gradient(to right, transparent 0, black 8px, black calc(100% - 8px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 8px, black calc(100% - 8px), transparent 100%);
+}
+
+.mobile-tool-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-tool-scroller .btn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 16px;
+  white-space: nowrap;
+}
