@@ -749,38 +749,8 @@
 
     <!-- ═══ Desktop Browse Mode ═══ -->
     <template v-if="panelMode === 'browse'">
-      <section class="wb-toolbar browse-toolbar" style="padding: 6px 12px;">
-        <label class="toolbar-label">
-          <span>世界书</span>
-          <WorldbookPicker
-            :open="worldbookPickerOpen"
-            v-model:search-text="worldbookPickerSearchText"
-            :selected-worldbook-name="selectedWorldbookName"
-            :filtered-names="filteredSelectableWorldbookNames"
-            trigger-placeholder="请选择世界书"
-            title-placeholder="请选择世界书"
-            search-placeholder="搜索世界书..."
-            empty-text="没有匹配的世界书"
-            list-key-prefix="browse-wb"
-            :show-open-state-arrow="true"
-            :set-picker-element="setWorldbookPickerElement"
-            :show-tag-filter="false"
-            :tag-filter-panel-open="tagFilterPanelOpen"
-            :tag-filter-summary="tagFilterSummary"
-            :tag-filter-logic="tagFilterLogic"
-            :tag-filter-match-mode="tagFilterMatchMode"
-            :selected-tag-filter-ids="selectedTagFilterIds"
-            :selected-tag-filter-id-set="selectedTagFilterIdSet"
-            :tag-filter-search-text="tagFilterSearchText"
-            :tag-assign-options="tagAssignOptions"
-            :tag-tree-rows="tagTreeRows"
-            :tag-tree-expanded-ids="tagTreeExpandedIds"
-            :tag-path-map="tagPathMap"
-            :is-mobile="isMobile"
-            @toggle="toggleWorldbookPicker"
-            @select="selectWorldbookFromPicker"
-          />
-        </label>
+      <!-- Action bar: search + bindings + new entry + global mode -->
+      <section class="browse-action-bar">
         <input
           ref="importFileInput"
           class="hidden-input"
@@ -788,10 +758,6 @@
           accept=".json,application/json"
           @change="onImportChange"
         />
-      </section>
-
-      <!-- Action bar: search + bindings + new entry + global mode -->
-      <section class="browse-action-bar">
         <input v-model="searchText" type="text" class="text-input browse-search" placeholder="🔍 搜索名称 / 内容 / 关键词" />
         <span v-if="bindings.global.length" class="binding-tag global">🟢 全局: {{ bindings.global.join(', ') }}</span>
         <span v-if="bindings.charPrimary" class="binding-tag char">🔵 角色: {{ bindings.charPrimary }}</span>
@@ -951,61 +917,8 @@
 
     <!-- ═══ Desktop Editor Mode ═══ -->
     <template v-if="panelMode === 'editor'">
-    <section v-if="!isDesktopFocusMode" class="wb-toolbar">
-            <label class="toolbar-label">
-              <span>世界书</span>
-              <WorldbookPicker
-                :open="worldbookPickerOpen"
-                v-model:search-text="worldbookPickerSearchText"
-                :selected-worldbook-name="selectedWorldbookName"
-                :filtered-names="filteredSelectableWorldbookNames"
-                trigger-placeholder="请选择世界书"
-                title-placeholder="请选择世界书"
-                search-placeholder="搜索世界书..."
-                empty-text="没有匹配的世界书"
-                list-key-prefix="worldbook"
-                :show-open-state-arrow="true"
-                :set-picker-element="setWorldbookPickerElement"
-                :show-tag-filter="tagDefinitions.length > 0"
-                :tag-filter-panel-open="tagFilterPanelOpen"
-                :tag-filter-summary="tagFilterSummary"
-                v-model:tag-filter-logic="tagFilterLogic"
-                v-model:tag-filter-match-mode="tagFilterMatchMode"
-                :selected-tag-filter-ids="selectedTagFilterIds"
-                :selected-tag-filter-id-set="selectedTagFilterIdSet"
-                v-model:tag-filter-search-text="tagFilterSearchText"
-                :tag-assign-options="tagAssignOptions"
-                :tag-tree-rows="tagTreeRows"
-                :tag-tree-expanded-ids="tagTreeExpandedIds"
-                :tag-path-map="tagPathMap"
-                :is-mobile="isMobile"
-                @toggle="toggleWorldbookPicker"
-                @select="selectWorldbookFromPicker"
-                @toggle-tag-filter-panel="tagFilterPanelOpen = !tagFilterPanelOpen"
-                @clear-tag-filter-selection="clearTagFilterSelection"
-                @toggle-tag-filter-selection="toggleTagFilterSelection"
-                @toggle-tag-tree-expanded="toggleTagTreeExpanded"
-              />
-            </label>
-            <button class="btn" data-focus-hero="wb_new" type="button" @click="createNewWorldbook">新建</button>
-            <button class="btn" data-focus-hero="wb_duplicate" type="button" :disabled="!selectedWorldbookName" @click="duplicateWorldbook">
-              另存为
-            </button>
-            <button class="btn danger" data-focus-hero="wb_delete" type="button" :disabled="!selectedWorldbookName" @click="deleteCurrentWorldbook">
-              删除
-            </button>
-            <button class="btn" data-focus-hero="wb_export" type="button" :disabled="!selectedWorldbookName" @click="exportCurrentWorldbook">
-              导出
-            </button>
-            <button class="btn" data-focus-hero="wb_import" type="button" @click="triggerImport">导入</button>
-            <div class="focus-cine-sink-row" aria-hidden="true">
-              <span class="focus-cine-sink" data-focus-sink="save_btn"></span>
-              <span class="focus-cine-sink" data-focus-sink="more_btn"></span>
-              <span class="focus-cine-sink" data-focus-sink="tools_btn"></span>
-            </div>
-          </section>
 
-          <section v-else  class="wb-focus-toolbar" :class="{ compact: isFocusToolbarCompact }">
+          <section v-if="isDesktopFocusMode" class="wb-focus-toolbar" :class="{ compact: isFocusToolbarCompact }">
             <div class="wb-focus-toolbar-row">
               <div class="wb-focus-core-group">
                 <label class="toolbar-label focus-toolbar-label">
