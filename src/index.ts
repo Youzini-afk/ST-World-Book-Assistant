@@ -407,9 +407,7 @@ function ensurePanelStyle(): void {
   height: 48px;
   border-radius: 50%;
   border: none;
-  background: rgba(15, 23, 42, 0.88);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: #0f172a;
   color: #e2e8f0;
   font-size: 22px;
   display: flex;

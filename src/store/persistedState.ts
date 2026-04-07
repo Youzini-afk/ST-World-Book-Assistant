@@ -15,7 +15,7 @@ import {
   normalizeEntry,
   normalizeEntryList,
 } from '../utils';
-import { DEFAULT_THEME_KEY, isThemeKey } from '../themes';
+import { DEFAULT_THEME_KEY, isThemeKey, migrateThemeKey } from '../themes';
 import type {
   PersistedState,
   WorldbookSnapshot,
@@ -244,7 +244,6 @@ export function createDefaultPersistedState(): PersistedState {
     layout: createDefaultLayoutState(),
     cross_copy: createDefaultCrossCopyPersistState(),
     sort: { mode: 'mutate', reassign_uid: true },
-    glass_mode: true,
     panel_mode: 'browse',
   };
 }
@@ -438,7 +437,8 @@ export function normalizePersistedState(input: unknown): PersistedState {
     role_override_baseline: roleOverrideBaseline,
     theme: (() => {
       const theme = toStringSafe(root.theme).trim();
-      return isThemeKey(theme) ? theme : DEFAULT_THEME_KEY;
+      if (isThemeKey(theme)) return theme;
+      return migrateThemeKey(theme);
     })(),
     ai_chat: aiChat,
     worldbook_tags: { definitions: tagDefs.slice(0, TAG_LIMIT), assignments: tagAssignmentsNorm },
@@ -472,7 +472,6 @@ export function normalizePersistedState(input: unknown): PersistedState {
         reassign_uid: raw?.reassign_uid !== false,
       };
     })(),
-    glass_mode: root.glass_mode === true,
     panel_mode: root.panel_mode === 'editor' ? 'editor' : 'browse',
   };
 }

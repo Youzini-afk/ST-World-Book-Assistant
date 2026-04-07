@@ -45,9 +45,9 @@
 }
 
 .editor-center {
-  border: 1px solid var(--wb-border-subtle);
+  border: none;
   border-radius: 16px;
-  background: var(--wb-bg-panel);
+  background: var(--wb-surface-high, var(--wb-bg-panel));
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -68,7 +68,7 @@
   justify-content: space-between;
   gap: 12px;
   align-items: flex-end;
-  border-bottom: 1px solid var(--wb-border-subtle);
+  border-bottom: none;
   padding-bottom: 16px;
   transition: gap 320ms cubic-bezier(0.22, 1, 0.36, 1), padding-bottom 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -87,7 +87,7 @@
 }
 
 .focus-meta-chip {
-  border: 1px solid var(--wb-border-subtle);
+  border: none;
   border-radius: 999px;
   background: var(--wb-input-bg);
   color: var(--wb-text-main);
@@ -112,7 +112,7 @@
 }
 
 .focus-meta-panel {
-  border: 1px solid var(--wb-border-subtle);
+  border: none;
   border-radius: 10px;
   padding: 10px;
   background: var(--wb-input-bg);
@@ -142,7 +142,7 @@
 
 .editor-badge {
   font-size: 11px;
-  border: 1px solid var(--wb-border-subtle);
+  border: none;
   border-radius: 999px;
   padding: 3px 10px;
   color: var(--wb-text-main);
@@ -231,13 +231,13 @@
 
 .content-resize-grip {
   font-size: 12px;
-  color: var(--wb-text-dim);
+  color: var(--wb-text-muted);
   letter-spacing: 3px;
   line-height: 1;
 }
 
 .editor-advanced {
-  border: 1px solid var(--wb-border-subtle);
+  border: none;
   border-radius: 10px;
   padding: 12px;
   background: var(--wb-input-bg);
@@ -259,7 +259,7 @@
 }
 
 .editor-mini-collapse {
-  border: 1px solid var(--wb-border-subtle);
+  border: none;
   border-radius: 10px;
   background: var(--wb-input-bg);
 }
@@ -323,10 +323,10 @@
 }
 
 .editor-card {
-  border: 1px solid var(--wb-border-subtle);
+  border: none;
   border-radius: 12px;
   padding: 16px;
-  background: var(--wb-bg-panel);
+  background: var(--wb-surface-high, var(--wb-bg-panel));
   display: grid;
   gap: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
@@ -608,7 +608,7 @@
 }
 
 .wb-status {
-  border: 1px solid var(--wb-border-subtle);
+  border: none;
   border-radius: 12px;
   background: var(--wb-bg-panel);
   padding: 12px 14px;
@@ -646,7 +646,7 @@
 
 .empty-note,
 .empty-block {
-  color: var(--wb-text-dim);
+  color: var(--wb-text-muted);
   font-size: 13px;
   text-align: center;
   letter-spacing: 0.02em;
@@ -667,7 +667,7 @@
 }
 
 .tool-card {
-  border: 1px solid var(--wb-border-subtle);
+  border: none;
   border-radius: 14px;
   padding: 14px;
   display: flex;
@@ -721,7 +721,7 @@
   border: 1px dashed var(--wb-border-subtle);
   border-radius: 10px;
   padding: 10px 12px;
-  color: var(--wb-text-dim);
+  color: var(--wb-text-muted);
   font-size: 12px;
   background: rgba(0, 0, 0, 0.02);
   text-align: center;
@@ -839,7 +839,7 @@
 
 .wb-assistant-root.is-mobile .content-top-drag-grip {
   font-size: 12px;
-  color: var(--wb-text-dim);
+  color: var(--wb-text-muted);
   letter-spacing: 3px;
   line-height: 1;
 }

@@ -25,9 +25,8 @@
 }
 
 .global-mode-section {
-  border: 1px solid var(--wb-border-subtle);
   border-radius: 10px;
-  background: var(--wb-bg-panel);
+  background: var(--wb-surface-high, var(--wb-bg-panel));
   overflow: hidden;
 }
 
@@ -76,7 +75,7 @@
 }
 
 .global-mode-section-body {
-  border-top: 1px solid var(--wb-border-subtle);
+  border-top: none;
   padding: 10px;
   display: grid;
   gap: 8px;
@@ -153,11 +152,8 @@
   right: 0;
   top: calc(100% + 6px);
   z-index: 10130;
-  border: 1px solid var(--wb-border-subtle);
   border-radius: 8px;
-  background: var(--wb-dropdown-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--wb-surface-highest, var(--wb-dropdown-bg));
   box-shadow: 0 12px 32px rgba(0,0,0,0.4);
   padding: 8px;
   display: grid;
@@ -171,7 +167,7 @@
 .role-picker-list {
   border: none;
   border-radius: 8px;
-  background: var(--wb-bg-panel);
+  background: var(--wb-surface-high, var(--wb-bg-panel));
   max-height: 220px;
   overflow: auto;
   display: flex;
@@ -181,7 +177,7 @@
 .role-picker-item {
   width: 100%;
   border: none;
-  border-bottom: 1px solid var(--wb-border-subtle);
+  border-bottom: none;
   background: transparent;
   color: var(--wb-text-main);
   padding: 8px 10px;
@@ -225,7 +221,7 @@
 }
 
 .preset-role-tag {
-  border: 1px solid var(--wb-border-subtle);
+  border: none;
   border-radius: 999px;
   background: var(--wb-bg-panel);
   color: var(--wb-text-main);
@@ -272,7 +268,7 @@
 .global-mode-item {
   width: 100%;
   border: none;
-  border-bottom: 1px solid var(--wb-border-subtle);
+  border-bottom: none;
   background: transparent;
   color: var(--wb-text-main);
   padding: 7px 8px;

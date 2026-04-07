@@ -95,10 +95,7 @@ function ensureExtractStyle(): void {
 
 /* ── Extraction modal (inside SillyTavern Popup) ── */
 #${EXTRACT_MODAL_ID}.wbex-modal {
-  background: var(--wb-glass-bg, rgba(20, 20, 20, 0.85));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--wb-border-subtle, rgba(255,255,255,0.05));
+  background: var(--wb-surface-highest, rgba(53, 52, 58, 1));
   border-radius: 16px;
   box-shadow: var(--wb-shadow-main, 0 16px 48px rgba(0, 0, 0, 0.4));
   width: min(100%, 580px);
@@ -118,7 +115,7 @@ function ensureExtractStyle(): void {
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--wb-border-subtle, rgba(255,255,255,0.05));
-  background: var(--wb-glass-header, rgba(0, 0, 0, 0.2));
+  background: var(--wb-surface-high, rgba(42, 41, 47, 1));
 }
 
 #${EXTRACT_MODAL_ID} .wbex-title {
@@ -194,7 +191,7 @@ function ensureExtractStyle(): void {
   left: 0;
   right: 0;
   z-index: 10;
-  background: var(--wb-dropdown-bg, var(--wb-glass-bg, rgba(15, 15, 15, 0.95)));
+  background: var(--wb-dropdown-bg, rgba(31, 31, 36, 0.95));
   border: 1px solid var(--wb-border-main, rgba(255,255,255,0.1));
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.4);
@@ -341,7 +338,7 @@ function ensureExtractStyle(): void {
   padding: 14px 20px;
   border-top: 1px solid var(--wb-border-subtle, rgba(255,255,255,0.05));
   justify-content: flex-end;
-  background: var(--wb-glass-header, rgba(0, 0, 0, 0.2));
+  background: var(--wb-surface-high, rgba(42, 41, 47, 1));
 }
 
 #${EXTRACT_MODAL_ID} .wbex-btn {
@@ -875,7 +872,9 @@ function showExtractionModal(tags: ExtractedFloorTag[], mesId: number): void {
       '--wb-primary', '--wb-primary-light', '--wb-primary-hover', '--wb-primary-soft',
       '--wb-primary-glow', '--wb-input-bg', '--wb-input-bg-hover', '--wb-input-bg-focus',
       '--wb-border-subtle', '--wb-border-main', '--wb-shadow-main',
-      '--wb-glass-bg', '--wb-glass-header', '--wb-overlay-bg', '--wb-dropdown-bg',
+      '--wb-surface-low', '--wb-surface-high', '--wb-surface-highest', '--wb-surface-bright',
+      '--wb-overlay-bg', '--wb-dropdown-bg', '--wb-gradient-primary',
+      '--wb-primary-container', '--wb-error', '--wb-error-container',
     ];
     for (const v of vars) {
       const val = cs.getPropertyValue(v);

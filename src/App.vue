@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootRef" class="wb-assistant-root" :class="[focusCineRootClass, { 'is-mobile': isMobile, 'is-glass-mode': persistedState.glass_mode }]" :style="themeStyles">
+  <div ref="rootRef" class="wb-assistant-root" :class="[focusCineRootClass, { 'is-mobile': isMobile }]" :style="themeStyles">
 
     <!-- ═══ Mobile Tab View ═══ -->
     <template v-if="isMobile">
@@ -1014,7 +1014,8 @@
               'copy-workspace': crossCopyMode && !globalWorldbookMode && !isDesktopFocusMode,
             }"
           >
-            <DesktopToolbarBindings
+            <SecondaryToolbar
+              :is-mobile="isMobile"
               :is-desktop-focus-mode="isDesktopFocusMode"
               :cross-copy-mode="crossCopyMode"
               :cross-copy-workspace-summary="crossCopyWorkspaceSummary"
@@ -1450,6 +1451,14 @@
             @close="closeFloatingPanel('activation')"
           />
     </template><!-- end editor mode -->
+
+    <!-- ═══ Desktop Status Bar ═══ -->
+    <StatusBar
+      v-if="!isMobile"
+      :has-unsaved-changes="hasUnsavedChanges"
+      :entry-count="draftEntries.length"
+      :enabled-count="enabledEntryCount"
+    />
   </div>
 </template>
 
@@ -1470,7 +1479,8 @@ import AIGeneratorPanel from './components/AIGeneratorPanel.vue';
 import SettingsModal from './components/SettingsModal.vue';
 import WorldbookPicker from './components/WorldbookPicker.vue';
 import GlobalModeMobilePanel from './components/GlobalModeMobilePanel.vue';
-import DesktopToolbarBindings from './components/DesktopToolbarBindings.vue';
+import SecondaryToolbar from './components/SecondaryToolbar.vue';
+import StatusBar from './components/StatusBar.vue';
 import GlobalModeDesktopPanel from './components/GlobalModeDesktopPanel.vue';
 import TagEditorMobilePanel from './components/TagEditorMobilePanel.vue';
 import TagEditorDesktopPanel from './components/TagEditorDesktopPanel.vue';
@@ -1579,7 +1589,7 @@ const roleBindSearchText = ref('');
 const focusWorldbookMenuRef = ref<HTMLElement | null>(null);
 const rolePickerRef = ref<HTMLElement | null>(null);
 const rolePickerSearchInputRef = ref<HTMLInputElement | null>(null);
-const currentTheme = ref<ThemeKey>('ocean');
+const currentTheme = ref<ThemeKey>('obsidian');
 const themePickerOpen = ref(false);
 const positionSelectOptions: Array<{
   value: PositionSelectValue;
@@ -2209,7 +2219,7 @@ const settingsFieldUpdaters: Record<string, (state: PersistedState, value: unkno
   'multi_edit.sync_extra_json': (state, value) => { state.multi_edit.sync_extra_json = value as boolean; },
   'sort.mode': (state, value) => { state.sort.mode = value as 'mutate' | 'view'; },
   'sort.reassign_uid': (state, value) => { state.sort.reassign_uid = value as boolean; },
-  glass_mode: (state, value) => { state.glass_mode = value as boolean; },
+
 };
 
 
@@ -2327,37 +2337,7 @@ const editorShellStyle = computed(() => {
 
 const themeStyles = computed(() => {
   const themeKey = isThemeKey(currentTheme.value) ? currentTheme.value : DEFAULT_THEME_KEY;
-  const baseColors = THEMES[themeKey].colors;
-  if (!persistedState.value.glass_mode) {
-    return baseColors;
-  }
-
-  // Glassmorphism mode: convert specific hex backgrounds to rgba
-  const glassColors: Record<string, string> = { ...baseColors };
-
-  const hexToRgb = (hex: string): string | null => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : null;
-  };
-
-  const rootHex = baseColors['--wb-bg-root'];
-  if (rootHex && rootHex.startsWith('#')) {
-    const rgb = hexToRgb(rootHex);
-    if (rgb) glassColors['--wb-bg-root'] = `rgba(${rgb}, 0.25)`;
-  }
-
-  const panelHex = baseColors['--wb-bg-panel'];
-  if (panelHex && panelHex.startsWith('#')) {
-    const rgb = hexToRgb(panelHex);
-    if (rgb) {
-      glassColors['--wb-bg-panel'] = `rgba(${rgb}, 0.45)`;
-      // Override dropdown and glass-bg for better contrast in glass mode
-      glassColors['--wb-dropdown-bg'] = `rgba(${rgb}, 0.65)`;
-      glassColors['--wb-glass-bg'] = `rgba(${rgb}, 0.75)`;
-    }
-  }
-
-  return glassColors;
+  return THEMES[themeKey].colors;
 });
 
 const themeOptions = computed(() => {

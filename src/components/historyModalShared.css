@@ -2,8 +2,6 @@
   position: fixed;
   inset: 0;
   background: var(--wb-overlay-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15,11 +13,9 @@
 .wb-history-modal {
   width: min(1260px, 100%);
   max-height: min(88vh, 940px);
-  border: 1px solid var(--wb-border-subtle);
+  border: none;
   border-radius: 12px;
-  background: var(--wb-glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--wb-surface-highest, var(--wb-bg-panel));
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
@@ -34,7 +30,7 @@
   align-items: center;
   padding: 16px 20px;
   border-bottom: 1px solid var(--wb-border-subtle);
-  background: var(--wb-glass-header);
+  background: var(--wb-surface-high, var(--wb-bg-panel));
 }
 
 .wb-history-modal-header strong {
@@ -537,7 +533,7 @@
 }
 
 .empty-note {
-  color: var(--wb-text-dim);
+  color: var(--wb-text-muted);
   font-size: 13px;
   text-align: center;
   letter-spacing: 0.02em;

@@ -300,7 +300,6 @@ export interface PersistedState {
   layout: LayoutState;
   cross_copy: CrossCopyPersistState;
   sort: { mode: 'mutate' | 'view'; reassign_uid: boolean };
-  glass_mode: boolean;
   panel_mode: 'browse' | 'editor';
 }
 

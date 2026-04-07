@@ -33,7 +33,7 @@
           ></textarea>
         </label>
         <details style="margin-top:4px;">
-          <summary style="cursor:pointer;color:var(--wb-text-dim);font-size:12px;user-select:none;">📝 查看/修改系统提示词</summary>
+          <summary style="cursor:pointer;color:var(--wb-text-muted);font-size:12px;user-select:none;">📝 查看/修改系统提示词</summary>
           <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
             <textarea
               v-model="customPromptModel"
@@ -79,7 +79,7 @@
       <div style="padding:16px;overflow-y:auto;max-height:55vh;">
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
           <thead>
-            <tr style="border-bottom:1px solid var(--wb-border);">
+            <tr style="border-bottom:1px solid var(--wb-border-main);">
               <th style="width:30px;padding:6px;"></th>
               <th style="text-align:left;padding:6px;">条目</th>
               <th style="text-align:left;padding:6px;">设置项</th>
@@ -92,7 +92,7 @@
             <tr
               v-for="(c, i) in changes"
               :key="i"
-              style="border-bottom:1px solid var(--wb-border);"
+              style="border-bottom:1px solid var(--wb-border-main);"
               :style="{ opacity: c.selected ? 1 : 0.4 }"
             >
               <td style="padding:6px;"><input v-model="c.selected" type="checkbox" /></td>

@@ -1,5 +1,5 @@
 <template>
-  <div style="border:1px solid var(--wb-border-subtle);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--wb-bg-card);">
+  <div style="border:none;border-radius:8px;padding:10px;margin-bottom:8px;background:var(--wb-surface-high);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <span style="font-weight:600;font-size:13px;">🌐 全局世界书（{{ bindingsGlobal.length }}）</span>
       <button class="btn mini danger" type="button" :disabled="!bindingsGlobal.length" @click="emit('clearGlobalWorldbooks')" style="font-size:11px;">清空</button>

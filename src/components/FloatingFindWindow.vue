@@ -196,12 +196,9 @@ function onStartDrag(event: PointerEvent): void {
   position: fixed;
   max-width: calc(100vw - 16px);
   max-height: min(74vh, 760px);
-  border: 1px solid var(--wb-border-subtle);
   border-radius: 12px;
-  background: var(--wb-glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  background: var(--wb-surface-highest, var(--wb-bg-panel));
+  box-shadow: var(--wb-shadow-main);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -214,7 +211,7 @@ function onStartDrag(event: PointerEvent): void {
   align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid var(--wb-border-subtle);
-  background: var(--wb-glass-header);
+  background: var(--wb-surface-high, var(--wb-bg-panel));
   cursor: move;
   user-select: none;
   touch-action: none;
@@ -246,25 +243,23 @@ function onStartDrag(event: PointerEvent): void {
 .text-input {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid var(--wb-border-subtle);
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 8px 12px;
   color: var(--wb-text-main);
   background: var(--wb-input-bg);
   transition: background 0.25s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.25s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.25s cubic-bezier(0.25, 1, 0.5, 1);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .text-input:hover {
   background: var(--wb-input-bg-hover);
-  border-color: var(--wb-border-main);
 }
 
 .text-input:focus {
   background: var(--wb-input-bg-focus);
-  border-color: var(--wb-primary-light);
+  border-color: var(--wb-primary);
   outline: none;
-  box-shadow: 0 0 0 3px var(--wb-primary-soft), inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 0 3px var(--wb-primary-hover);
 }
 
 .checkbox-inline {
@@ -338,19 +333,17 @@ function onStartDrag(event: PointerEvent): void {
 }
 
 .exclude-chip {
-  border: 1px solid var(--wb-border-subtle);
   border-radius: 999px;
   padding: 1px 8px;
   font-size: 11px;
   color: var(--wb-text-main);
-  background: var(--wb-bg-panel);
+  background: var(--wb-surface-high, var(--wb-bg-panel));
 }
 
 .tool-details {
-  border: 1px solid var(--wb-border-main);
   border-radius: 8px;
   padding: 6px;
-  background: var(--wb-bg-panel);
+  background: var(--wb-surface-low, var(--wb-bg-panel));
 }
 
 .tool-details > summary {
@@ -369,8 +362,8 @@ function onStartDrag(event: PointerEvent): void {
   justify-content: center;
   gap: 6px;
   padding: 8px 14px;
-  background: var(--wb-input-bg);
-  border: 1px solid var(--wb-border-subtle);
+  background: var(--wb-surface-high, var(--wb-input-bg));
+  border: none;
   border-radius: 8px;
   color: var(--wb-text-main);
   font-size: 13px;
@@ -378,16 +371,14 @@ function onStartDrag(event: PointerEvent): void {
   cursor: pointer;
   white-space: nowrap;
   user-select: none;
-  transition: background 0.25s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.25s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.25s cubic-bezier(0.25, 1, 0.5, 1), transform 0.25s cubic-bezier(0.25, 1, 0.5, 1);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   transform: translateZ(0);
 }
 
 .btn:hover:not(:disabled) {
-  background: var(--wb-input-bg-hover);
-  border-color: var(--wb-border-main);
+  background: var(--wb-surface-bright, var(--wb-input-bg-hover));
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--wb-shadow-ambient);
 }
 
 .btn:active:not(:disabled) {
@@ -403,27 +394,24 @@ function onStartDrag(event: PointerEvent): void {
 }
 
 .btn.primary {
-  background: var(--wb-primary-soft);
-  border-color: var(--wb-primary);
+  background: var(--wb-primary-container, var(--wb-primary-soft));
   color: var(--wb-primary-light);
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: var(--wb-primary);
+  background: var(--wb-gradient-primary, var(--wb-primary));
   color: #fff;
-  box-shadow: 0 4px 12px var(--wb-primary-soft);
+  box-shadow: var(--wb-primary-glow);
 }
 
 .btn.danger {
-  background: rgba(225, 29, 72, 0.1);
-  border-color: rgba(225, 29, 72, 0.4);
-  color: #f43f5e;
+  background: var(--wb-error-container, rgba(225, 29, 72, 0.1));
+  color: var(--wb-error, #f43f5e);
 }
 
 .btn.danger:hover:not(:disabled) {
   background: #e11d48;
   color: #fff;
-  border-color: #be123c;
   box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
 }
 

@@ -4,8 +4,6 @@
   inset: 0;
   z-index: 10020;
   background: var(--wb-overlay-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -14,12 +12,9 @@
 }
 
 .ai-tag-review-modal {
-  background: var(--wb-glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--wb-border-subtle);
+  background: var(--wb-surface-highest, var(--wb-bg-panel));
   border-radius: 16px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--wb-shadow-main);
   width: 580px;
   max-width: 92vw;
   max-height: 80vh;
@@ -34,7 +29,7 @@
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--wb-border-subtle);
-  background: var(--wb-glass-header);
+  background: var(--wb-surface-high, var(--wb-bg-panel));
 }
 
 .ai-tag-review-title {
@@ -46,21 +41,21 @@
 .ai-tag-review-close {
   width: 30px;
   height: 30px;
-  border: 1px solid var(--wb-border-subtle);
-  background: var(--wb-input-bg);
+  background: var(--wb-surface-high, var(--wb-input-bg));
   color: var(--wb-text-main);
   font-size: 1.1em;
   cursor: pointer;
   border-radius: 8px;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .ai-tag-review-close:hover {
-  background: var(--wb-input-bg-hover);
-  border-color: #f43f5e;
+  background: var(--wb-surface-bright, var(--wb-input-bg-hover));
+  color: var(--wb-error, #f43f5e);
   transform: translateY(-1px);
 }
 
@@ -116,7 +111,7 @@
 
 .ai-tag-preview {
   font-size: 12px;
-  color: var(--wb-text-dim);
+  color: var(--wb-text-muted);
   white-space: pre-wrap;
   word-break: break-all;
   line-height: 1.5;
@@ -128,13 +123,13 @@
   padding: 14px 20px;
   border-top: 1px solid var(--wb-border-subtle);
   justify-content: flex-end;
-  background: var(--wb-glass-header);
+  background: var(--wb-surface-high, var(--wb-bg-panel));
 }
 
 .btn.primary {
-  background: var(--wb-primary);
+  background: var(--wb-gradient-primary, var(--wb-primary));
   color: #fff;
-  border-color: var(--wb-primary);
+  border: none;
 }
 
 .btn.primary:hover {

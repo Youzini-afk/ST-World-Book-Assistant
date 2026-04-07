@@ -189,7 +189,7 @@
 
   .content-top-drag-grip {
     font-size: 12px;
-    color: var(--wb-text-dim);
+    color: var(--wb-text-muted);
     letter-spacing: 3px;
     line-height: 1;
   }

@@ -20,7 +20,7 @@
   display: flex;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid var(--wb-border-main);
+  background: var(--wb-surface-high, rgba(255,255,255,0.06));
   margin-left: auto;
 }
 
@@ -35,8 +35,8 @@
 }
 
 .browse-mode-btn.active {
-  background: var(--wb-accent);
-  color: #fff;
+  background: var(--wb-primary-container, var(--wb-primary));
+  color: var(--wb-primary-light, #fff);
 }
 
 .browse-bindings {
@@ -104,29 +104,26 @@
 }
 
 .browse-card {
-  background: var(--wb-bg-card, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--wb-border-main);
+  background: var(--wb-bg-panel);
   border-radius: 10px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .browse-card:hover {
-  border-color: var(--wb-accent);
-  box-shadow: 0 0 12px rgba(var(--wb-accent-rgb, 56, 189, 248), 0.15);
+  background: var(--wb-surface-high, rgba(255, 255, 255, 0.06));
+  box-shadow: var(--wb-shadow-ambient);
 }
 
 .browse-card.expanded {
   cursor: default;
   grid-column: 1 / -1;
-  border-color: var(--wb-accent);
-  box-shadow: 0 0 20px rgba(var(--wb-accent-rgb, 56, 189, 248), 0.1);
+  background: var(--wb-surface-high, rgba(255, 255, 255, 0.06));
+  box-shadow: var(--wb-shadow-ambient);
 }
 
 .browse-card.disabled {
@@ -159,7 +156,7 @@
 }
 
 .browse-toggle-wrap input[type="checkbox"] {
-  accent-color: var(--wb-accent);
+  accent-color: var(--wb-primary);
 }
 
 .browse-toggle-label {
@@ -179,15 +176,13 @@
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 10px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--wb-surface-high, rgba(255, 255, 255, 0.06));
   color: var(--wb-text-muted);
-  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .browse-key-chip.more {
   background: transparent;
-  color: var(--wb-accent);
-  border-color: var(--wb-accent);
+  color: var(--wb-primary);
 }
 
 .browse-card-preview {
@@ -213,7 +208,7 @@
   padding: 1px 8px;
   border-radius: 6px;
   font-size: 10px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--wb-surface-high, rgba(255, 255, 255, 0.06));
   color: var(--wb-text-muted);
 }
 
@@ -234,7 +229,7 @@
   flex-direction: column;
   gap: 6px;
   padding-top: 8px;
-  border-top: 1px solid var(--wb-border-main);
+  border-top: 1px solid var(--wb-border-subtle);
   margin-top: 4px;
 }
 
@@ -284,7 +279,7 @@
   gap: 6px;
   flex-wrap: wrap;
   padding-top: 6px;
-  border-top: 1px solid var(--wb-border-main);
+  border-top: 1px solid var(--wb-border-subtle);
 }
 
 .browse-card-actions .btn:last-child {
@@ -313,8 +308,8 @@
 
 /* Glow pulse for unsaved changes */
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 4px rgba(var(--wb-accent-rgb, 56, 189, 248), 0.3); }
-  50% { box-shadow: 0 0 12px rgba(var(--wb-accent-rgb, 56, 189, 248), 0.7); }
+  0%, 100% { box-shadow: 0 0 4px var(--wb-primary-hover); }
+  50% { box-shadow: 0 0 12px var(--wb-primary-container, rgba(108, 92, 231, 0.5)); }
 }
 
 .glow-pulse {

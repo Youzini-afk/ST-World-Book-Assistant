@@ -66,10 +66,7 @@
               <option v-for="item in themeOptions" :key="`setting-theme-${item.key}`" :value="item.key">{{ item.label }}</option>
             </select>
           </label>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px;">
-            <input type="checkbox" :checked="persistedState.glass_mode" @change="emit('updateField', 'glass_mode', ($event.target as HTMLInputElement).checked)" />
-            <span>启用毛玻璃特效 (Glassmorphism)</span>
-          </label>
+
         </div>
         <div style="border-top:1px solid var(--wb-border-subtle,#334155);padding-top:10px;">
           <div style="font-size:13px;font-weight:600;margin-bottom:8px;">API 设置</div>

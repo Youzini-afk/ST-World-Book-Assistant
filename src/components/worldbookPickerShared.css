@@ -46,11 +46,8 @@
   right: 0;
   top: calc(100% + 6px);
   z-index: 10120;
-  border: 1px solid var(--wb-border-subtle);
   border-radius: 8px;
-  background: var(--wb-dropdown-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--wb-surface-highest, var(--wb-dropdown-bg));
   box-shadow: 0 12px 32px rgba(0,0,0,0.4);
   padding: 8px;
   display: grid;
@@ -66,7 +63,7 @@
   overflow: auto;
   border: none;
   border-radius: 8px;
-  background: var(--wb-bg-panel);
+  background: var(--wb-surface-high, var(--wb-bg-panel));
   display: flex;
   flex-direction: column;
 }
@@ -74,7 +71,7 @@
 .worldbook-picker-item {
   width: 100%;
   border: none;
-  border-bottom: 1px solid var(--wb-border-subtle);
+  border-bottom: none;
   background: transparent;
   color: var(--wb-text-main);
   padding: 8px 10px;
@@ -110,8 +107,7 @@
   width: 100%;
   padding: 8px;
   border-radius: 8px;
-  border: 1px solid var(--wb-border-subtle);
-  background: rgba(12, 24, 52, 0.72);
+  background: var(--wb-surface-high, rgba(12, 24, 52, 0.72));
 }
 
 .tag-filter-toolbar {
@@ -127,7 +123,7 @@
 
 .tag-filter-summary {
   font-size: 12px;
-  color: var(--wb-text-dim);
+  color: var(--wb-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -156,8 +152,7 @@
   flex-direction: column;
   gap: 8px;
   border-radius: 8px;
-  border: 1px solid var(--wb-border-subtle);
-  background: rgba(7, 18, 40, 0.86);
+  background: var(--wb-surface-high, rgba(7, 18, 40, 0.86));
   padding: 8px;
 }
 
@@ -175,7 +170,7 @@
 }
 
 .tag-filter-selected-chip {
-  border: 1px solid rgba(96, 165, 250, 0.45);
+  border: none;
   background: rgba(37, 99, 235, 0.2);
   color: #bfdbfe;
   border-radius: 999px;
@@ -202,14 +197,13 @@
   padding: 5px 6px;
   padding-left: calc(6px + var(--depth, 0) * 12px);
   border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--wb-surface-low, rgba(255, 255, 255, 0.02));
 }
 
 .tag-tree-toggle {
   border: none;
   background: transparent;
-  color: var(--wb-text-dim);
+  color: var(--wb-text-muted);
   cursor: pointer;
   width: 16px;
   height: 16px;
@@ -231,7 +225,7 @@
 }
 
 .tag-tree-path {
-  color: var(--wb-text-dim);
+  color: var(--wb-text-muted);
   font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -244,9 +238,8 @@
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--wb-surface-low, rgba(255, 255, 255, 0.02));
   color: var(--tag-color, #60a5fa);
   font-size: 12px;
 }

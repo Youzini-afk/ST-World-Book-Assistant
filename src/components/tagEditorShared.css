@@ -29,8 +29,7 @@
 
 .tag-create-panel {
   border-radius: 10px;
-  border: 1px solid var(--wb-border-subtle);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--wb-surface-low, rgba(255, 255, 255, 0.03));
   padding: 10px;
 }
 
@@ -69,8 +68,7 @@
   flex-direction: column;
   gap: 8px;
   border-radius: 10px;
-  border: 1px solid var(--wb-border-subtle);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--wb-surface-low, rgba(255, 255, 255, 0.03));
   padding: 10px;
   min-height: 0;
 }
@@ -89,8 +87,8 @@
   gap: 6px;
   padding: 5px 8px;
   border-radius: 8px;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.08);
+  background: var(--wb-surface-low, rgba(255,255,255,.04));
+  border: none;
 }
 
 .tag-editor-tree-item {
@@ -100,8 +98,8 @@
   gap: 6px;
   padding: 6px 8px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border: none;
+  background: var(--wb-surface-low, rgba(255, 255, 255, 0.02));
 }
 
 .tag-editor-indent {
@@ -200,8 +198,8 @@
   gap: 4px 8px;
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border: none;
+  background: var(--wb-surface-low, rgba(255, 255, 255, 0.02));
   text-align: left;
 }
 
@@ -234,7 +232,7 @@
 .tag-assign-paths {
   grid-column: 1 / -1;
   font-size: 11px;
-  color: var(--wb-text-dim);
+  color: var(--wb-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
