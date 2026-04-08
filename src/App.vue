@@ -1323,6 +1323,15 @@
       aria-hidden="true"
     ></div>
 
+    <!-- ═══ Desktop Status Bar ═══ -->
+    <StatusBar
+      v-if="!isMobile"
+      :has-unsaved-changes="hasUnsavedChanges"
+      :entry-count="draftEntries.length"
+      :enabled-count="enabledEntryCount"
+    />
+    </template><!-- end desktop layout -->
+
     <!-- ═══ Shared Modals (both mobile & desktop) ═══ -->
     <SettingsModal
       v-if="showApiSettings"
@@ -1486,15 +1495,7 @@
             @clear="clearActivationLogs"
             @close="closeFloatingPanel('activation')"
           />
-    </template><!-- end editor mode -->
 
-    <!-- ═══ Desktop Status Bar ═══ -->
-    <StatusBar
-      v-if="!isMobile"
-      :has-unsaved-changes="hasUnsavedChanges"
-      :entry-count="draftEntries.length"
-      :enabled-count="enabledEntryCount"
-    />
   </div>
 </template>
 
