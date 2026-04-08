@@ -598,14 +598,12 @@ function ensurePanelElement(): JQuery {
 }
 
 const THEME_ITEMS: { key: string; label: string }[] = [
-  { key: 'ocean', label: '深海' },
-  { key: 'nebula', label: '星云' },
-  { key: 'forest', label: '森林' },
-  { key: 'sunset', label: '日落' },
-  { key: 'coffee', label: '咖啡' },
+  { key: 'obsidian', label: '黑曜石' },
+  { key: 'glacier', label: '冰川' },
+  { key: 'ember', label: '余烬' },
+  { key: 'verdant', label: '翠绿' },
   { key: 'paper', label: '纸莎草' },
   { key: 'snow', label: '雪白' },
-  { key: 'midnight', label: '黑黄' },
 ];
 
 function toggleThemeDropdown(panel: HTMLDivElement): void {
